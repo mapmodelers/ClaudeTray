@@ -122,6 +122,7 @@ textarea::placeholder{color:var(--mu)}
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
 .mf{display:inline-flex;align-items:center;color:var(--mu);font-size:9.5px;gap:1px}.mf svg{width:10px;height:10px}
 .okm{color:var(--mu);margin-top:2px}
+.m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}
 .trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
 #slp{position:fixed;z-index:21;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:150px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -497,7 +498,7 @@ function updateCard(cd, c){
   const grew = cd.items.length && items.length > cd.items.length;
   patchList(cd.msgs, cd.items, items);
   cd.items = items;
-  const ah = c.st === 'act' && (c.steps || []).length ? actsHtml(c, cd) : '';      // this round's steps only; once you sent, your message shows what you did
+  const ah = c.st === 'act' && !(c.stepsBefore >= 0 || c.stepsBefore === -2) && (c.steps || []).length ? actsHtml(c, cd) : '';      // this round's steps only; once you sent, your message shows what you did
   if (ah !== cd.actH) setActs(cd, ah);
   for (const X of ['L', 'R']) if (col[X].open && col[X].id === c.id) refreshCol(X);
   if (moreBusy[c.id] && grew && box.scrollHeight > oldH) { box.scrollTop = oldTop + (box.scrollHeight - oldH); delete moreBusy[c.id]; const f0 = cd.msgs.firstElementChild; if (f0 && f0.classList.contains('more')) { f0.textContent = 'scroll up for earlier messages'; cd.items[0] = f0.outerHTML; } }
@@ -538,11 +539,17 @@ function convItems(c, cd){
   const rnd = roundHtml(c);
   let ki = -1; if (c.readKey) for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a' && hash(msgs[i].t) === c.readKey) { ki = i; break; }
   let lastA = -1; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a') { lastA = i; break; }
-  msgs.forEach((m, i) => { if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
+  const sbI = c.stepsBefore != null ? c.stepsBefore : -1;     // a past round's steps: right before the message you sent after them (they scroll away like the app)
+  msgs.forEach((m, i) => { if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
   if (pend) it.push('<div class="m u sending"><div class="b">' + esc(pend) + '</div>' + rnd + '<span class="sst">sending…</span></div>');
   const lastM = msgs[msgs.length - 1];
   if (c.working) it.push('<div class="writing" title="Claude is working"><span class="dots"><i></i><i></i><i></i><i></i></span><button class="ib rf" data-a="reload" title="Stuck? Reload this chat\'s page (Claude keeps working)">' + I.retry + '</button></div>');
   return it;
+}
+function pastSteps(c){                                 // read-only, one line per step
+  const ic = { cmd: I.cmd, ps: I.cmd, exe: I.run, dir: I.dir, file: I.file, url: I.web, observe: I.eye, manual: I.ok };
+  return '<div class="m a pst"><div class="b">' + c.steps.map(s => { const ok = s.status === 'done', sk = s.status === 'skipped', bad = s.status === 'failed' || (s.exit != null && s.exit !== '' && s.exit != 0);
+    return '<div class="ps1' + (ok || sk ? ' d' : '') + '" title="' + esc(s.cmd || s.path || s.url || s.label) + '"><span class="k">' + (ic[s.kind] || I.cmd) + '</span><span class="l">' + esc(s.label) + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</span>' + (bad ? '<span class="x bad">✗</span>' : ok ? '<span class="okm">' + I.ok + '</span>' : sk ? '<span class="x">–</span>' : '') + '</div>'; }).join('') + '</div></div>';
 }
 function roundHtml(c){
   const done = (c.steps || []).filter(s => s.status === 'done' || s.status === 'skipped' || s.status === 'failed');

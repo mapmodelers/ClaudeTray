@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.1.1
+
+- A round's steps stay with the Claude reply they came from: once you answer (from the tray or the app), they scroll
+  away with the conversation as a one-line-per-step record, and the chat no longer counts as "needs you".
+- The tray reads each message's time when claude.ai shows it, to place them exactly.
+
 ## 0.1.0 - first public preview
 
 - Name: **Tray for Claude** (the script and folders keep the short name `ClaudeTray`).
