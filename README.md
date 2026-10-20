@@ -102,7 +102,7 @@ Claude app / manually, reset size, sign in, folders, restart. More in `config.js
 ## Maintainers (human or AI)
 
 [AGENTS.md](AGENTS.md): how it works, how to test without Windows, the PowerShell 5.1 traps already hit.
-[CHANGELOG.md](CHANGELOG.md): versions. `docs/PROTOCOL.md`: the quest / results files. `docs/DESIGN.md`: UI decisions.
+[CHANGELOG.md](CHANGELOG.md): versions. [BACKLOG.md](BACKLOG.md): planned and open. `docs/PROTOCOL.md`: the quest / results files. `docs/DESIGN.md`: UI decisions.
 
 ## Disclaimer
 
