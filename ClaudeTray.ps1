@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.1.4'
+$Version = '0.1.5'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -2899,7 +2899,7 @@ function Get-WebUiChat($q) {
         $ch.locked = (Test-StepsLocked $q)
         $ch.steps = @(foreach ($qs0 in @($q.steps)) {
             $rec = @($q.Res.steps) | Where-Object { [int]$_.n -eq [int]$qs0.n } | Select-Object -First 1
-            [ordered]@{ n = [int]$qs0.n; kind = [string]$qs0.kind; label = [string]$qs0.label; cmd = [string]$qs0.cmd; path = [string]$qs0.path; url = [string]$qs0.url; admin = [bool]$qs0.admin
+            [ordered]@{ n = [int]$qs0.n; options = @(@($qs0.options) | Where-Object { $_ } | Select-Object -First 4 | ForEach-Object { [string]$_ }); kind = [string]$qs0.kind; label = [string]$qs0.label; cmd = [string]$qs0.cmd; path = [string]$qs0.path; url = [string]$qs0.url; admin = [bool]$qs0.admin
                         status = $(if ($rec) { [string]$rec.status } else { 'pending' }); exit = $(if ($rec) { $rec.exit } else { $null }); answer = $(if ($rec) { [string]$rec.answer } else { '' }); running = $QS.Running.ContainsKey("$id#$($qs0.n)") }
         })
     }

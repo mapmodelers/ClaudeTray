@@ -23,6 +23,15 @@ Unless the results file (or the `[tray]` line) says `style normal`, write every 
 
 With `style normal`: your usual length, still to the point.
 
+## Offer the tray for things the user does by hand
+
+When the user runs something on their PC by hand that the tray could run for them - git (commit, push, tags), Perforce
+(`p4` / P4V: sync, submit), builds, releases (`gh`), installs (`winget`), file moves, service restarts... - offer once
+per kind of task in this chat, as an action button: a step
+`{ "kind": "observe", "label": "Do <task> from the tray from now on?", "options": ["Yes", "No"] }`.
+On "Yes", give those actions as `ps`/`cmd` steps from then on (prefer their command-line tools); if a tool or a sign-in
+is missing, the first steps set it up (install, then an `"interactive": true` sign-in). On "No", don't ask again.
+
 ## Where the quest goes
 
 **Root folder:** `<QUEST_ROOT>` (filled in by `ClaudeTray.ps1 -QuestRoot <folder>`, which writes
@@ -45,8 +54,8 @@ claude.ai path with `/` → `__`: `code__session_…` or `chat__<uuid>`):
   ] }
 ```
 
-Kinds: `cmd`/`ps` (run hidden, output captured) · `exe` · `dir` · `file` · `url` (open) · `observe` ·
-`manual`. Add `"admin": true` for elevation, `"interactive": true` when it prompts. Omit false/empty fields.
+Kinds: `cmd`/`ps` (run hidden, output captured) · `exe` · `dir` · `file` · `url` (open) · `observe` (one-line
+answer; with `"options": ["Yes", "No"]` it shows buttons) · `manual`. Add `"admin": true` for elevation, `"interactive": true` when it prompts. Omit false/empty fields.
 
 End of a turn with **nothing** to run: write nothing (the tray sees you finished).
 

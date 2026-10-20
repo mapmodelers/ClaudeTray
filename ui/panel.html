@@ -64,9 +64,9 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 .m.a .b table{border-collapse:collapse;margin:0 0 6px;font-size:11px}
 .m.a .b th,.m.a .b td{border:1px solid var(--ln);padding:2px 6px;text-align:left}
 .m.a .b blockquote{margin:0 0 6px;padding-left:8px;border-left:3px solid var(--ln);color:var(--mu)}
-.m .cp{position:absolute;top:-3px;right:-3px;display:none;width:20px;height:20px;background:var(--bg)}
+.m .cp{position:absolute;top:0;right:0;display:none;width:16px;height:16px;background:var(--bg);box-shadow:-4px 0 4px var(--bg)}
 .m:hover .cp{display:inline-flex}
-.m.u .cp{right:auto;left:0;top:0}
+.m.u .cp{right:auto;left:0;top:0;box-shadow:4px 0 4px var(--bg)}
 .writing{color:var(--mu);font-size:11px;display:flex;align-items:center;gap:6px;margin:0 0 8px}.writing .rf{opacity:0;width:14px;height:14px}.writing:hover .rf{opacity:.6}.writing .rf svg{width:10px;height:10px}
 .acts{padding:0 0 4px;margin:-2px -3px 0}
 .st{display:flex;align-items:flex-start;gap:5px;padding:1px 3px;border-radius:5px}
@@ -111,7 +111,7 @@ textarea::placeholder{color:var(--mu)}
 .ask span{color:var(--act);font-size:10px;margin-right:2px}.ask button{border:1px solid var(--act);color:var(--tx);border-radius:5px;padding:0 7px;height:18px;font-size:10.5px}.ask button:hover{background:var(--act)}
 .m.a .b a{color:var(--act);text-decoration:underline;cursor:pointer}
 .prew{position:relative}.prew .cpc{position:absolute;top:2px;right:2px;display:none;background:var(--card)}.prew:hover .cpc{display:inline-flex}
-.m .rt2{position:absolute;top:-3px;right:15px;display:none;width:16px;height:16px;background:var(--bg)}.m:hover .rt2{display:inline-flex}
+.m .rt2{position:absolute;top:0;right:16px;display:none;width:16px;height:16px;background:var(--bg)}.m:hover .rt2{display:inline-flex}
 .jump{position:absolute;right:10px;margin-top:-26px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--ln);color:var(--tx);display:none;align-items:center;justify-content:center;z-index:2}
 .jump.on{display:inline-flex}.jump.new{border-color:var(--acc);color:var(--acc)}
 .body{position:relative}
@@ -122,7 +122,7 @@ textarea::placeholder{color:var(--mu)}
 .mini:focus-within{border-color:var(--mu)}.mini .mi{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:10.5px;height:17px;padding:0}
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
 .mf{display:inline-flex;align-items:center;color:var(--mu);font-size:9.5px;gap:1px}.mf svg{width:10px;height:10px}
-.okm{color:var(--mu);margin-top:2px}
+.okm{color:var(--mu);margin-top:2px}.chs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}.chb{border:1px solid var(--acc);color:var(--tx);border-radius:6px;padding:0 9px;height:19px;font-size:10.5px}.chb:hover{background:var(--acc);color:#fff}
 .m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}
 .trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
 #slp{position:fixed;z-index:21;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:150px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
@@ -603,7 +603,8 @@ function actsHtml(c, cd){
     if (small) return '<div class="st small' + (done ? ' done' : '') + (sk ? ' skipped' : '') + '" data-n="' + s.n + '"' + (s.kind === 'observe' ? ' data-a="edit"' : '') + ' title="' + (s.kind === 'observe' ? 'Click: edit the answer - right-click: unskip' : 'Right-click: skip / unskip') + '">' + left + '<div class="l"><span class="lab">' + esc(s.label) + '</span>' + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</div>' + right + '</div>';
     if (s.kind === 'manual') right += '<button class="ib" data-a="edit" data-n="' + s.n + '" title="Add a note for Claude (saved with the tick)">' + I.note + '</button>';
     const typed = cd && cd.obs[s.n] != null ? cd.obs[s.n] : (s.answer || '');
-    const obs = (s.kind === 'observe' || (s.kind === 'manual' && cd && cd.edit.has(s.n))) ? '<div class="field"><textarea rows="1" data-obs="' + s.n + '" placeholder="' + (s.kind === 'manual' ? 'Note for Claude… (Enter)' : 'Your answer… (Enter)') + '">' + esc(typed) + '</textarea></div>' : '';
+    const ch = s.kind === 'observe' && (s.options || []).length ? '<div class="chs">' + s.options.map(o => '<button class="chb" data-a="choose" data-n="' + s.n + '" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div>' : '';
+    const obs = ch ? ch : (s.kind === 'observe' || (s.kind === 'manual' && cd && cd.edit.has(s.n))) ? '<div class="field"><textarea rows="1" data-obs="' + s.n + '" placeholder="' + (s.kind === 'manual' ? 'Note for Claude… (Enter)' : 'Your answer… (Enter)') + '">' + esc(typed) + '</textarea></div>' : '';
     const hint = s.cmd || s.path || s.url || '';
     const cl = c.bridge && hint && !done && !sk ? '<div class="cl" title="What this runs (written in the chat - check it)">' + esc(String(hint).split('\n')[0].slice(0, 120)) + '</div>' : '';
     return '<div class="st' + (done ? ' done' : '') + (sk ? ' skipped' : '') + '" data-n="' + s.n + '" title="' + esc(hint.length > 90 ? hint.slice(0, 89) + '…' : hint) + (hint ? ' - ' : '') + 'right-click: skip">' + left + '<div class="l">' + esc(s.label) + cl + obs + '</div>' + right + '</div>';
@@ -745,6 +746,7 @@ document.addEventListener('click', e => {
     case 'send': doSend(id); break;
     case 'msend': doSend(id, true); break;
     case 'pinc': post({ type: 'pinc', id: id }); break;
+    case 'choose': post({ type: 'answer', id: id, n: n, text: b.dataset.v }); b.disabled = true; break;
     case 'trc': trayArm[id] = trayArm[id] === false; render(); break;
     case 'mv': { const r = b.getBoundingClientRect(); moveMenu(id, r.left - 120, r.bottom + 2); break; }
     case 'secsort': { const sc = LAY.sec.find(s => s.id === b.closest('.sh').dataset.sec); if (sc) { sc.sort = SORTS[(SORTS.indexOf(sc.sort) + 1) % SORTS.length]; if (sc.sort === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } break; }

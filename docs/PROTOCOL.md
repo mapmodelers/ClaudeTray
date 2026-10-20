@@ -36,6 +36,7 @@ e.g. `chat__1b2c3d4e-…` or `code__session_012…`.
     { "n": 4, "kind": "dir",     "label": "logs folder", "path": "C:\\proj\\logs" },
     { "n": 5, "kind": "url",     "label": "claude.ai usage", "url": "https://claude.ai/settings/usage" },
     { "n": 6, "kind": "observe", "label": "Did the screen dim?" },
+    { "n": 7, "kind": "observe", "label": "Run git from the tray from now on?", "options": ["Yes", "No"] },
     { "n": 7, "kind": "manual",  "label": "Drag the icon out of the ^ area" }
   ]
 }
@@ -48,7 +49,7 @@ e.g. `chat__1b2c3d4e-…` or `code__session_012…`.
 | `summary` | one line, shown under the title |
 | `answer` | optional, a few short lines (the gist of your reply; `\n` allowed) shown in a collapsible scrollable box - keep it tight |
 | `reply` | text the field is prefilled with once steps are done (default `check`) |
-| `steps[].kind` | `cmd` · `ps` (multi-line allowed, run hidden, output captured) · `exe` (run a file) · `dir` · `file` · `url` (open) · `observe` (one-line answer) · `manual` (tick) |
+| `steps[].kind` | `cmd` · `ps` (multi-line allowed, run hidden, output captured) · `exe` (run a file) · `dir` · `file` · `url` (open) · `observe` (one-line answer; `"options": ["Yes","No"]` = up to 4 buttons, the answer is the clicked text) · `manual` (tick) |
 | `admin` | run elevated (one UAC prompt) · `interactive`: open a visible console instead of capturing |
 
 Rewrite the whole file each turn (steps are replaced, not appended). Delete it, or set `state: done`

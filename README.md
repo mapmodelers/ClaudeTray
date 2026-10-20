@@ -10,7 +10,7 @@ steps Claude gives you in one click, without opening the app.
 
 ![Tray icon: usage ring on a light and a dark taskbar](docs/icons.png)
 
-> **0.1.0 - early preview.** It works, it has bugs, it changes often. Issues welcome.
+> **0.1.x - early preview.** It works, it has bugs, it changes often. Issues welcome.
 
 - **Icon:** your usage as a ring (the limit you're closest to), plus dots when Claude is working, needs you, or has
   a new reply. Hover or click: the panel. Double-click: the Claude app.

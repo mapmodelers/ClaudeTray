@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.1.5
+
+- Fix: a message's copy / retry icons overlapped the message above at some display scales; they now sit inside it.
+- Choice steps: an `observe` step with `options` shows them as buttons; one click answers.
+- Skill: when you do by hand something the tray could run (git, Perforce, builds, releases, installs...), Claude offers
+  once, as Yes / No buttons, to give it as one-click steps from then on.
+
 ## 0.1.4
 
 - Fix: messages to a chat that claude.ai moved to a new address (a session now opened as `/chat/<id>`) were refused or
