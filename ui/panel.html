@@ -111,7 +111,7 @@ textarea::placeholder{color:var(--mu)}
 .ask span{color:var(--act);font-size:10px;margin-right:2px}.ask button{border:1px solid var(--act);color:var(--tx);border-radius:5px;padding:0 7px;height:18px;font-size:10.5px}.ask button:hover{background:var(--act)}
 .m.a .b a{color:var(--act);text-decoration:underline;cursor:pointer}
 .prew{position:relative}.prew .cpc{position:absolute;top:2px;right:2px;display:none;background:var(--card)}.prew:hover .cpc{display:inline-flex}
-.m .rt2{position:absolute;top:0;right:16px;display:none;width:16px;height:16px;background:var(--bg)}.m:hover .rt2{display:inline-flex}
+.m .mi{float:right;display:flex;height:16px;margin:0 0 0 4px;visibility:hidden}.m:hover .mi{visibility:visible}.m .mi .ib{width:16px;height:16px}
 .jump{position:absolute;right:10px;margin-top:-26px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--ln);color:var(--tx);display:none;align-items:center;justify-content:center;z-index:2}
 .jump.on{display:inline-flex}.jump.new{border-color:var(--acc);color:var(--acc)}
 .body{position:relative}
@@ -579,9 +579,10 @@ function isLong(m){ const t = String(m.t || '').replace(/\s+/g, ' ').trim(); ret
 function codeCopy(h){ return h.replace(/<pre>/g, '<div class="prew"><button class="ib cpc" data-a="copycode" title="Copy code">' + I.copy + '</button><pre>').replace(/<\/pre>/g, '</pre></div>'); }
 function msgHtml(m, i, full, rnd, old, retry){
   if (m.r === 'u') return '<div class="m u"><button class="ib cp" data-copy="' + esc(m.t) + '" title="Copy">' + I.copy + '</button><div class="b">' + esc(m.t) + '</div>' + (rnd || '') + '</div>';
-  const head = '<div class="m a' + (old ? ' old' : '') + '" data-i="' + (i == null ? -1 : i) + '"><button class="ib cp" data-copy="' + esc(m.t) + '" title="Copy">' + I.copy + '</button>' + (retry ? '<button class="ib rt2" data-a="retry" title="Retry (Claude writes this reply again)">' + I.retry + '</button>' : '');
-  if (!full && isLong(m)) { const t = String(m.t || '').replace(/\s+/g, ' ').trim(); return head + '<div class="b pv" title="' + (S && S.sideOn ? 'Hover: read it on the side - click: open here' : 'Click to read it all here') + '">' + esc(t.slice(0, 160)) + '…<span class="mo">more</span></div>' + filesHtml(m) + '</div>'; }
-  return head + '<div class="b' + (full ? ' fullv' : '') + '"' + (full ? ' title="Click: fold"' : '') + '>' + (m.h ? codeCopy(clean(m.h)) : esc(m.t).replace(/\n/g, '<br>')) + '</div>' + filesHtml(m) + '</div>';
+  const head = '<div class="m a' + (old ? ' old' : '') + '" data-i="' + (i == null ? -1 : i) + '">';
+  const mi = '<span class="mi">' + (retry ? '<button class="ib" data-a="retry" title="Retry (Claude writes this reply again)">' + I.retry + '</button>' : '') + '<button class="ib" data-copy="' + esc(m.t) + '" title="Copy">' + I.copy + '</button></span>';   // floats in the reply's first line: never over its text
+  if (!full && isLong(m)) { const t = String(m.t || '').replace(/\s+/g, ' ').trim(); return head + '<div class="b pv" title="' + (S && S.sideOn ? 'Hover: read it on the side - click: open here' : 'Click to read it all here') + '">' + mi + esc(t.slice(0, 160)) + '…<span class="mo">more</span></div>' + filesHtml(m) + '</div>'; }
+  return head + '<div class="b' + (full ? ' fullv' : '') + '"' + (full ? ' title="Click: fold"' : '') + '>' + mi + (m.h ? codeCopy(clean(m.h)) : esc(m.t).replace(/\n/g, '<br>')) + '</div>' + filesHtml(m) + '</div>';
 }
 function actsHtml(c, cd){
   const ic = { cmd: I.cmd, ps: I.cmd, exe: I.run, dir: I.dir, file: I.file, url: I.web, observe: I.eye };

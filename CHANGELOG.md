@@ -2,9 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.1.6
+
+- Fix: a reply's copy / retry icons still covered its first line. They now sit at the end of that line, with the text
+  wrapping around them, at any display scale or zoom.
+
 ## 0.1.5
 
-- Fix: a message's copy / retry icons overlapped the message above at some display scales; they now sit inside it.
 - Choice steps: an `observe` step with `options` shows them as buttons; one click answers.
 - Skill: when you do by hand something the tray could run (git, Perforce, builds, releases, installs...), Claude offers
   once, as Yes / No buttons, to give it as one-click steps from then on.
