@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.8'
+$Version = '0.2.9'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1928,7 +1928,7 @@ function Start-Step($q, $st) {
                     $proc = Start-Process $PsExe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$inner`"" -PassThru
                 } else {
                     if ($kind -eq 'cmd') { Write-CmdFile "$tmp.cmd" ([string]$st.cmd); $proc = Start-Process cmd.exe -ArgumentList "/c `"$tmp.cmd`"" -WindowStyle Hidden -RedirectStandardOutput $outF -RedirectStandardError "$tmp.err.txt" -PassThru }
-                    else { Set-Content "$tmp.ps1" ([string]$st.cmd) -Encoding UTF8; $proc = Start-Process $PsExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tmp.ps1`"" -WindowStyle Hidden -RedirectStandardOutput $outF -RedirectStandardError "$tmp.err.txt" -PassThru }
+                    else { Set-Content "$tmp.ps1" ([string]$st.cmd + "`r`nif (`$LASTEXITCODE) { exit `$LASTEXITCODE }") -Encoding UTF8; $proc = Start-Process $PsExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tmp.ps1`"" -WindowStyle Hidden -RedirectStandardOutput $outF -RedirectStandardError "$tmp.err.txt" -PassThru }
                 }
                 try { $null = $proc.Handle } catch { }           # PS 5.1: without this ExitCode comes back null
                 $QS.Running[$key] = @{ Proc = $proc; Out = $outF; Err = "$tmp.err.txt"; Tmp = $tmp; Q = $q; N = [int]$st.n; Started = (Get-Date) }
@@ -1948,6 +1948,8 @@ function Poll-Running {
         $tail = $tail -replace '\x1b\[[0-9;]*[A-Za-z]', ''
         if ($tail.Length -gt [int]$Cfg.resultChars) { $tail = '...' + $tail.Substring($tail.Length - [int]$Cfg.resultChars) }   # Claude reads this file: keep it small
         $code = $rn.Proc.ExitCode
+        # exit 0 but a command in it failed (only the last one sets the exit code): an error line in the output fails the step
+        if (($code -eq 0 -or $null -eq $code) -and $tail -match '(?im)^\s*(fatal|error)\b[^\r\n]{0,200}|could not resolve host|is not recognized as (the name of )?a cmdlet|cannot find path') { $code = 1; $tail = "$tail`n[tray] marked failed: an error line in the output (exit was 0)" }
         Set-StepResult $rn.Q ([int]$rn.N) @{ status = $(if ($code -eq 0 -or $null -eq $code) { 'done' } else { 'failed' }); exit = $code; ended = (Get-Iso (Get-Date)); out = $tail.Trim() }
         Log "step $key exit=$code out=$($tail.Length)ch"
         foreach ($f in @($rn.Out, $rn.Err, "$($rn.Tmp).ps1", "$($rn.Tmp).cmd")) { if ($f) { Remove-Item $f -Force -ErrorAction SilentlyContinue } }

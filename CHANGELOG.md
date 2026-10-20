@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.9
+
+- A step that fails now shows as failed. A PowerShell step used to report "exit 0" whatever happened (only the last
+  command counted, and its code was dropped). Now its last command's code is kept, and an `error` / `fatal` line in
+  the output marks it failed.
+- Skill: multi-command steps check each command, so the first failure stops the step.
+
 ## 0.2.8
 
 - README rewritten: shorter, with a shortcuts table, and new images made from the real panel with made-up chats

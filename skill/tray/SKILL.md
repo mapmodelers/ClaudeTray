@@ -73,3 +73,5 @@ Its `style` (bridge mode: `style ...` in the `[tray]` line) is the user's "Short
 - `answer` = 1-2 lines (the tray also shows your full reply live). Labels under ~40 characters.
 - Read the results file only on "check"; never re-read your own quest.
 - Steps stand alone (full paths). Never put secrets in either file.
+- A `ps` step with several commands: after each command-line tool, `if ($LASTEXITCODE) { throw '<what failed>' }`, so a
+  failure shows as failed in the tray (only the last command sets the exit code).
