@@ -2,6 +2,14 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.3
+
+- Questions:
+  - An "Other answer…" box in the card: Enter sends your own answer.
+  - Send answers presses the card's send button, or the message box's.
+  - Each choice is listed once (a checkbox inside its button was counted twice).
+  - Every pick / next / send logs the card's layout and states (no text), to finish the several-answers step.
+
 ## 0.2.2
 
 - Questions: the card no longer disappears from the tray on a step whose choices it can't read (the several-answers
