@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.7'
+$Version = '0.2.8'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -793,8 +793,8 @@ function Save-IconSheet([string]$path) {
     $g.Dispose(); $sheet.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $sheet.Dispose()
 }
 function Save-DocImages {
-    Save-IconSheet (Join-Path $Root 'docs\iconset.png')
-    $docs = Join-Path $Root 'docs'
+    Save-IconSheet (Join-Path $LogDir 'iconset.png')     # review sheets (the README images come from tools/readme-shots.js)
+    $docs = $LogDir
     if (-not (Test-Path $docs)) { New-Item -ItemType Directory -Path $docs | Out-Null }
     $levels = @(8, 38, 64, 92, 100, -1)              # -1 = no data
     $isz = 48; $pad = 18

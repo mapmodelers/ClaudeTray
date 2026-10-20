@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.8
+
+- README rewritten: shorter, with a shortcuts table, and new images made from the real panel with made-up chats
+  (`tools/readme-shots.js`).
+- Compact mode: a working chat's stop button no longer covers its row text. A permission prompt reads
+  "Claude asks: Allow once / Deny".
+
 ## 0.2.7
 
 - An unpinned panel no longer hides in the middle of a resize or a move (the cursor is outside it while you drag).
