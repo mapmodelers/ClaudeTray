@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.10
+
+- Fix: fresh steps could be filed under an older message and not show at the end of the chat. A message you had
+  already sent when the steps arrived no longer counts as your answer to them. Debug logs now note where each open
+  chat's steps are placed.
+
 ## 0.2.9
 
 - A step that fails now shows as failed. A PowerShell step used to report "exit 0" whatever happened (only the last

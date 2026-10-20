@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.9'
+$Version = '0.2.10'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -2993,11 +2993,14 @@ function Get-StepsBefore($q, $msgs, $raw) {          # where this round's steps 
     $id = [string]$q.id; $norm = { param($txt1) $t2 = ([string]$txt1 -replace '\s+', ' ').Trim(); if ($t2.Length -gt 60) { $t2.Substring(0, 60) } else { $t2 } }
     $um = @(for ($i = 0; $i -lt $msgs.Count; $i++) { if ($msgs[$i].r -eq 'u') { $i } })
     $qms = [long](([DateTimeOffset]$q.Upd).ToUnixTimeMilliseconds())
-    if ($um.Count -and @($um | Where-Object { $msgs[$_].at }).Count -eq $um.Count) {      # every message has its time: exact
-        foreach ($i in $um) { if ([long]$msgs[$i].at -gt $qms + 5000) { return @{ Sb = $i; Ans = $true } } }; return @{ Sb = -1; Ans = $false }
-    }
     $lu = if ($raw -and $raw.Ok) { & $norm $raw.LastUser } else { '' }
     $an = $QS.Anchor[$id]
+    if ($um.Count -and @($um | Where-Object { $msgs[$_].at }).Count -eq $um.Count) {      # every message has its time: exact...
+        if (-not $an -or $an.U -ne [string]$q.updated) { $QS.Anchor[$id] = @{ U = [string]$q.updated; T = (& $norm $msgs[$um[-1]].t); L = $lu }; Save-State; $an = $QS.Anchor[$id] }
+        $ai = -1; if ($an.T) { for ($ki = $um.Count - 1; $ki -ge 0; $ki--) { if ((& $norm $msgs[$um[$ki]].t) -eq $an.T) { $ai = $um[$ki]; break } } }
+        # ...but never the message you had sent when the steps arrived (a message's time can be read late: it hid fresh steps once)
+        foreach ($i in $um) { if ($i -gt $ai -and [long]$msgs[$i].at -gt $qms + 5000) { return @{ Sb = $i; Ans = $true } } }; return @{ Sb = -1; Ans = $false }
+    }
     if (-not $an -or $an.U -ne [string]$q.updated) {                 # first sight of this quest version: remember your last message
         if (-not $um.Count -and -not $lu) { return @{ Sb = -1; Ans = $false } }
         $QS.Anchor[$id] = @{ U = [string]$q.updated; T = $(if ($um.Count) { & $norm $msgs[$um[-1]].t } else { '' }); L = $lu }; Save-State; return @{ Sb = -1; Ans = $false }
@@ -3527,6 +3530,11 @@ function Write-DebugSnapshot([string]$why = 'snapshot') {
             '{0}[{1}{2}{3}{4}{5}]' -f $q.id, $q.St, $(if (-not $q.Visible) { ',hidden' }), $(if ($wc0) { ',' + $(if ($wc0.Ok) { 'ok' } else { 'noPage' }) + $(if ($wc0.Working) { ',working' }) + ',' + [int]((Get-Date) - $wc0.At).TotalSeconds + 's' } else { ',noTab' }), $(if ($UI.WebOpen -contains [string]$q.id) { ',open' }), $(if (Test-Unread $q) { ',unread' }) })
         $secs = if ($QS.Layout -and $QS.Layout.sec) { (@($QS.Layout.sec) | ForEach-Object { "$($_.id):$($_.sort)$(if ($_.col) { '(col)' })" }) -join ' ' } else { '-' }
         Log ("debug {0}: panel shown={1} pinned={2} docked={3} {4}x{5} at {6},{7} zoom {8}; web ok={9} err='{10}' pass {11} ms; pushes {12}; sections {13}; chats {14}" -f $why, $UI.Shown, $UI.Pinned, $UI.Docked, $pop.Width, $pop.Height, $pop.Left, $pop.Top, $UI.Zoom, $Web.Ok, $Web.Err, $Web.Ms, $UI.WebPushes, $secs, ($chs -join ' ')) 'DEBUG'
+        foreach ($q in @($QS.List | Where-Object { @($_.steps).Count -and $UI.WebOpen -contains [string]$_.id })) {     # where each open chat's steps sit (times only, no text)
+            $rw = $Web.Chats[[string]$q.id]; $ms0 = if ($rw -and $rw.Msgs) { @($rw.Msgs) } else { @() }; $sb0 = Get-StepsBefore $q $ms0 $rw
+            $ut = @($ms0 | Where-Object { $_.r -eq 'u' } | Select-Object -Last 3 | ForEach-Object { if ($_.at) { ([DateTimeOffset]::FromUnixTimeMilliseconds([long]$_.at)).LocalDateTime.ToString('HH:mm:ss') } else { '-' } })
+            Log ("debug steps {0}: quest file {1:HH:mm:ss}, sb={2}, last user msgs at {3}, msgs {4}" -f $q.id, $q.Upd, $sb0.Sb, ($ut -join ' '), $ms0.Count)
+        }
     } catch { Log "debug snapshot: $($_.Exception.Message)" 'WARN' }
 }
 function Write-Heartbeat([string]$why = 'heartbeat') {
