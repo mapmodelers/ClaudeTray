@@ -4,8 +4,8 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 
 ## Now
 
-- Questions: confirmed working from the tray in 0.2.4 (pick, Next, Back, several answers, Send). Still to check:
-  Skip, the Other answer box, and a question that has only one step.
+- Questions: working from the tray in 0.2.5 (pick, Next, Back, several answers + Other, Send; "looks functional").
+  Not tried yet: Other + Enter on a one-answer step, Skip, a question with a single step.
 - Images: thumbnails in the conversation (today a click opens them).
 
 ## Decided
@@ -27,4 +27,5 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - 2026-10-20: images / files viewable without a download or open-folder step.
 - 2026-10-20: keep track of everything said; backlog what doesn't fit one run.
 - 2026-10-20: compact mode - the title in the field must be bold.
+- 2026-10-20: question card like the app's (checks, Other counts as one more choice), compact, themed colors.
 - 2026-10-20: answers - last line after the title: yes; toolbar: own bar above usage; compact mode: off by default.
