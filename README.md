@@ -1,95 +1,99 @@
 # Tray for Claude
 
-Your Claude chats by the Windows clock. Read, reply, answer Claude's questions and run the steps it gives you
-without leaving what you're doing.
+A Windows tray panel for your Claude chats and plan usage.
 
-![Tray for Claude: the panel above the clock, next to an editor](docs/hero.png)
+![The panel open above the Windows clock](docs/hero.png)
 
-> **0.2.x preview.** Works daily, still moving. Issues welcome.
+Preview release (0.2.x). It works, but things still change between versions. Bug reports are welcome.
 
-- **Every chat, one row.** Reply in place, stop, retry, send and open files. Click a title for the full conversation.
-- **Steps in one click.** In `/tray` chats, Claude's PC steps come with its reply: run (hidden, output captured),
-  open, answer. Say "check" and Claude reads the results.
-- **Nothing waits unseen.** Permission prompts and questions show in the panel, answerable there. A **?** on the
-  chat and on the icon means Claude is waiting on you.
-- **Usage at a glance.** Session and week limits, with alerts at 80 / 95 %.
+## Features
+
+- Your chats in a list, each with its own reply box. Open one to read the conversation, reply, stop or retry,
+  and send or open files.
+- Steps you can run from the panel. In chats started with `/tray`, Claude adds the commands it wants you to run.
+  You run them in one click, and the output goes back to Claude when you send "check".
+- Permission prompts and Claude Code questions can be answered from the panel. The chat and the tray icon show
+  a "?" while Claude is waiting for you.
+- Session and weekly usage, with a notification at 80 % and 95 %.
 
 <p>
-  <img src="docs/question.png" width="340" alt="A question from Claude, answered in the panel">
-  <img src="docs/compact.png" width="340" alt="Compact mode, light theme: one line per chat">
+  <img src="docs/question.png" width="340" alt="A question from Claude answered in the panel">
+  <img src="docs/compact.png" width="340" alt="Compact mode in the light theme">
 </p>
 
 ## Install
 
-1. Download or `git clone` this folder somewhere you can write to, e.g. `C:\Tools\ClaudeTray`.
-2. In PowerShell, in that folder:
+1. Download or clone this repository to a folder you can write to, for example `C:\Tools\ClaudeTray`.
+2. In PowerShell, from that folder:
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps1 -WebLogin
    ```
 
-   Sign in to claude.ai in the window that opens, then close it. The icon appears by the clock and starts with
-   Windows.
-3. Optional, for one-click steps: upload `skill/tray.zip` as a skill in Claude, and start a chat with `/tray` (the
-   panel's `/tray` chip adds it for you).
+   A browser window opens on claude.ai. Sign in and close it. The icon then appears next to the clock and the
+   tray starts with Windows.
+3. Optional, for steps: upload `skill/tray.zip` as a skill in Claude and start a chat with `/tray`. The `/tray`
+   chip in the panel adds it to your next message.
 
-Requires Windows 10 (1809+) or 11 with Edge and WebView2 (both ship with Windows), and a paid Claude plan.
-No installer, no admin rights.
+Needs Windows 10 (1809 or later) or Windows 11, Edge and the WebView2 runtime (both come with Windows), and a paid
+Claude plan. No installer and no admin rights.
 
 ## Shortcuts
 
-| To | Do |
+| Action | How |
 | --- | --- |
-| Show / hide the panel | Click the tray icon |
+| Show or hide the panel | Click the tray icon |
 | Open the Claude app | Double-click the tray icon |
-| Collapse / expand all chats | Click the grip at the top |
-| Move the panel (it stays there) | Drag the grip |
-| Keep it on top | Pin, bottom left |
-| Resize · zoom | Drag any edge · Ctrl + wheel |
-| Send · new line | Enter · Shift + Enter |
-| Claude's slash commands | Type `/` in a reply box |
-| Attach files | Paste, drop, or the clip |
-| Pin, move, hide, open on claude.ai | Right-click a chat title |
-| Bring any chat in | **Browse claude.ai**, bottom of the list |
-| One line per chat | Settings › Compact mode |
+| Collapse or expand all chats | Click the grip at the top |
+| Move the panel | Drag the grip. It stays where you leave it. |
+| Keep it on top | Pin button, bottom left |
+| Resize, zoom | Drag an edge, Ctrl + mouse wheel |
+| Send, new line | Enter, Shift + Enter |
+| Slash commands | Type `/` in a reply box |
+| Attach files | Paste, drop, or use the clip button |
+| Pin, move, hide a chat, open it on claude.ai | Right-click its title |
+| One line per chat | Settings > Compact mode |
 
 ## Commands
 
-Run as `powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps1 <command>`.
+Run them as `powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps1 <command>`.
 
-| Command | |
+| Command | What it does |
 | --- | --- |
-| `-WebLogin` | Sign the tray's browser in to claude.ai, then start. |
-| *(none)* · `-Restart` | Start · restart in the background. |
-| `-QuestRoot <folder>` | Folder shared with Claude for steps and results (optional). |
-| `-Install` · `-Uninstall` | Add · remove the Start-menu and startup shortcuts. |
-| `-Set key=value` | Change one setting in `config.json`. |
+| `-WebLogin` | Signs the tray's browser in to claude.ai, then starts the tray. |
+| (none), `-Restart` | Starts or restarts the tray in the background. |
+| `-QuestRoot <folder>` | Sets the folder shared with Claude for steps and results (optional). |
+| `-Install`, `-Uninstall` | Adds or removes the Start menu and startup shortcuts. |
+| `-Set key=value` | Changes one setting in `config.json`. |
 
 ## Privacy
 
-- **Talks to Anthropic only**, over HTTPS. No telemetry, no analytics, no third parties.
-- **Chats** are read in the tray's own hidden Edge (separate profile in `%LOCALAPPDATA%\ClaudeTray`), signed in by
-  you, one tab per tracked chat. Only the chats you track, only what the panel shows.
-- **Steps run only when you click them.** Programs and scripts Claude sends as files are shown in their folder,
-  never started.
-- **Local files** (`config.json`, `state.json`, `logs\`) are git-ignored. Logs hold no message text, titles or
-  tokens.
-- The hidden Edge is driven over the DevTools protocol on `127.0.0.1`; while it runs, another program on your PC
-  that finds that port could use it, as with any browser in remote-debugging mode. It closes when the tray exits.
+- The tray only talks to claude.ai and Anthropic, over HTTPS. No telemetry, no analytics, no other servers.
+- Chats are read in a hidden Edge window with its own profile (`%LOCALAPPDATA%\ClaudeTray`), signed in by you.
+  It opens one tab per chat you track and reads only what the panel shows.
+- Steps only run when you click them. Programs and scripts that Claude sends as files are shown in their folder,
+  not started.
+- Settings, layout and logs stay in the tray's folder and are ignored by git. Logs contain no message text, chat
+  titles or tokens.
+- The hidden Edge is controlled through the DevTools protocol on `127.0.0.1`. While it runs, another program on
+  your PC that finds that port could use it, like any browser started in remote-debugging mode. It closes when
+  the tray exits.
 
-Remove everything: `-Uninstall`, delete the folder and `%LOCALAPPDATA%\ClaudeTray`.
+To remove everything: run `-Uninstall`, then delete the folder and `%LOCALAPPDATA%\ClaudeTray`.
 
 ## Troubleshooting
 
-- **No chats / dash in the icon:** Settings › Sign in to claude.ai.
-- **"running scripts is disabled":** use the full command above (`-ExecutionPolicy Bypass` applies to that run only).
-- **Anything else:** Settings › Debug logs, reproduce, attach `logs\claudetray.log` to an issue.
+- No chats, or a dash in the icon: Settings > Sign in to claude.ai.
+- "Running scripts is disabled": use the full command shown above. `-ExecutionPolicy Bypass` only applies to that
+  run.
+- Anything else: turn on Settings > Debug logs, reproduce the problem and attach `logs\claudetray.log` to an issue.
 
-More: [CHANGELOG](CHANGELOG.md) · [BACKLOG](BACKLOG.md) · [protocol](docs/PROTOCOL.md) · [for maintainers](AGENTS.md)
+See also: [changelog](CHANGELOG.md), [backlog](BACKLOG.md), [quest protocol](docs/PROTOCOL.md),
+[notes for maintainers](AGENTS.md).
 
 ## Disclaimer
 
-Unofficial, community-made. **Not affiliated with or endorsed by Anthropic.** "Claude" is a trademark of Anthropic;
-"for Claude" only says what it works with. It drives claude.ai in your own signed-in browser and reads data that
-isn't a published API, so it may stop working at any time. Use at your own risk, under your own agreement with
-Anthropic. MIT License, provided as-is: see [LICENSE](LICENSE).
+This is an unofficial community project, not affiliated with or endorsed by Anthropic. "Claude" is a trademark of
+Anthropic. The tray drives claude.ai in your own signed-in browser and relies on data that is not a public API, so
+it can stop working at any time. You use it at your own risk and under your own agreement with Anthropic. MIT
+License, provided as is: see [LICENSE](LICENSE).
