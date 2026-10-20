@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.2
+
+- Questions: the card no longer disappears from the tray on a step whose choices it can't read (the several-answers
+  step). Back, Next, Skip and Send answers stay, and those choices are looked for as checkboxes too. A step like that
+  logs its layout (structure only), so the next version can read it.
+
 ## 0.2.1
 
 - Claude Code questions now really show in the tray, read from claude.ai's question card:

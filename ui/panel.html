@@ -357,7 +357,7 @@ function clean(html){
 }
 function marker(c){
   if (c.working) return '<span class="dots" title="Claude is working"><i></i><i></i><i></i><i></i></span>';
-  if ((c.prompts || []).length || (c.q && (c.q.o || []).length)) return '<span class="dot act" title="Claude asks you something"></span>';
+  if ((c.prompts || []).length || (c.q && ((c.q.o || []).length || c.q.card))) return '<span class="dot act" title="Claude asks you something"></span>';
   return '<span class="dot ' + c.st + (c.unread ? ' new' : '') + '" title="' + (c.st === 'act' ? 'Steps for you' : c.unread ? 'New reply' : c.st === 'done' ? 'Your turn' : 'Sent') + '"></span>';
 }
 const hash = t => { let h = 5381; const s0 = String(t || '').slice(0, 300); for (let i = 0; i < s0.length; i++) h = ((h << 5) + h + s0.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
@@ -378,7 +378,7 @@ function render(){
   for (const c of chats) {                       // expand: what PS remembers on the first state, then chats that get new steps
     if (firstState ? ((S.expanded || []).length ? (S.expanded || []).includes(c.id) : c.st === 'act') : (c.st === 'act' && lastSt[c.id] !== 'act')) opened.add(c.id);   // new steps: compact view (gist + actions)
     if (firstState && (S.big || []).includes(c.id)) { opened.add(c.id); big.add(c.id); }     // after a reload: full where it was full
-    const qk = c.q && (c.q.o || []).length ? (c.q.t || '') + '|' + c.q.o.length : ''; if (qk && lastQ[c.id] !== qk) opened.add(c.id); lastQ[c.id] = qk;
+    const qk = c.q && ((c.q.o || []).length || c.q.card) ? (c.q.t || '') + '|' + c.q.o.length : ''; if (qk && lastQ[c.id] !== qk) opened.add(c.id); lastQ[c.id] = qk;
     lastSt[c.id] = c.st;
   }
   firstState = false;
@@ -565,11 +565,11 @@ function convItems(c, cd){
   return it;
 }
 function qHtml(c){                                    // a question Claude asks with choices (Claude Code): pick here, or type your own answer in the box
-  const q = c.q; if (!q || !(q.o || []).length) return '';
+  const q = c.q; if (!q || !((q.o || []).length || q.card)) return '';
   const stp = q.steps > 1 ? ' <span class="qh">' + q.step + '/' + q.steps + '</span>' : '';
   return '<div class="ask qz"><div class="qt"><span>Claude asks:</span>' + esc(q.t || '') + stp + (q.multi ? ' <span class="qh">(several allowed)</span>' : '') + '</div><div class="qo">' +
     q.o.map((o, i) => '<button data-a="qpick" data-i="' + i + '" data-label="' + esc(o.l) + '" class="' + (o.s ? 'on' : '') + '" title="' + esc(o.d || 'Pick it') + '">' + esc(o.l) + '</button>').join('') + '</div><div class="qo">' +
-    (q.next ? '<button data-a="qnext" title="Next question">Next ›</button>' : '') + (q.skip ? '<button data-a="qskip" title="Skip this question">' + esc(q.skip) + '</button>' : '') +
+    (q.prev ? '<button data-a="qprev" title="Previous question">‹ Back</button>' : '') + (q.next ? '<button data-a="qnext" title="Next question">Next ›</button>' : '') + (q.skip ? '<button data-a="qskip" title="Skip this question">' + esc(q.skip) + '</button>' : '') +
     (q.card || q.sub ? '<button class="qs" data-a="qsub" title="Send your answers to Claude">' + esc(q.sub || 'Send answers') + '</button>' : '') + '</div><div class="qh">or type your own answer in the box below and send it</div></div>';
 }
 function pastSteps(c){                                 // read-only, one line per step
@@ -777,6 +777,7 @@ document.addEventListener('click', e => {
     case 'qsub': post({ type: 'qsub', id: id }); b.disabled = true; break;
     case 'qnext': post({ type: 'qnext', id: id }); break;
     case 'qskip': post({ type: 'qskip', id: id }); break;
+    case 'qprev': post({ type: 'qprev', id: id }); break;
     case 'open': post({ type: 'open', id: id, web: false }); break;
     case 'web': post({ type: 'open', id: id, web: true }); break;
     case 'bell': post({ type: 'bell', id: id }); break;
