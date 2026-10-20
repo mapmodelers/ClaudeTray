@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.1.3
+
+- A chat tab that drifted to another page (connection lost, error page) goes back to the chat by itself; a send that
+  finds it there opens the chat first and still goes through.
+- Settings: light / dark only; "Sign in to claude.ai" shows only when the tray's browser isn't signed in; the quest
+  folder moved out of the panel menu (still in the tray icon's right-click menu).
+
 ## 0.1.2
 
 - An open chat keeps its title bar in view while you scroll the list.
@@ -18,7 +25,7 @@ Versions follow [semver](https://semver.org): 0.x = preview, things still move. 
 ## 0.1.0 - first public preview
 
 - Name: **Tray for Claude** (the script and folders keep the short name `ClaudeTray`).
-- One sign-in (`-WebLogin`, or the menu's Sign in for live chats): usage now comes from claude.ai through the tray's
+- One sign-in (`-WebLogin`, or settings > Sign in to claude.ai): usage now comes from claude.ai through the tray's
   browser; `-Login` (Claude Code's sign-in) is only an optional fallback.
 - Tray icon: plan usage as a ring (the limit you're closest to), dots for working / needs you / new reply; hover or
   click shows the panel, double-click opens the Claude app; usage alerts at 80 / 95 %.

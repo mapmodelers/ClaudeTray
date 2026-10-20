@@ -282,11 +282,12 @@ function moveMenu(id, x, y){
 }
 function setMenu(x, y){                             // settings, inside the panel
   const st = S.settings || {}, a = (k, v) => () => post({ type: 'menuact', k: k, v: v });
-  popMenu(x, y, [{ t: 'Theme: follow Windows', on: st.theme === 'auto' || !st.theme, f: a('theme', 'auto') }, { t: 'Theme: light', on: st.theme === 'light', f: a('theme', 'light') }, { t: 'Theme: dark', on: st.theme === 'dark', f: a('theme', 'dark') }, '-',
+  const lightNow = st.theme === 'light' || (st.theme !== 'dark' && st.light);
+  popMenu(x, y, [{ t: 'Light theme', on: lightNow, f: a('theme', 'light') }, { t: 'Dark theme', on: !lightNow, f: a('theme', 'dark') }, '-',
     { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
     { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, '-',
-    { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }, { t: 'Sign in for live chats…', f: a('weblogin') }, { t: 'Open log folder', f: a('logs') }, { t: 'Open quest folder', f: a('quests') }, '-',
-    { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }]);
+    { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }, ].concat(st.signedIn ? [] : [{ t: 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
+    { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }]));
 }
 function chatMenu(id, x, y){                          // right-click on a chat title
   const c = chatOf(id); if (!c) return;

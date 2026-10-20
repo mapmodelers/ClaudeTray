@@ -93,8 +93,8 @@ Claude app / manually, reset size, sign in, folders, restart. More in `config.js
 
 ## Troubleshooting
 
-- **Dash in the icon** - sign in: tray menu > Sign in for live chats (or `-WebLogin`).
-- **"Live chats are off" / no conversation** - tray menu > Sign in for live chats.
+- **Dash in the icon** - sign in: settings > Sign in to claude.ai (or `-WebLogin`).
+- **"Live chats are off" / no conversation** - settings > Sign in to claude.ai.
 - **"running scripts is disabled"** - use the full command with `-ExecutionPolicy Bypass` (applies to that run only).
 - **Something's off** - Settings > Debug logs, reproduce, then look in `logs\claudetray.log` (or attach it to an issue
   - it contains no message text).

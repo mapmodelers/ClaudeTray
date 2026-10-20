@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.1.2'
+$Version = '0.1.3'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1464,6 +1464,14 @@ $webScript = {
                     try { [void](Cdp $ws 'Emulation.setFocusEmulationEnabled' @{ enabled = $true }) } catch { }
                     try { [void](Cdp $ws 'Page.setWebLifecycleState' @{ state = 'active' }) } catch { }
                 }
+                # the tab drifted to another page (connection lost, error page, login, /new): bring it back to the chat
+                if (-not $Web.NavAt) { $Web.NavAt = @{} }
+                $curUrl = [string]$tg.url; try { $curUrl = [string](Cdp $ws 'Runtime.evaluate' @{ expression = 'location.href'; returnByValue = $true }).result.result.value } catch { }
+                if ($curUrl -notlike "*$key*" -and -not ($Web.NavAt[$id] -and ((Get-Date) - $Web.NavAt[$id]).TotalSeconds -lt 20)) {
+                    $Web.NavAt[$id] = Get-Date; WL ("{0}: tab shows another page ({1}) - back to the chat" -f $id, ($curUrl -replace '^https://claude\.ai', '' -replace '[0-9a-f]{8}-[0-9a-f-]{27}', '<id>' -replace 'session_\w+', 'session_<id>' -replace '\?.*$', ''))
+                    try { [void](Cdp $ws 'Page.navigate' @{ url = "https://claude.ai/$id" }) } catch { }
+                    $cr0 = $Web.Chats[$id]; if ($cr0) { $cr0.ReloadAt = Get-Date; $cr0.At = Get-Date }
+                }
                 foreach ($cmd in @($Web.Cmds.ToArray() | Where-Object { $_.Id -eq $id })) {
                     $Web.Cmds.Remove($cmd); $res = 'error'
                     try {
@@ -1473,6 +1481,11 @@ $webScript = {
                             $tail = ([string]$id -split '/')[-1] -replace '[^\w-]', ''
                             # a box still holding the tray's own earlier text (Enter was lost) is cleared; your own draft never is
                             $pre = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { if (!location.pathname.includes('$tail')) return 'wrong-page'; const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; const cur = (e.innerText || '').replace(/\u200b/g,'').trim(); if (cur.length) { if (window.__ctTyped && cur === window.__ctTyped) { e.focus(); document.execCommand('selectAll'); document.execCommand('delete'); if ((e.innerText || '').trim().length) return 'not-empty'; } else return 'not-empty'; } e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value
+                            if ($pre -eq 'wrong-page') {                # back to the chat, wait for it (max 15 s), check again
+                                WL "$($id): send found another page - opening the chat first"
+                                try { [void](Cdp $ws 'Page.navigate' @{ url = "https://claude.ai/$id" }) } catch { }
+                                $tw = Get-Date; do { Start-Sleep -Milliseconds 500; $pre = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { if (!location.pathname.includes('$tail')) return 'wrong-page'; const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; if ((e.innerText || '').replace(/\u200b/g,'').trim().length) return 'not-empty'; e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value } while ($pre -in 'wrong-page', 'no-composer' -and ((Get-Date) - $tw).TotalSeconds -lt 15)
+                            }
                             if ($pre -ne 'ok') { $res = $pre }
                             else {
                                 if (@($cmd.Files).Count) {           # attachments: the page's own file input (same as picking files), then wait for the upload
@@ -2909,9 +2922,9 @@ function Test-TraySkill($q, $msgs) {                 # /tray is on in this chat:
     return $false
 }
 function Get-WebHint {                              # why conversations can't show (shown in an empty conversation)
-    if (-not $webEnabled) { return "Live chats are off: tray menu > Sign in for live chats (once)." }
+    if (-not $webEnabled) { return "Live chats are off: settings > Sign in to claude.ai (once)." }
     $bad = @($Web.Chats.Values | Where-Object { -not $_.Ok -and $_.FirstAt -and ((Get-Date) - $_.FirstAt).TotalSeconds -gt 30 })
-    if ($bad.Count -and -not @($Web.Chats.Values | Where-Object { $_.Ok }).Count) { return "The tray's browser isn't signed in to claude.ai: tray menu > Sign in for live chats." }
+    if ($bad.Count -and -not @($Web.Chats.Values | Where-Object { $_.Ok }).Count) { return "The tray's browser isn't signed in to claude.ai: settings > Sign in to claude.ai." }
     if ($Web.Err) { return "Live chats: $($Web.Err)" }
     return ''
 }
@@ -2934,7 +2947,7 @@ function Push-WebState([bool]$force = $false) {
                              err = $werr; usage = $us; catalog = $UI.Catalog; newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd) } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -3217,7 +3230,7 @@ foreach ($sm in @(@('windows', 'With Windows'), @('claude', 'When the Claude app
     [void]$miBoot.DropDownItems.Add($mi)
 }
 [void]$menu.Items.Add($miBoot)
-$miWebIn   = $menu.Items.Add('Sign in for live chats...')
+$miWebIn   = $menu.Items.Add('Sign in to claude.ai...')
 $miWebIn.ToolTipText = "Signs the tray's own browser in to claude.ai (once): conversations, send, stop and files in the panel"
 $miSignOut = $menu.Items.Add('Log out')
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
