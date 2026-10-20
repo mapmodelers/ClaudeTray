@@ -2,6 +2,11 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.1.4
+
+- Fix: messages to a chat that claude.ai moved to a new address (a session now opened as `/chat/<id>`) were refused or
+  lost. When the chat's own link lands on a new address, the tray adopts it (kept across restarts) and sends there.
+
 ## 0.1.3
 
 - A chat tab that drifted to another page (connection lost, error page) goes back to the chat by itself; a send that

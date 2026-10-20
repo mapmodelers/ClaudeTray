@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.1.3'
+$Version = '0.1.4'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -992,9 +992,9 @@ function Exit-Tray([string]$why) { Write-Heartbeat 'exit'; Log "Exit: $why"; if 
 
 # ---------------------------------------------------------------- quests: read / state / results
 $QS = @{ List = @(); Prev = @{}; Running = @{}; Hidden = @{}; Pins = [ordered]@{}; Layout = $null; Proj = @{}; Anchor = @{}; Bells = @{}; Dock = $null; Alerts = @{}; Read = @{} }
-if (Test-Path $StateFile) { try { $stj = [IO.File]::ReadAllText($StateFile) | ConvertFrom-Json; if ($stj.hidden) { $stj.hidden.PSObject.Properties | ForEach-Object { $QS.Hidden[$_.Name] = [string]$_.Value } }; if ($stj.bells) { $stj.bells.PSObject.Properties | ForEach-Object { $QS.Bells[$_.Name] = [bool]$_.Value } }; if ($stj.pins) { foreach ($pk in @($stj.pins)) { $QS.Pins[[string]$pk] = $true } }; if ($stj.layout) { $QS.Layout = $stj.layout }; if ($stj.anchor) { $stj.anchor.PSObject.Properties | ForEach-Object { $QS.Anchor[$_.Name] = @{ U = [string]$_.Value.U; T = [string]$_.Value.T; L = [string]$_.Value.L } } }; if ($stj.proj) { $stj.proj.PSObject.Properties | ForEach-Object { $QS.Proj[$_.Name] = [string]$_.Value } }; if ($stj.alerts) { foreach ($ak in @($stj.alerts)) { $QS.Alerts[[string]$ak] = $true } }; if ($stj.read) { $stj.read.PSObject.Properties | ForEach-Object { $QS.Read[$_.Name] = @{ K = [string]$_.Value.k; At = $(try { [DateTimeOffset]::Parse([string]$_.Value.at, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime } catch { $null }) } } }; if ($stj.docked) { $UI.RestoreDock = $true }; if ($stj.dock -and @($stj.dock).Count -eq 2) { $QS.Dock = @([int]$stj.dock[0], [int]$stj.dock[1]); $UI.DockPos = New-Object System.Drawing.Point $QS.Dock[0], $QS.Dock[1] } } catch { } }
+if (Test-Path $StateFile) { try { $stj = [IO.File]::ReadAllText($StateFile) | ConvertFrom-Json; if ($stj.hidden) { $stj.hidden.PSObject.Properties | ForEach-Object { $QS.Hidden[$_.Name] = [string]$_.Value } }; if ($stj.bells) { $stj.bells.PSObject.Properties | ForEach-Object { $QS.Bells[$_.Name] = [bool]$_.Value } }; if ($stj.pins) { foreach ($pk in @($stj.pins)) { $QS.Pins[[string]$pk] = $true } }; if ($stj.layout) { $QS.Layout = $stj.layout }; if ($stj.alias) { $QS.AliasIn = @{}; $stj.alias.PSObject.Properties | ForEach-Object { $QS.AliasIn[$_.Name] = [string]$_.Value } }; if ($stj.anchor) { $stj.anchor.PSObject.Properties | ForEach-Object { $QS.Anchor[$_.Name] = @{ U = [string]$_.Value.U; T = [string]$_.Value.T; L = [string]$_.Value.L } } }; if ($stj.proj) { $stj.proj.PSObject.Properties | ForEach-Object { $QS.Proj[$_.Name] = [string]$_.Value } }; if ($stj.alerts) { foreach ($ak in @($stj.alerts)) { $QS.Alerts[[string]$ak] = $true } }; if ($stj.read) { $stj.read.PSObject.Properties | ForEach-Object { $QS.Read[$_.Name] = @{ K = [string]$_.Value.k; At = $(try { [DateTimeOffset]::Parse([string]$_.Value.at, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime } catch { $null }) } } }; if ($stj.docked) { $UI.RestoreDock = $true }; if ($stj.dock -and @($stj.dock).Count -eq 2) { $QS.Dock = @([int]$stj.dock[0], [int]$stj.dock[1]); $UI.DockPos = New-Object System.Drawing.Point $QS.Dock[0], $QS.Dock[1] } } catch { } }
 function Get-ReadForSave { $o = @{}; foreach ($rk in @($QS.Read.Keys)) { $o[$rk] = @{ k = $QS.Read[$rk].K; at = $(if ($QS.Read[$rk].At) { Get-Iso $QS.Read[$rk].At } else { '' }) } }; return $o }
-function Save-State { try { [IO.File]::WriteAllText($StateFile, (@{ hidden = $QS.Hidden; pins = @($QS.Pins.Keys); layout = $QS.Layout; proj = $QS.Proj; anchor = $QS.Anchor; bells = $QS.Bells; dock = $QS.Dock; docked = [bool]($UI.Docked -or $UI.RestoreDock); alerts = @($QS.Alerts.Keys | Select-Object -Last 40); read = $(Get-ReadForSave) } | ConvertTo-Json -Compress -Depth 8), (New-Object Text.UTF8Encoding $false)) } catch { Log "state save: $($_.Exception.Message)" 'WARN' } }
+function Save-State { try { [IO.File]::WriteAllText($StateFile, (@{ hidden = $QS.Hidden; pins = @($QS.Pins.Keys); layout = $QS.Layout; proj = $QS.Proj; anchor = $QS.Anchor; alias = $(if ($Web -and $Web.Alias) { $Web.Alias } else { @{} }); bells = $QS.Bells; dock = $QS.Dock; docked = [bool]($UI.Docked -or $UI.RestoreDock); alerts = @($QS.Alerts.Keys | Select-Object -Last 40); read = $(Get-ReadForSave) } | ConvertTo-Json -Compress -Depth 8), (New-Object Text.UTF8Encoding $false)) } catch { Log "state save: $($_.Exception.Message)" 'WARN' } }
 function Get-Iso($dt) { return ([datetime]$dt).ToString('yyyy-MM-ddTHH:mm:ssK') }
 function Parse-Iso($txt) { try { if (-not $txt) { return $null }; if ($txt -is [datetime]) { return $txt }; return ([DateTimeOffset]::Parse([string]$txt, $EN)).LocalDateTime } catch { return $null } }
 function Get-SentText([string]$txt0) { $txt0 = ($txt0 -replace '\s+', ' ').Trim(); if ($txt0.Length -gt 120) { $txt0 = $txt0.Substring(0, 120) + "…" }; return $txt0 }   # Claude has the full text in the chat: the results file only needs to recognise it
@@ -1157,6 +1157,7 @@ $probeHandle = $probePs.BeginInvoke()
 # window off-screen. One tab per tracked chat. Exact reply text and generating state for EVERY chat, without touching the app.
 # Content stays in memory: only lengths/timings are logged.
 $Web = [hashtable]::Synchronized(@{ Ok = $false; Err = ''; Chats = [hashtable]::Synchronized(@{}); Want = @(); Stop = $false; Log = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList)); Port = [int]$Cfg.webPort; Profile = (Join-Path $Root 'browser-profile'); Ms = 0; Headless = ([string]$Cfg.webWindow -ne 'visible'); Checked = $false; OpenedAt = @{}; LaunchedHeadless = $false; Cmds = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList)); Results = [hashtable]::Synchronized(@{}) })
+$Web.Alias = [hashtable]::Synchronized(@{}); if ($QS.AliasIn) { foreach ($ak in $QS.AliasIn.Keys) { $Web.Alias[$ak] = $QS.AliasIn[$ak] } }     # chats claude.ai moved to a new address (kept across restarts)
 $webScript = {
     param($Web)
     function WL([string]$m) { [void]$Web.Log.Add(('{0:HH:mm:ss.fff} {1}' -f (Get-Date), $m)) }
@@ -1425,7 +1426,7 @@ $webScript = {
                 $Web.Results[$cmd.Key] = @{ Res = $res; At = (Get-Date) }
                 WL ("new: {0} -> {1} ({2} ms)" -f $cmd.Kind, $(if ($res -like 'catalog:*') { 'catalog ' + $res.Length + ' chars' } else { $res }), [int]((Get-Date) - $cmd.At).TotalMilliseconds)
             }
-            foreach ($id in @($Web.Want)) { if (-not $tabOf[$id]) { $k0 = ($id -split '/')[-1]; $m0 = @($pages | Where-Object { $_.url -like "*$k0*" -and @($tabOf.Values) -notcontains $_.id })[0]; if ($m0) { $tabOf[$id] = $m0.id } } }     # claim tabs already on a wanted chat first
+            foreach ($id in @($Web.Want)) { if (-not $tabOf[$id]) { $k0 = ($id -split '/')[-1]; $a0 = ([string]$Web.Alias[$id] -split '/')[-1]; $m0 = @($pages | Where-Object { ($_.url -like "*$k0*" -or ($a0 -and $_.url -like "*$a0*")) -and @($tabOf.Values) -notcontains $_.id })[0]; if ($m0) { $tabOf[$id] = $m0.id } } }     # claim tabs already on a wanted chat first
             foreach ($tid in @($tabOf.Keys)) {                 # two chats on one tab: the one the page actually shows keeps it
                 if (-not $tabOf.ContainsKey($tid)) { continue }
                 $tpg = @($pages | Where-Object { $_.id -eq $tabOf[$tid] })[0]; if (-not $tpg) { continue }
@@ -1436,10 +1437,10 @@ $webScript = {
                 $key = ($id -split '/')[-1]                     # session_... / uuid: survives claude.ai's URL rewrites
                 $tg = $null
                 if ($tabOf[$id]) { $tg = @($pages | Where-Object { $_.id -eq $tabOf[$id] })[0] }
-                if (-not $tg) { $tg = @($pages | Where-Object { $_.url -like "*$key*" })[0]; if ($tg) { $tabOf[$id] = $tg.id } }
+                if (-not $tg) { $ak0 = ([string]$Web.Alias[$id] -split '/')[-1]; $tg = @($pages | Where-Object { $_.url -like "*$key*" -or ($ak0 -and $_.url -like "*$ak0*") })[0]; if ($tg) { $tabOf[$id] = $tg.id } }
                 if (-not $tg) {                                 # reuse an unclaimed claude.ai tab (its URL may have been rewritten) instead of opening one
                     # never one that still shows another wanted chat (after a restart that stole chat B's tab for chat A: both read the same page)
-                    $wantKeys = @(@($Web.Want) | ForEach-Object { ($_ -split '/')[-1] })
+                    $wantKeys = @(@($Web.Want) | ForEach-Object { ($_ -split '/')[-1]; if ($Web.Alias[$_]) { ([string]$Web.Alias[$_] -split '/')[-1] } })
                     $free = @($pages | Where-Object { $pu = [string]$_.url; $pu -like '*claude.ai*' -and @($tabOf.Values) -notcontains $_.id -and -not ($wantKeys | Where-Object { $pu -like "*$_*" }) })[0]
                     if ($free) {
                         $tabOf[$id] = $free.id; $tg = $free
@@ -1465,10 +1466,17 @@ $webScript = {
                     try { [void](Cdp $ws 'Page.setWebLifecycleState' @{ state = 'active' }) } catch { }
                 }
                 # the tab drifted to another page (connection lost, error page, login, /new): bring it back to the chat
-                if (-not $Web.NavAt) { $Web.NavAt = @{} }
+                if (-not $Web.NavAt) { $Web.NavAt = @{} }; if (-not $Web.Alias) { $Web.Alias = @{} }
                 $curUrl = [string]$tg.url; try { $curUrl = [string](Cdp $ws 'Runtime.evaluate' @{ expression = 'location.href'; returnByValue = $true }).result.result.value } catch { }
-                if ($curUrl -notlike "*$key*" -and -not ($Web.NavAt[$id] -and ((Get-Date) - $Web.NavAt[$id]).TotalSeconds -lt 20)) {
-                    $Web.NavAt[$id] = Get-Date; WL ("{0}: tab shows another page ({1}) - back to the chat" -f $id, ($curUrl -replace '^https://claude\.ai', '' -replace '[0-9a-f]{8}-[0-9a-f-]{27}', '<id>' -replace 'session_\w+', 'session_<id>' -replace '\?.*$', ''))
+                $curPath = ($curUrl -replace '^https://claude\.ai', '' -replace '[?#].*$', '')
+                # claude.ai can move a chat to a new address (a session shown as /chat/<uuid>): when OUR navigation to its own link
+                # lands there, that address is this chat from now on
+                if ($curUrl -notlike "*$key*" -and $Web.NavAt[$id] -and ((Get-Date) - $Web.NavAt[$id]).TotalSeconds -lt 20 -and $curPath -match '^/(chat|code)/[\w-]+$' -and $Web.Alias[$id] -ne $curPath) {
+                    $Web.Alias[$id] = $curPath; WL ("{0}: claude.ai opened it at {1} - using that address" -f $id, $curPath)
+                }
+                $okPath = $curUrl -like "*$key*" -or ($Web.Alias[$id] -and $curPath -eq $Web.Alias[$id])
+                if (-not $okPath -and -not ($Web.NavAt[$id] -and ((Get-Date) - $Web.NavAt[$id]).TotalSeconds -lt 20)) {
+                    $Web.NavAt[$id] = Get-Date; WL ("{0}: tab shows another page ({1}) - back to the chat" -f $id, $curPath)
                     try { [void](Cdp $ws 'Page.navigate' @{ url = "https://claude.ai/$id" }) } catch { }
                     $cr0 = $Web.Chats[$id]; if ($cr0) { $cr0.ReloadAt = Get-Date; $cr0.At = Get-Date }
                 }
@@ -1479,12 +1487,22 @@ $webScript = {
                             # same as a person typing in the box and pressing Enter: the app's own queue applies while Claude works
                             # never type into another page (the tab was redirected: /new, login, deleted chat) - Enter there would start a new chat
                             $tail = ([string]$id -split '/')[-1] -replace '[^\w-]', ''
+                            if (-not $Web.Alias) { $Web.Alias = @{} }; $alias = ([string]$Web.Alias[$id] -split '/')[-1] -replace '[^\w-]', ''; if (-not $alias) { $alias = $tail }
                             # a box still holding the tray's own earlier text (Enter was lost) is cleared; your own draft never is
-                            $pre = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { if (!location.pathname.includes('$tail')) return 'wrong-page'; const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; const cur = (e.innerText || '').replace(/\u200b/g,'').trim(); if (cur.length) { if (window.__ctTyped && cur === window.__ctTyped) { e.focus(); document.execCommand('selectAll'); document.execCommand('delete'); if ((e.innerText || '').trim().length) return 'not-empty'; } else return 'not-empty'; } e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value
+                            $pre = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { if (!location.pathname.includes('$tail') && !location.pathname.includes('$alias')) return 'wrong-page'; const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; const cur = (e.innerText || '').replace(/\u200b/g,'').trim(); if (cur.length) { if (window.__ctTyped && cur === window.__ctTyped) { e.focus(); document.execCommand('selectAll'); document.execCommand('delete'); if ((e.innerText || '').trim().length) return 'not-empty'; } else return 'not-empty'; } e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value
                             if ($pre -eq 'wrong-page') {                # back to the chat, wait for it (max 15 s), check again
                                 WL "$($id): send found another page - opening the chat first"
                                 try { [void](Cdp $ws 'Page.navigate' @{ url = "https://claude.ai/$id" }) } catch { }
-                                $tw = Get-Date; do { Start-Sleep -Milliseconds 500; $pre = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { if (!location.pathname.includes('$tail')) return 'wrong-page'; const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; if ((e.innerText || '').replace(/\u200b/g,'').trim().length) return 'not-empty'; e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value } while ($pre -in 'wrong-page', 'no-composer' -and ((Get-Date) - $tw).TotalSeconds -lt 15)
+                                $Web.NavAt[$id] = Get-Date; $tw = Get-Date
+                                do {
+                                    Start-Sleep -Milliseconds 500
+                                    $st0 = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); return JSON.stringify({ p: location.pathname, c: !!e, t: e ? (e.innerText || '').replace(/\u200b/g,'').trim().length : 0 }); })()"; returnByValue = $true }).result.result.value | ConvertFrom-Json
+                                    $hit = ([string]$st0.p).Contains($tail) -or ($alias -and ([string]$st0.p).Contains($alias))
+                                    # claude.ai redirected our own link to another address and the page is ready there: that's this chat now
+                                    if (-not $hit -and $st0.c -and ([string]$st0.p) -match '^/(chat|code)/[\w-]+$' -and ((Get-Date) - $tw).TotalSeconds -gt 3) { $Web.Alias[$id] = [string]$st0.p; $alias = ([string]$st0.p -split '/')[-1]; $hit = $true; WL ("{0}: claude.ai opened it at {1} - using that address" -f $id, $st0.p) }
+                                    $pre = if (-not $hit) { 'wrong-page' } elseif (-not $st0.c) { 'no-composer' } elseif ($st0.t) { 'not-empty' } else { 'ok' }
+                                } while ($pre -in 'wrong-page', 'no-composer' -and ((Get-Date) - $tw).TotalSeconds -lt 15)
+                                if ($pre -eq 'ok') { [void](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (e) e.focus(); })()" }) }
                             }
                             if ($pre -ne 'ok') { $res = $pre }
                             else {
