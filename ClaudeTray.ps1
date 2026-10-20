@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.5'
+$Version = '0.2.6'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -575,7 +575,7 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
     $m = [single]($w / 2 + [Math]::Max(0.5, $isz * 0.03))
     $rect = New-Object System.Drawing.RectangleF $m, $m, ([single]($isz - 2 * $m)), ([single]($isz - 2 * $m))
     # state (see docs/DESIGN.md "Tray icon"): needs you > working > unread reply > idle; the number (usage) always stays
-    if (-not $flags) { $flags = @{ Needs = ($badge -eq 'act'); Working = ($badge -eq 'working'); Unread = ($badge -eq 'done') } }
+    if (-not $flags) { $flags = @{ Ask = ($badge -eq 'ask'); Needs = ($badge -eq 'act' -or $badge -eq 'ask'); Working = ($badge -eq 'working'); Unread = ($badge -eq 'done') } }
     $cBlue = C 78 150 230; $cOrange = C 232 128 90; $cPurple = C 150 120 230
     if ($flags.Needs -and -not $err) { $track = [System.Drawing.Color]::FromArgb(200, $cBlue) }        # needs you: blue ring (still)
     $pt = New-Object System.Drawing.Pen ($track, $w); $g.DrawEllipse($pt, $rect); $pt.Dispose()
@@ -613,7 +613,7 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
     }
     $bd = [single][Math]::Max(6, $isz * 0.42)           # top-right badge: the most urgent state (small enough to keep the number readable)
     $bx = [single]($isz - $bd); $by = [single]0
-    if (-not $err -and ($flags.Working -or $flags.Needs -or $flags.Unread)) {
+    if (-not $err -and ($flags.Working -or $flags.Needs -or $flags.Unread -or $flags.Ask)) {
         $hb = New-Object System.Drawing.SolidBrush ($(if ($light) { C 250 250 250 } else { C 22 22 22 }))
         $g.FillEllipse($hb, [single]($bx - 1), [single]($by - 1), [single]($bd + 2), [single]($bd + 2)); $hb.Dispose()
     }
@@ -625,6 +625,10 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
             $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
             $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
         }
+    } elseif ($flags.Ask -and -not $err) {             # Claude asks you (Allow / Deny, a question): blue disc with a "?" - stands out from the plain dot
+        $bb = New-Object System.Drawing.SolidBrush $cBlue; $g.FillEllipse($bb, $bx, $by, $bd, $bd); $bb.Dispose()
+        if ($bd -ge 7) { $qf = New-NumFont ([single]($bd * 0.78)); $qsz = $g.MeasureString('?', $qf, [System.Drawing.PointF]::Empty, [System.Drawing.StringFormat]::GenericTypographic); $wb = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
+            $g.DrawString('?', $qf, $wb, [single]($bx + ($bd - $qsz.Width) / 2), [single]($by + ($bd - $qsz.Height) / 2), [System.Drawing.StringFormat]::GenericTypographic); $wb.Dispose(); $qf.Dispose() }
     } elseif (($flags.Needs -or $flags.Unread) -and -not $err) {     # still dot: blue = needs you, purple = new reply
         $dd = [single]($bd * 0.72); $off = [single](($bd - $dd) / 2)
         $bb = New-Object System.Drawing.SolidBrush ($(if ($flags.Needs) { $cBlue } else { $cPurple }))
@@ -1062,12 +1066,14 @@ function Read-Quests {
 }
 function Get-IconFlags {
     $v = @($QS.List | Where-Object { $_.Visible })
-    $needs = [bool]($v | Where-Object { ($_.St -eq 'act' -and -not $UI.Answered[[string]$_.id]) -or ($Web.Chats[[string]$_.id] -and (@($Web.Chats[[string]$_.id].Prompts).Count -or $Web.Chats[[string]$_.id].Q)) })
-    $working = [bool]($v | Where-Object { Test-ChatWorking $_ })
+    $ask = [bool]($v | Where-Object { Test-ChatAsks $_ })      # Claude waits on you inside the chat (Allow / Deny, a question): first, even while its turn is still running
+    $needs = $ask -or [bool]($v | Where-Object { $_.St -eq 'act' -and -not $UI.Answered[[string]$_.id] })
+    $working = (-not $ask) -and [bool]($v | Where-Object { Test-ChatWorking $_ })
     $unread = [bool]($v | Where-Object { Test-Unread $_ })
-    return @{ Needs = $needs; Working = $working; Unread = $unread }
+    return @{ Ask = $ask; Needs = $needs; Working = $working; Unread = $unread }
 }
-function Get-Badge { $fl = Get-IconFlags; if ($fl.Needs) { return 'act' }; if ($fl.Working) { return 'working' }; if ($fl.Unread) { return 'done' }; return '' }
+function Test-ChatAsks($q) { $wc = $Web.Chats[[string]$q.id]; return [bool]($wc -and (@($wc.Prompts).Count -or $wc.Q)) }
+function Get-Badge { $fl = Get-IconFlags; if ($fl.Ask) { return 'ask' }; if ($fl.Needs) { return 'act' }; if ($fl.Working) { return 'working' }; if ($fl.Unread) { return 'done' }; return '' }
 function Format-Age($dt) { if (-not $dt) { return '' }; $sp = (Get-Date) - $dt; if ($sp.TotalMinutes -lt 1) { return 'now' }; if ($sp.TotalHours -lt 1) { return ('{0}m' -f [int]$sp.TotalMinutes) }; if ($sp.TotalDays -lt 1) { return ('{0}h' -f [int]$sp.TotalHours) }; return ('{0}d' -f [int]$sp.TotalDays) }
 
 # ---------------------------------------------------------------- actions: open / send / run steps
@@ -2617,7 +2623,7 @@ function Update-TrayIcon {
     if ($S.Updated -and ((Get-Date) - $S.Updated).TotalSeconds -gt 3 * [int]$Cfg.pollSeconds) { $err = $true }
     $fl = Get-IconFlags; $UI.IconFlags = $fl
     # only talk to the shell when the picture changes (frequent tray updates can keep an auto-hide taskbar up)
-    $ikey = "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}" -f $iconPx, [Math]::Round([double](Get-BindingUsed)), $err, $LightTaskbar, $fl.Needs, $fl.Working, $fl.Unread, $(if ($fl.Working) { [int]$UI.Phase % 4 } else { 0 })
+    $ikey = "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}" -f $iconPx, [Math]::Round([double](Get-BindingUsed)), $err, $LightTaskbar, $fl.Needs, $fl.Working, ('{0}{1}' -f $fl.Unread, $fl.Ask), $(if ($fl.Working) { [int]$UI.Phase % 4 } else { 0 })
     if ($ikey -ne $UI.IconKey) {
         $UI.IconKey = $ikey
         $bmp = New-TrayIcon $iconPx (Get-BindingUsed) $err $LightTaskbar '' ([int]$UI.Phase) $fl
@@ -3048,7 +3054,7 @@ function Fit-WebPop {                                # page height (CSS px) -> p
     if (-not $UI.WebH) { return }
     $wa = [System.Windows.Forms.Screen]::FromControl($pop).WorkingArea
     if ($UI.Rsz) { return }                                     # you're resizing it
-    $nh = if ([int]$Cfg.panelHeight -gt 0) { [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px 60), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }
+    $nh = if ([int]$Cfg.panelHeight -gt 0 -and @($UI.WebOpen).Count) { [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px 60), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }
     if ($nh -eq $pop.Height -and $pop.Bottom -le $wa.Bottom -and $pop.Top -ge $wa.Top) { return }
     $top = if ($pop.Visible -and -not $UI.Docked) { $pop.Bottom - $nh } else { $pop.Top }
     if ($top + $nh -gt $wa.Bottom) { $top = $wa.Bottom - $nh }
@@ -3195,7 +3201,7 @@ function On-WebMsg($m) {
         'pin' { if ($UI.Docked) { $UI.Docked = $false; Save-State } else { $UI.Docked = $true; Pin-Pop; $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State } }
         'copy' { if ($m.text) { Set-Clipboard -Value ([string]$m.text) } }
         'log' { Log ("webui page: {0}" -f $m.text) 'WARN' }
-        'expand' { $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in $newIds) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' }
+        'expand' { $wasOpen = @($UI.WebOpen).Count; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in $newIds) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0)) { Fit-WebPop } }
         'more' { if ($q) { $Web.MsgN[[string]$q.id] = [int]$(if ($Web.MsgN.ContainsKey([string]$q.id)) { $Web.MsgN[[string]$q.id] } else { 20 }) + 15; [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'more'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("chat[{0}]: load earlier (now {1} messages)" -f $q.id, $Web.MsgN[[string]$q.id]) 'DEBUG' } }
         'open' { if ($q) { Open-Chat $q ([bool]$m.web) } }
         'bell' { if ($q) { $kb = [string]$q.id; $QS.Bells[$kb] = ($QS.Bells.ContainsKey($kb) -and -not $QS.Bells[$kb]); Save-State } }
@@ -3277,7 +3283,7 @@ $rszTimer.add_Tick({
         if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) {
             $UI.Rsz = $null; $rszTimer.Stop()
             $zk = $k * $UI.Zoom; Save-CfgKey 'panelWidth' ([int][Math]::Round($pop.Width / $zk)); if ($rzEdge -match '[tb]') { Save-CfgKey 'panelHeight' ([int][Math]::Round($pop.Height / $zk)) }
-            Set-DockHere; Log ("panel resized to {0}x{1} ({2}), pinned" -f $pop.Width, $pop.Height, $rzEdge) 'DEBUG'; Push-WebState $true; return
+            if ($UI.Docked) { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State }; Log ("panel resized to {0}x{1} ({2}), docked {3}" -f $pop.Width, $pop.Height, $rzEdge, $UI.Docked) 'DEBUG'; Push-WebState $true; return
         }
         $pop.SetBounds($l, $t0, $r - $l, $bt - $t0)
     } catch { $UI.Rsz = $null; $rszTimer.Stop() }

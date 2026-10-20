@@ -28,4 +28,5 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - 2026-10-20: keep track of everything said; backlog what doesn't fit one run.
 - 2026-10-20: compact mode - the title in the field must be bold.
 - 2026-10-20: question card like the app's (checks, Other counts as one more choice), compact, themed colors.
+- 2026-10-20: drop the hidden section (Browse brings chats back); + left of Browse titles; status must be accurate, "waiting on me" clear in the panel and the icon; collapse all = small panel; check pin / unpin.
 - 2026-10-20: answers - last line after the title: yes; toolbar: own bar above usage; compact mode: off by default.

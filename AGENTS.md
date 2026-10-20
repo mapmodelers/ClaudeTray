@@ -256,3 +256,7 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
 - Several-answers step of that card: choices are `span[role=checkbox][aria-checked]` (bdi label) each with a hidden
   `input[type=checkbox]` sibling (ignored); a footer with `span[role=status]` (count), a text button (skip) and an
   icon button (send, disabled until a pick). A single-answer step advances on pick and has no footer.
+- 0.2.6: `Get-IconFlags` has `Ask` (`Test-ChatAsks`: prompts or a question card) which beats Working; page `asks(c)` /
+  `askTxt(c)` drive the orange "?" marker, the "Claude asks: ..." row text and auto-open. The "N hidden" line is gone:
+  Browse (`#brw`, always last, `LAY.browse` = unfolded) lists `S.hidden` first. `Fit-WebPop` ignores `panelHeight`
+  while nothing is open. Resizing no longer calls `Set-DockHere` (it pinned the panel).

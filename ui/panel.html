@@ -26,7 +26,7 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 .card.open .head{border-radius:8px 8px 0 0}
 .card.open>.head{position:sticky;top:0;z-index:6;background:var(--bg)}.card.open>.head:hover{background:var(--card)}     /* an open chat keeps its title in view while you scroll */
 .dot{width:5px;height:5px;border-radius:50%;flex:none;background:var(--mu);margin:0 3px}
-.dot.act{background:var(--act)}.dot.done{background:var(--pur)}
+.dot.act{background:var(--act)}.askm{width:11px;height:11px;border-radius:50%;background:var(--acc);color:#fff;font:700 8.5px/11px Segoe UI,sans-serif;text-align:center;flex:none;margin:0 1px}.mph .ak{color:var(--acc)}.dot.done{background:var(--pur)}
 .dots{width:11px;height:11px;flex:none;position:relative}
 .dots i{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--acc);opacity:.3;animation:dd 1s infinite steps(1)}
 .dots i:nth-child(1){left:1px;top:1px}.dots i:nth-child(2){right:1px;top:1px;animation-delay:.25s}
@@ -167,10 +167,10 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .card.dropb{box-shadow:0 -2px 0 var(--acc)}.card.dropa{box-shadow:0 2px 0 var(--acc)}.card.dragging{opacity:.4}#pins.dropin{box-shadow:inset 0 0 0 1px var(--acc)}
 #pmenu{position:fixed;z-index:20;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:3px;min-width:150px;box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:11px}
 #pmenu .pmi{padding:3px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}#pmenu .pmi:hover{background:var(--ln)}#pmenu .pmi.off{opacity:.4;cursor:default}#pmenu .pms{height:1px;background:var(--ln);margin:3px 2px}
-#brw{border-top:1px solid var(--ln);margin:4px 0 2px;padding-top:1px}#brw .bq{width:calc(100% - 8px);margin:1px 4px 3px;background:var(--field);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font:inherit;font-size:10.5px;height:19px;padding:0 6px;outline:0}#brw .bq:focus{border-color:var(--mu)}
+#brw{border-top:1px solid var(--ln);margin:4px 0 2px;padding-top:1px}#brw.fold .bq,#brw.fold .bl{display:none}#brw .bh .ib{width:14px;height:14px}#brw .bq{width:calc(100% - 8px);margin:1px 4px 3px;background:var(--field);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font:inherit;font-size:10.5px;height:19px;padding:0 6px;outline:0}#brw .bq:focus{border-color:var(--mu)}
 #brw .bl{max-height:240px;overflow-y:auto}#brw .bg{color:var(--mu);font-size:9.5px;padding:2px 8px 1px}
 #brw .bp{display:flex;align-items:center;gap:4px;padding:2px 6px;cursor:pointer;border-radius:5px;font-size:10.5px}#brw .bp:hover{background:var(--card)}
-#brw .br{display:flex;align-items:center;gap:5px;padding:1px 4px 1px 18px;border-radius:5px;font-size:10.5px}#brw .br:hover{background:var(--card)}#brw .bn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#brw .bt{color:var(--ok)}#brw .bt svg{width:11px;height:11px}
+#brw .br{display:flex;align-items:center;gap:5px;padding:1px 4px 1px 8px;border-radius:5px;font-size:10.5px}#brw .br:hover{background:var(--card)}#brw .bn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#brw .bt{color:var(--ok)}#brw .bt svg{width:11px;height:11px}
 #brw .bnote{color:var(--mu);font-size:9.5px;padding:4px 8px 2px;font-style:italic}
 #pins{flex:none;overflow-y:auto;overflow-x:hidden;padding:0 4px 1px;border-bottom:1px solid var(--ln);margin:0 0 2px}#pins:empty{display:none}
 .pinm{color:var(--mu);flex:none;display:inline-flex}.pinm svg{width:9px;height:9px}
@@ -320,7 +320,6 @@ function plusMenu(x, y, up){
   const main = LAY.sec.find(s => s.id === 'main');
   popMenu(x, y, [{ t: 'New chat…', f: () => { const f = $('#newf'); f.classList.add('on'); post({ type: 'catalog' }); setTimeout(() => { $('#nfMsg').focus(); f.scrollIntoView({ block: 'nearest' }); }, 0); sizeReport(); } },
     { t: 'New section', f: () => newSection() },
-    { t: 'Browse claude.ai chats', on: LAY.browse, f: () => { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); saveLay(); render(); } },
     '-'].concat(SORTS.map(sm => ({ t: 'Sort ' + (LAY.sec.length > 1 ? main.name + ' ' : '') + SORTN[sm], on: main.sort === sm, f: () => { main.sort = sm; if (sm === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } }))), up);
 }
 function secMenu(sid, x, y){
@@ -333,11 +332,12 @@ function secMenu(sid, x, y){
 const agoTxt = iso => { const t0 = Date.parse(iso || ''); if (!t0) return ''; const m = Math.round((Date.now() - t0) / 60000); return m < 60 ? Math.max(1, m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
 function renderBrowse(L){                           // Browse claude.ai: recent chats and projects -> + brings one into the tray
   let b = $('#brw');
-  if (!LAY.browse) { if (b) b.remove(); return; }
-  if (!b) { b = document.createElement('div'); b.id = 'brw'; b.innerHTML = '<div class="bh"><span class="car">▾</span><span class="sn">Browse claude.ai</span><span class="sp"></span><button class="ib" data-a="brref" title="Refresh">' + I.retry + '</button><button class="ib" data-a="brx" title="Close Browse (+ menu brings it back)">' + I.x + '</button></div><input class="bq" placeholder="Search chats and projects…" spellcheck="false"><div class="bl"></div>'; b.querySelector('.bq').addEventListener('input', e => { brQ = e.target.value; renderBrowse($('#list')); sizeReport(); }); }
-  const hid = $('#hid'); if (b.parentElement !== L || (hid && b.nextElementSibling !== hid) || (!hid && L.lastElementChild !== b)) L.insertBefore(b, hid && hid.parentElement === L ? hid : null);
-  const cat = S.catalog || {}, tracked = new Set((S.chats || []).map(c => c.id).concat((S.hidden || []).map(h => h.id)));
-  const row = r => { const id = 'chat/' + r.id, on = tracked.has(id); return '<div class="br" title="' + esc(r.name || '(untitled)') + '"><span class="bn">' + esc(r.name || '(untitled)') + '</span><span class="age">' + esc(agoTxt(r.at)) + '</span>' + (on ? '<span class="bt" title="In the tray">' + I.ok + '</span>' : '<button class="ib" data-a="brtrack" data-id="' + esc(id) + '" data-t="' + esc(r.name || '') + '" title="Bring it into the tray">' + I.plus + '</button>') + '</div>'; };
+  if (!b) { b = document.createElement('div'); b.id = 'brw'; b.innerHTML = '<div class="bh" title="Your claude.ai chats and projects: + brings one into the tray (hidden ones too)"><span class="car">▸</span><span class="sn">Browse claude.ai</span><span class="sp"></span><button class="ib" data-a="brref" title="Refresh">' + I.retry + '</button></div><input class="bq" placeholder="Search chats and projects…" spellcheck="false"><div class="bl"></div>'; b.querySelector('.bq').addEventListener('input', e => { brQ = e.target.value; renderBrowse($('#list')); sizeReport(); }); }
+  if (b.parentElement !== L || L.lastElementChild !== b) L.appendChild(b);
+  b.classList.toggle('fold', !LAY.browse); b.querySelector('.car').textContent = LAY.browse ? '▾' : '▸'; b.querySelector('[data-a="brref"]').style.display = LAY.browse ? '' : 'none';
+  if (!LAY.browse) return;
+  const cat = S.catalog || {}, tracked = new Set((S.chats || []).map(c => c.id));     // hidden chats get a + again: it brings them back
+  const row = r => { const id = 'chat/' + r.id, on = tracked.has(id); return '<div class="br" title="' + esc(r.name || '(untitled)') + '">' + (on ? '<span class="bt" title="In the tray">' + I.ok + '</span>' : '<button class="ib" data-a="brtrack" data-id="' + esc(id) + '" data-t="' + esc(r.name || '') + '" title="Bring it into the tray">' + I.plus + '</button>') + '<span class="bn">' + esc(r.name || '(untitled)') + '</span><span class="age">' + esc(agoTxt(r.at)) + '</span></div>'; };
   const projs = cat.projects || [], rec = cat.recent || [], byP = cat.byProj || {};
   const convsOf = pid => { const seen = new Set(), out = []; for (const r of ((byP[pid] || {}).rows || []).concat(rec.filter(x => x.p === pid))) if (!seen.has(r.id)) { seen.add(r.id); out.push(r); } return out.sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)); };
   let h = '';
@@ -349,8 +349,9 @@ function renderBrowse(L){                           // Browse claude.ai: recent 
     const hits = [...all.values()].filter(r => (r.name || '').toLowerCase().includes(q) || (pn[r.p] || '').toLowerCase().includes(q)).slice(0, 40);
     h = hits.length ? hits.map(row).join('') : '<div class="secempty">nothing found' + (projs.length ? ' - open a project to search inside it' : '') + '</div>';
   } else {
-    const loose = rec.filter(r => !r.p).slice(0, 12);
-    h = '<div class="bg">Recent</div>' + (loose.length ? loose.map(row).join('') : '<div class="secempty">-</div>');
+    const loose = rec.filter(r => !r.p).slice(0, 12), hs = S.hidden || [];
+    h = (hs.length ? '<div class="bg">Hidden from the tray</div>' + hs.map(x => '<div class="br" title="' + esc(x.title) + '"><button class="ib" data-a="unhide" data-id="' + esc(x.id) + '" title="Show it in the tray again">' + I.plus + '</button><span class="bn">' + esc(x.title) + '</span><span class="age">' + esc(x.age) + '</span></div>').join('') : '') +
+      '<div class="bg">Recent</div>' + (loose.length ? loose.map(row).join('') : '<div class="secempty">-</div>');
     for (const p of projs) { const op = brOpen.has(p.id), cs = op ? convsOf(p.id) : [];
       h += '<div class="bp" data-a="brproj" data-pid="' + esc(p.id) + '"><span class="car">' + (op ? '▾' : '▸') + '</span>' + esc(p.name) + '</div>' + (op ? (cs.length ? cs.slice(0, 40).map(row).join('') : '<div class="secempty">' + ((byP[p.id] || {}).err ? 'could not list it' : byP[p.id] ? 'no chats' : 'loading…') + '</div>') : ''); }
     h += '<div class="bnote">Claude Code sessions: open one on claude.ai/code with /tray in it.</div>';
@@ -369,9 +370,11 @@ function clean(html){
     if (!OK.has(c.tagName)) c.replaceWith(...c.childNodes); else for (const a of [...c.attributes]) c.removeAttribute(a.name); } else if (c.nodeType !== 3) c.remove(); } };
   const root = d.body.firstChild; walk(root); return root.innerHTML;
 }
+const asks = c => !!((c.prompts || []).length || (c.q && ((c.q.o || []).length || c.q.card)));
+const askTxt = c => c.q && c.q.t ? c.q.t : (c.prompts || []).length ? 'allow? (' + c.prompts.join(' / ') + ')' : '';
 function marker(c){
+  if (asks(c)) return '<span class="askm" title="Claude is waiting for you: ' + esc(askTxt(c)) + '">?</span>';     // before "working": its turn is still running while it waits on you
   if (c.working) return '<span class="dots" title="Claude is working"><i></i><i></i><i></i><i></i></span>';
-  if ((c.prompts || []).length || (c.q && ((c.q.o || []).length || c.q.card))) return '<span class="dot act" title="Claude asks you something"></span>';
   return '<span class="dot ' + c.st + (c.unread ? ' new' : '') + '" title="' + (c.st === 'act' ? 'Steps for you' : c.unread ? 'New reply' : c.st === 'done' ? 'Your turn' : 'Sent') + '"></span>';
 }
 const hash = t => { let h = 5381; const s0 = String(t || '').slice(0, 300); for (let i = 0; i < s0.length; i++) h = ((h << 5) + h + s0.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
@@ -392,7 +395,7 @@ function render(){
   for (const c of chats) {                       // expand: what PS remembers on the first state, then chats that get new steps
     if (firstState ? ((S.expanded || []).length ? (S.expanded || []).includes(c.id) : c.st === 'act') : (c.st === 'act' && lastSt[c.id] !== 'act')) opened.add(c.id);   // new steps: compact view (gist + actions)
     if (firstState && (S.big || []).includes(c.id)) { opened.add(c.id); big.add(c.id); }     // after a reload: full where it was full
-    const qk = c.q && ((c.q.o || []).length || c.q.card) ? (c.q.t || '') + '|' + c.q.o.length : ''; if (qk && lastQ[c.id] !== qk) opened.add(c.id); lastQ[c.id] = qk;
+    const qk = asks(c) ? askTxt(c) : ''; if (qk && lastQ[c.id] !== qk) opened.add(c.id); lastQ[c.id] = qk;
     lastSt[c.id] = c.st;
   }
   firstState = false;
@@ -431,10 +434,10 @@ function render(){
     let ph = body.querySelector('.secempty'); if (!list.length && !ph) { ph = document.createElement('div'); ph.className = 'secempty'; ph.textContent = sc.id === 'main' ? (S.hiddenAll ? 'All chats hidden - they come back when Claude writes to them.' : 'No chat yet. Type /tray in a Claude chat.') : 'Drag chats here'; body.appendChild(ph); } else if (list.length && ph) ph.remove();
   });
   renderBrowse(L);
-  const nf = $('#newf'), bw = $('#brw'), hd0 = $('#hid'), ref = bw && bw.parentElement === L ? bw : hd0 && hd0.parentElement === L ? hd0 : null;     // New chat form: at the bottom, above Browse
+  const nf = $('#newf'), bw = $('#brw'), ref = bw && bw.parentElement === L ? bw : null;     // New chat form: at the bottom, above Browse
   if (nf.parentElement !== L || nf.nextElementSibling !== ref) L.insertBefore(nf, ref);
   if (!S.shown) dirtyView = true; else dirtyView = false;
-  renderHidden(L);
+  { const hd = $('#hid'); if (hd) hd.remove(); }     // the "N hidden" line is gone: Browse brings hidden chats back
   sizeReport();
 }
 function renderHidden(L){                       // chats you hid: one muted line at the end, click to list them and bring one back
@@ -484,12 +487,12 @@ function updateCard(cd, c){
   const open = opened.has(c.id), isBig = big.has(c.id);
   if (cd.el.classList.contains('big') !== isBig) { cd.el.classList.toggle('big', isBig); if (isBig) { cd.stick = true; cd.items = []; } }
   if (cd.el.classList.contains('open') !== open) cd.el.classList.toggle('open', open);
-  const cmp = document.body.classList.contains('compact'), pv = String(c.preview || '').replace(/\s+/g, ' ').trim();
-  const ph = cmp ? ' ' : c.suggest && !c.working ? 'Enter = send "' + c.suggest + '" (steps done)' : (c.preview || 'Reply…');
+  const cmp = document.body.classList.contains('compact'), ak = asks(c), pv = ak ? 'Claude asks: ' + askTxt(c) : String(c.preview || '').replace(/\s+/g, ' ').trim();
+  const ph = cmp ? ' ' : ak ? pv : c.suggest && !c.working ? 'Enter = send "' + c.suggest + '" (steps done)' : (c.preview || 'Reply…');
   const mtt = cmp ? c.title + (c.suggest && !c.working ? ' - Enter sends "' + c.suggest + '"' : '') : ph;
   if (cd.mi.placeholder !== ph) cd.mi.placeholder = ph; if (cd.mi.title !== mtt) cd.mi.title = mtt;
   cd.mi.classList.toggle('un', !!c.unread);
-  const mph = cmp ? '<b>' + esc(c.title) + '</b>' + (pv ? '<i> · ' + esc(pv) + '</i>' : '') : ''; if (mph !== cd.mphH) { cd.mphH = mph; cd.mph.innerHTML = mph; } cd.mph.classList.toggle('un', !!c.unread);
+  const mph = cmp ? '<b>' + esc(c.title) + '</b>' + (pv ? '<i' + (ak ? ' class="ak"' : '') + '> · ' + esc(pv) + '</i>' : '') : ''; if (mph !== cd.mphH) { cd.mphH = mph; cd.mph.innerHTML = mph; } cd.mph.classList.toggle('un', !!c.unread);
   if (cmp && !open) {                                    // compact: one line - dot (opens it) · field (title) · bell · open in Claude · age
     const md = marker(c); if (md !== cd.mdH) { cd.mdH = md; cd.mdot.innerHTML = md; }
     const mt = '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button><button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button><span class="age" title="Last activity">' + esc(c.age) + '</span>';
@@ -774,7 +777,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
   if (e.target.closest('#plus')) { const r = $('#plus').getBoundingClientRect(); plusMenu(r.left, r.top, true); return; }
   const shd = e.target.closest('.sh'); if (shd && !e.target.closest('[data-a]') && !e.target.closest('[contenteditable=true]')) { const sc = LAY.sec.find(s => s.id === shd.dataset.sec); if (sc) { sc.col = !sc.col; saveLay(); render(); } return; }
-  if (e.target.closest('.bh') && !e.target.closest('[data-a]')) { LAY.browse = false; saveLay(); render(); return; }
+  if (e.target.closest('.bh') && !e.target.closest('[data-a]')) { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); saveLay(); render(); if (LAY.browse) setTimeout(() => { const bw = $('#brw'); if (bw) bw.scrollIntoView({ block: 'nearest' }); }, 0); return; }
   if (e.target.closest('#fold')) { foldAll(); return; }
   if (e.target.closest('#nfX')) { $('#newf').classList.remove('on'); sizeReport(); return; }
   if (e.target.closest('#nfGo')) { newChat(); return; }

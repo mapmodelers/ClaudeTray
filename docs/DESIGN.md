@@ -47,13 +47,14 @@ replace pasted logs.
 
 One icon, readable at 16 px. The ring + number = plan usage (binding limit) and always stays; the chat state is a
 large badge in the top-right quarter (about half the icon, on a disc in the taskbar colour so it reads on light and
-dark taskbars). Priority when several apply: working > needs you > new reply > idle (working + needs you: dots on a
+dark taskbars). Priority when several apply: asks you > working > needs you > new reply > idle (working + needs you: dots on a
 blue ring). Only "working" moves - nothing pulses.
 
 | State | Trigger | Look |
 | --- | --- | --- |
 | Working | Claude is generating in a visible chat (browser tab / app watcher) | 2x2 orange dots, one lit, going round (~1 s per turn) |
-| Needs you | a visible chat has steps for you, or its page asks something (Allow / Deny / Continue / Send now) | blue ring + blue dot |
+| Asks you | a visible chat's page waits on you: Allow / Deny / Continue / Send now, or a question card (beats working) | blue ring + blue disc with "?" |
+| Needs you | a visible chat has steps for you | blue ring + blue dot |
 | New reply | Claude finished or rewrote the quest after you last looked at that chat | purple dot |
 | Idle | nothing pending | ring = usage, number = % |
 | Usage high | binding limit >= 80 % / >= 95 % | arc orange / red |

@@ -2,6 +2,20 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.6
+
+- **Claude waiting on you is clear everywhere.** A chat with an Allow / Deny prompt or a question:
+  - shows an orange "?" instead of the working dots;
+  - its row says "Claude asks: …";
+  - it opens by itself.
+  - The tray icon gets a "?" badge, ahead of "working" (Claude's turn is still running while it waits).
+- **Browse claude.ai** is always the last section (click its title to open it) and replaces the "N hidden" line.
+  - Hidden chats are listed at its top with a + to bring them back.
+  - The + now sits left of each title.
+- **Size:** with every chat collapsed (top grip or the toolbar), the panel shrinks to fit; your size comes back when
+  a chat opens.
+- **Pin:** resizing the panel no longer pins it; moving it still parks it there.
+
 ## 0.2.5
 
 - The question card looks like claude.ai's, one line per row, in the tray's colors:
