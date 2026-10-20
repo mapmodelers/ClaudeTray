@@ -2,6 +2,10 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.7
+
+- An unpinned panel no longer hides in the middle of a resize or a move (the cursor is outside it while you drag).
+
 ## 0.2.6
 
 - **Claude waiting on you is clear everywhere.** A chat with an Allow / Deny prompt or a question:

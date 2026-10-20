@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.6'
+$Version = '0.2.7'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -3281,7 +3281,7 @@ $rszTimer.add_Tick({
         if ($rzEdge -match 't') { $t0 = [Math]::Min($bt - $minH, [Math]::Max($wa.Top, $b.Top + $dy)) }
         if ($rzEdge -match 'b') { $bt = [Math]::Max($t0 + $minH, [Math]::Min($wa.Bottom, $b.Bottom + $dy)) }
         if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) {
-            $UI.Rsz = $null; $rszTimer.Stop()
+            $UI.Rsz = $null; $rszTimer.Stop(); $UI.LeftAt = $null
             $zk = $k * $UI.Zoom; Save-CfgKey 'panelWidth' ([int][Math]::Round($pop.Width / $zk)); if ($rzEdge -match '[tb]') { Save-CfgKey 'panelHeight' ([int][Math]::Round($pop.Height / $zk)) }
             if ($UI.Docked) { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State }; Log ("panel resized to {0}x{1} ({2}), docked {3}" -f $pop.Width, $pop.Height, $rzEdge, $UI.Docked) 'DEBUG'; Push-WebState $true; return
         }
@@ -3408,7 +3408,7 @@ $uiTimer.add_Tick({
             if (-not $near) { $UI.Pending = $false }
             elseif (((Get-Date) - $UI.PendSince).TotalMilliseconds -ge 150) { $UI.Pending = $false; Refresh-Quests $false; Show-Pop 'hover' }
         }
-        elseif ($UI.Shown -and -not $UI.Docked) {
+        elseif ($UI.Shown -and -not $UI.Docked -and -not $UI.Rsz -and -not $UI.Drag) {     # never while you resize / move it (the cursor is outside then)
             $inside = $near -or $pop.Bounds.Contains($cur) -or (Get-Bridge).Contains($cur) -or $menu.Visible -or ($side.Visible -and $side.Bounds.Contains($cur)) -or (Test-InSideWins $cur)
             if ($UI.Pinned) {
                 if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::None -and -not $inside) { Hide-Pop 'click outside' }
