@@ -7,6 +7,7 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - Questions: working from the tray in 0.2.5 (pick, Next, Back, several answers + Other, Send; "looks functional").
   Not tried yet: Other + Enter on a one-answer step, Skip, a question with a single step.
 - Images: thumbnails in the conversation (today a click opens them).
+- Browse claude.ai: to rework (you'll say what). Left out of the README images until then.
 
 ## Decided
 
@@ -29,4 +30,5 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - 2026-10-20: compact mode - the title in the field must be bold.
 - 2026-10-20: question card like the app's (checks, Other counts as one more choice), compact, themed colors.
 - 2026-10-20: drop the hidden section (Browse brings chats back); + left of Browse titles; status must be accurate, "waiting on me" clear in the panel and the icon; collapse all = small panel; check pin / unpin.
+- 2026-10-20: README rewritten (short, pro, shortcuts); images with made-up chats, one in-context shot, neutral gray background, no Browse.
 - 2026-10-20: answers - last line after the title: yes; toolbar: own bar above usage; compact mode: off by default.
