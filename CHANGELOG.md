@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.4
+
+- Questions, several-answers step:
+  - Each choice is read once (a hidden checkbox sat next to each one).
+  - Picks show as selected.
+  - Send answers presses the card's own send button: greyed until you pick something.
+
 ## 0.2.3
 
 - Questions:

@@ -253,3 +253,6 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   description), a `form input[type=text]` "Other" with a skip button. One question per step. Answering: Enter in the
   message box sends the picks; text typed in the message box becomes the "Other" answer. `[data-testid=hub-question-announcer]`
   (role=alert) also holds the question. Labels are localized: match structure, not text.
+- Several-answers step of that card: choices are `span[role=checkbox][aria-checked]` (bdi label) each with a hidden
+  `input[type=checkbox]` sibling (ignored); a footer with `span[role=status]` (count), a text button (skip) and an
+  icon button (send, disabled until a pick). A single-answer step advances on pick and has no footer.
