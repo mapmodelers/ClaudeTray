@@ -2,6 +2,23 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.0
+
+- **Compact mode** (Settings, off by default): a collapsed chat takes one line.
+  - The dot opens the conversation.
+  - The field shows the title with Claude's last line; click it and type.
+  - Bell, open in Claude and age stay in place.
+  - Esc brings the title back; an unsent draft shows in italics.
+- Toolbar at the bottom, above usage: collapse / expand all, new chat, settings, pin. Menus open upward. The top bar is
+  just the grip: drag it to move the panel, click it to collapse / expand all.
+- Claude Code's multiple-choice questions show in the chat: pick, submit, or type your own answer below.
+  - The chat opens by itself and counts as "needs you".
+  - When one appears, its layout is logged (structure only, no text).
+- Files from Claude open in one click: click the name. A copy stays in Downloads; programs and scripts are only shown
+  in their folder, never run.
+- Every icon shows its label on hover (Windows' tooltips never appeared: the panel doesn't take the focus).
+- Titles are never white: grey, a bit brighter and bold when unread.
+
 ## 0.1.6
 
 - Fix: a reply's copy / retry icons still covered its first line. They now sit at the end of that line, with the text

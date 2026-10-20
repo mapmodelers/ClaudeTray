@@ -86,7 +86,7 @@ Run as `powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps1 <co
 
 ## Settings
 
-Gear in the panel (or right-click it): theme, short replies from Claude, Debug logs, start with Windows / with the
+Gear in the bottom bar (or right-click the panel): theme, compact mode (one line per chat), short replies from Claude, Debug logs, start with Windows / with the
 Claude app / manually, reset size, sign in, folders, restart. More in `config.json` (see `config.example.json`):
 `pollSeconds`, `questRoots`, `engine`, `panelWidth`, `panelZoom` (Ctrl+wheel), `usageAlerts`, `logMessages`,
 `resultChars`, `sideWindows`, `ui` (`classic` = the old simple panel).

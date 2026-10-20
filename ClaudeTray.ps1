@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.1.6'
+$Version = '0.2.0'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -93,7 +93,7 @@ function Short([string]$text, [int]$n = 300) {
 }
 
 # ---------------------------------------------------------------- config
-$Cfg = @{ pollSeconds = 180; refreshToken = $true; credentialsPath = ''; questRoots = @(); theme = 'auto'; holdWhileWorking = $false; engine = 'auto'; webPort = 0; logMessages = $false; resultChars = 1500; webProfile = ''; screenshots = $false; sideWindows = $false; debugLog = $false; usageAlerts = $true; ui = 'web'; panelWidth = 340; panelZoom = 0.9; webDevTools = $false; terse = $true }
+$Cfg = @{ pollSeconds = 180; refreshToken = $true; credentialsPath = ''; questRoots = @(); theme = 'auto'; holdWhileWorking = $false; engine = 'auto'; webPort = 0; logMessages = $false; resultChars = 1500; webProfile = ''; screenshots = $false; sideWindows = $false; debugLog = $false; usageAlerts = $true; ui = 'web'; panelWidth = 340; panelZoom = 0.9; webDevTools = $false; terse = $true; compact = $false }
 if (Test-Path $CfgFile) {
     try {
         $j = [IO.File]::ReadAllText($CfgFile) | ConvertFrom-Json
@@ -1062,7 +1062,7 @@ function Read-Quests {
 }
 function Get-IconFlags {
     $v = @($QS.List | Where-Object { $_.Visible })
-    $needs = [bool]($v | Where-Object { ($_.St -eq 'act' -and -not $UI.Answered[[string]$_.id]) -or ($Web.Chats[[string]$_.id] -and @($Web.Chats[[string]$_.id].Prompts).Count) })
+    $needs = [bool]($v | Where-Object { ($_.St -eq 'act' -and -not $UI.Answered[[string]$_.id]) -or ($Web.Chats[[string]$_.id] -and (@($Web.Chats[[string]$_.id].Prompts).Count -or $Web.Chats[[string]$_.id].Q)) })
     $working = [bool]($v | Where-Object { Test-ChatWorking $_ })
     $unread = [bool]($v | Where-Object { Test-Unread $_ })
     return @{ Needs = $needs; Working = $working; Unread = $unread }
@@ -1219,6 +1219,26 @@ $webScript = {
   if (composer) { let cz = composer; for (let i = 0; i < 7 && cz.parentElement; i++) cz = cz.parentElement; zones.push(cz); }     // queued message: 'Send now' sits by the message box
   const pb = []; for (const z of zones) for (const b of z.querySelectorAll('button')) { const tx = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]; if (tx.length < 40 && PR.test(tx) && vis(b) && !b.disabled && !b.closest('[data-testid="user-message"]') && !pb.includes(b)) pb.push(b); }
   window.__ctPrompts = pb;
+  // a question with choices (Claude Code's multiple-choice prompt), found by structure: radios / checkboxes / options near the message box or the last reply
+  let qn = null; window.__ctQ = null;
+  { const qz = qa('[role="dialog"], [role="alertdialog"]'); if (composer) { let cz = composer; for (let i = 0; i < 8 && cz.parentElement; i++) cz = cz.parentElement; qz.push(cz); } if (lastRep && lastRep.parentElement) qz.push(lastRep.parentElement);
+    const OS = '[role="radio"], [role="checkbox"], [role="option"], [role="menuitemradio"], [role="menuitemcheckbox"], input[type="radio"], input[type="checkbox"]';
+    const lab = e => e.matches('input') ? (e.closest('label') || (e.id && document.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.parentElement) : e;
+    let os = []; for (const z of qz) for (const e of z.querySelectorAll(OS)) if (!os.includes(e) && vis(lab(e)) && !e.closest('[data-testid="user-message"], [cmdk-root], [data-testid="model-selector-dropdown"], nav, aside, header, [role="navigation"]') && (lab(e).innerText || '').trim()) os.push(e);
+    const grp = e => e.closest('[role="radiogroup"], [role="listbox"], [role="group"], fieldset') || (e.parentElement && e.parentElement.parentElement) || e.parentElement;
+    const by = new Map(); for (const e of os) { const g = grp(e); if (!by.has(g)) by.set(g, []); by.get(g).push(e); }
+    let best = null; for (const [g, l] of by) if (l.length >= 2 && l.length <= 12 && (!best || l.length > best[1].length)) best = [g, l];
+    if (best) {
+      const [g, l] = best; const bad = s => s.matches('[data-testid="assistant-message"], [data-testid="user-message"], nav, aside, header') || !!s.querySelector('[data-testid="assistant-message"], [data-testid="user-message"]') || (composer && s.contains(composer));
+      let qt = g.innerText || ''; for (const e of l) { const s0 = lab(e).innerText; if (s0) qt = qt.replace(s0, ''); } if (composer && g.contains(composer)) qt = qt.replace(composer.innerText || '', '');     // the question: text in the group besides the choices, else the closest text before it
+      for (const bt of g.querySelectorAll('button')) if (!l.includes(bt)) qt = qt.replace(bt.innerText || '', '');
+      for (let n = g, i = 0; n && i < 4 && !qt.trim(); n = n.parentElement, i++) for (let s = n.previousElementSibling; s && !qt.trim(); s = s.previousElementSibling) { if (!bad(s)) qt = s.innerText || ''; }
+      const SB = /^(submit|send|envoyer|valider|soumettre|next|suivant|continue|continuer|confirm|confirmer|done|terminé|ok)\b/i; let sb = null; let sx = g; for (let i = 0; i < 5 && sx && !sb; sx = sx.parentElement, i++) sb = Array.from(sx.querySelectorAll('button')).find(b => vis(b) && !b.disabled && SB.test((b.innerText || b.getAttribute('aria-label') || '').trim()) && !l.includes(b)) || null;
+      const multi = l.some(e => /checkbox/.test(e.getAttribute('role') || e.type || '')) || g.getAttribute('aria-multiselectable') === 'true';
+      window.__ctQ = { o: l, sub: sb };
+      qn = { t: qt.split('\n').map(x => x.trim()).filter(x => x && x.length > 3).slice(0, 2).join(' ').slice(0, 220), multi: multi, sub: sb ? (sb.innerText || sb.getAttribute('aria-label') || '').trim().split('\n')[0].slice(0, 20) : '',
+        o: l.slice(0, 8).map(e => { const ls = (lab(e).innerText || '').split('\n').map(x => x.trim()).filter(Boolean); return { l: (ls[0] || '').slice(0, 60), d: ls.slice(1).join(' ').slice(0, 160), s: e.getAttribute('aria-checked') === 'true' || e.getAttribute('aria-selected') === 'true' || !!e.checked || e.getAttribute('data-state') === 'checked' }; }) };
+    } }
   // bridge mode: the quest as a ```tray-quest block at the end of Claude's reply (chat can't reach the PC folder)
   let quest = '';
   let qtag = false;
@@ -1228,7 +1248,7 @@ $webScript = {
   const ms = document.querySelector('[data-testid="model-selector-dropdown"]');
   return JSON.stringify({ qtag: qtag, t: document.title, vs: document.visibilityState, raf: window.__ctRaf ? Date.now() - window.__ctRaf : -1, foc: document.hasFocus(), ok: !!composer, stop: stop, streaming: !!streamingEl, users: users.length, replies: replies.length,
     lastUser: lastUser ? lastUser.innerText.slice(0, 80) : '', reply: reply.slice(-4000), rl: reply.length, cf: /just a moment|un instant/i.test(document.title),
-    act: act.slice(0, 90), prompts: pb.map(b => (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]).slice(0, 6),
+    act: act.slice(0, 90), prompts: pb.map(b => (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]).slice(0, 6), q: qn,
     model: ms ? (ms.innerText || '').trim().split('\n')[0].slice(0, 40) : '', retry: !!document.querySelector('[data-testid="action-bar-retry"]'), quest: quest });
 })()
 '@
@@ -1531,6 +1551,9 @@ $webScript = {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const l = document.querySelector('[data-testid=""transcript-list""]') || document.querySelector('[data-testid=""user-message""]'); let n = l; while (n && !(n.scrollHeight > n.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(n).overflowY))) n = n.parentElement; if (!n) return 'no-scroller'; n.scrollTop = 0; return 'scrolled'; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'press') {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const b = (window.__ctPrompts || [])[$([int]$cmd.I)]; if (!b) return 'gone'; const tx = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]; if (tx !== $(ConvertTo-Json ([string]$cmd.Label))) return 'changed:' + tx; b.click(); return 'pressed:' + tx; })()"; returnByValue = $true }).result.result.value
+                        } elseif ($cmd.Kind -eq 'qpick' -or $cmd.Kind -eq 'qsub') {
+                            $lbJs = ConvertTo-Json ([string]$cmd.Label)
+                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const q = window.__ctQ; if (!q) return 'gone'; if ('$($cmd.Kind)' === 'qsub') { if (!q.sub) return 'no-submit'; q.sub.click(); return 'submitted'; } const e = q.o[$([int]$cmd.I)]; if (!e) return 'gone'; const lb = e.matches('input') ? (e.closest('label') || e.parentElement) : e; const tx = (lb.innerText || '').trim().split('\n')[0].trim(); if (tx.slice(0, 60) !== $lbJs) return 'changed'; (e.matches('input') ? e : lb).click(); return 'picked'; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'slash') {
                             $pre2 = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; if ((e.innerText || '').replace(/\u200b/g,'').trim().length) return 'busy'; e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value
                             if ($pre2 -ne 'ok') { $res = "slash:{`"err`":`"$pre2`"}" }
@@ -1558,7 +1581,7 @@ $webScript = {
                             }
                         } elseif ($cmd.Kind -eq 'diag') {
                             # STRUCTURE ONLY (privacy): tags, data-testids, link/download flags of the last messages - no text
-                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const els = Array.from(document.querySelectorAll('[data-testid=""user-message""], [data-testid=""assistant-message""], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e))); const L = /download|télécharg|copy|copier|open|ouvrir|file|fichier|attach|pièce|preview|aperçu/i; const tree = (n, d) => d > 4 ? '' : Array.from(n.children).slice(0, 8).map(c => c.tagName.toLowerCase() + ((c.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 2).map(x => '.' + x.slice(0, 18)).join('')) + (c.dataset.testid ? '#' + c.dataset.testid : '') + ':' + (c.textContent || '').length + (c.children.length ? '(' + tree(c, d + 1) + ')' : '')).join(' '); const lastA = els.filter(e => !e.matches('[data-testid=""user-message""]')).pop(); return 'TREE ' + (lastA ? tree(lastA, 0).slice(0, 1500) : '-') + ' || ' + els.slice(-3).map((e, j) => (e.matches('[data-testid=""user-message""]') ? 'U' : 'A') + '[' + Array.from(e.querySelectorAll('[data-testid], a, button, img, [download]')).slice(0, 40).map(x => x.tagName.toLowerCase() + (x.dataset.testid ? '#' + x.dataset.testid : '') + (x.getAttribute('href') ? '(href:' + (x.getAttribute('href').match(/^[a-z]+:|^\/[a-z_-]+/i) || ['?'])[0] + ')' : '') + (x.hasAttribute('download') ? '(dl)' : '') + (L.test(x.getAttribute('aria-label') || '') ? '{' + (x.getAttribute('aria-label').match(L) || [''])[0] + '}' : '')).join(' ') + ']').join(' | '); })()"; returnByValue = $true }).result.result.value
+                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const els = Array.from(document.querySelectorAll('[data-testid=""user-message""], [data-testid=""assistant-message""], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e))); const L = /download|télécharg|copy|copier|open|ouvrir|file|fichier|attach|pièce|preview|aperçu/i; const tree = (n, d) => d > 4 ? '' : Array.from(n.children).slice(0, 8).map(c => c.tagName.toLowerCase() + ((c.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 2).map(x => '.' + x.slice(0, 18)).join('')) + (c.dataset.testid ? '#' + c.dataset.testid : '') + ':' + (c.textContent || '').length + (c.children.length ? '(' + tree(c, d + 1) + ')' : '')).join(' '); const lastA = els.filter(e => !e.matches('[data-testid=""user-message""]')).pop(); const cmp0 = document.querySelector('div.ProseMirror[contenteditable=""true""]'); let cz0 = cmp0; for (let i = 0; i < 6 && cz0 && cz0.parentElement; i++) cz0 = cz0.parentElement; const tz = (n, d) => d > 6 ? '' : Array.from(n.children).slice(0, 10).map(c => c.tagName.toLowerCase() + (c.getAttribute('role') ? '[' + c.getAttribute('role') + ']' : '') + (c.getAttribute('type') ? '{' + c.getAttribute('type') + '}' : '') + (c.getAttribute('aria-checked') ? '~c' + c.getAttribute('aria-checked') : '') + (c.dataset.testid ? '#' + c.dataset.testid : '') + ':' + (c.textContent || '').length + (c.children.length ? '(' + tz(c, d + 1) + ')' : '')).join(' '); window.__ctZ = cz0 ? 'ZONE ' + tz(cz0, 0) : 'ZONE none'; return window.__ctZ.slice(0, 2500) + ' || TREE ' + (lastA ? tree(lastA, 0).slice(0, 1500) : '-') + ' || ' + els.slice(-3).map((e, j) => (e.matches('[data-testid=""user-message""]') ? 'U' : 'A') + '[' + Array.from(e.querySelectorAll('[data-testid], a, button, img, [download]')).slice(0, 40).map(x => x.tagName.toLowerCase() + (x.dataset.testid ? '#' + x.dataset.testid : '') + (x.getAttribute('href') ? '(href:' + (x.getAttribute('href').match(/^[a-z]+:|^\/[a-z_-]+/i) || ['?'])[0] + ')' : '') + (x.hasAttribute('download') ? '(dl)' : '') + (L.test(x.getAttribute('aria-label') || '') ? '{' + (x.getAttribute('aria-label').match(L) || [''])[0] + '}' : '')).join(' ') + ']').join(' | '); })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'reload') {
                             $cr = $Web.Chats[$id]; if ($cr) { $cr.ReloadAt = Get-Date; $cr.ChangeAt = Get-Date }
                             [void](Cdp $ws 'Page.reload' @{ ignoreCache = $false }); $res = 'reloaded'
@@ -1611,6 +1634,8 @@ $webScript = {
                 if ([string]$o.quest) { $c.Quest = [string]$o.quest; $c.QuestTag = [bool]$o.qtag }
                 $c.Act = [string]$o.act; $c.Prompts = @($o.prompts | ForEach-Object { [string]$_ }); $c.Model = [string]$o.model; $c.Retry = [bool]$o.retry
                 $pks = ($c.Prompts -join '|'); if ($pks -ne [string]$c.PromptSig) { $c.PromptSig = $pks; if ($pks) { WL ("{0}: page asks: {1}" -f $id, $pks) } }
+                $c.Q = $o.q; $qsg = $(if ($o.q) { '{0}|{1}|{2}' -f @($o.q.o).Count, [bool]$o.q.multi, [string]$o.q.sub } else { '' })
+                if ($qsg -ne [string]$c.QSig) { $c.QSig = $qsg; if ($qsg) { WL ("{0}: question with {1} choices (multi={2}, submit='{3}')" -f $id, @($o.q.o).Count, [bool]$o.q.multi, [string]$o.q.sub); [void]$Web.Cmds.Add(@{ Id = $id; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } else { WL ("{0}: question gone" -f $id) } }
                 $c.Working = $work; $c.Users = [int]$o.users; $c.LastUser = [string]$o.lastUser; $c.Ok = [bool]$o.ok; $c.Cf = [bool]$o.cf; $c.At = Get-Date
                 if ($o.ok -and -not $c.WasOk) { $c.WasOk = $true; WL ("{0}: page ready ({1} replies)" -f $id, $o.replies) }
                 if (-not $o.ok -and -not $c.WarnedOk -and ((Get-Date) - $c.FirstAt).TotalSeconds -gt 10) { $c.WarnedOk = $true; WL ("{0}: no composer (cloudflare={1}, login page={2}) - signed in?" -f $id, $o.cf, ([string]$o.t -match '(?i)log ?in|connexion|sign')) }
@@ -2570,7 +2595,7 @@ function Update-TrayIcon {
     } else { 'Tray for Claude' }
     $vis0 = @($QS.List | Where-Object { $_.Visible })
     $pre = @()
-    $nNeed = @($vis0 | Where-Object { $_.St -eq 'act' -or ($Web.Chats[[string]$_.id] -and @($Web.Chats[[string]$_.id].Prompts).Count) }).Count; if ($nNeed) { $pre += "$nNeed need you" }
+    $nNeed = @($vis0 | Where-Object { $_.St -eq 'act' -or ($Web.Chats[[string]$_.id] -and (@($Web.Chats[[string]$_.id].Prompts).Count -or $Web.Chats[[string]$_.id].Q)) }).Count; if ($nNeed) { $pre += "$nNeed need you" }
     $nWork = @($vis0 | Where-Object { Test-ChatWorking $_ }).Count; if ($nWork) { $pre += "$nWork working" }
     $nNew = @($vis0 | Where-Object { Test-Unread $_ }).Count; if ($nNew) { $pre += "$nNew new" }
     if ($pre.Count) { $txt = ($pre -join ', ') + ' - ' + ($txt -replace '^ClaudeTray - ', '') }
@@ -2727,6 +2752,12 @@ function Save-Upload($f) {                            # a file pasted / dropped 
     $dir = Join-Path $env:TEMP ('claudetray_up\' + [guid]::NewGuid().ToString('N').Substring(0, 8)); New-Item -ItemType Directory -Path $dir -Force | Out-Null
     $fp = Join-Path $dir $nm; [IO.File]::WriteAllBytes($fp, [Convert]::FromBase64String([string]$f.b64)); return $fp
 }
+function Open-Downloaded([string]$path) {             # one click on a file Claude made: open it with its app - never run a program or script (those are shown in their folder)
+    $ext = [IO.Path]::GetExtension($path).ToLowerInvariant()
+    $risky = '.exe', '.com', '.bat', '.cmd', '.msi', '.msp', '.ps1', '.psm1', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.hta', '.lnk', '.scr', '.pif', '.reg', '.cpl', '.jar', '.msc', '.appx', '.msix', '.appinstaller', '.application', '.inf', '.url', '.scf', '.dll', '.sys', '.iso', '.vhd', '.vhdx'
+    if ($risky -contains $ext) { Start-Process explorer.exe "/select,`"$path`""; Log ("dl: {0} file shown in its folder, not run" -f $ext); return }
+    try { Start-Process -FilePath $path } catch { Start-Process explorer.exe "/select,`"$path`"" }
+}
 function Finish-Download($key, [string]$srcFile) {        # file is in our temp folder -> Downloads (no overwrite) -> clipboard if asked
     $dl = $UI.Dl[$key]; if (-not $dl) { return }
     try {
@@ -2734,8 +2765,9 @@ function Finish-Download($key, [string]$srcFile) {        # file is in our temp 
         while (Test-Path $dst) { $dst = Join-Path (Split-Path $dst -Parent) ("{0} ({1}){2}" -f $bn, $ix, $ex); $ix++ }
         Move-Item $srcFile $dst -Force; $dl.Path = $dst; $dl.St = 'saved'
         if ($dl.Mode -eq 'copy') { $sc = New-Object System.Collections.Specialized.StringCollection; [void]$sc.Add($dst); [System.Windows.Forms.Clipboard]::SetFileDropList($sc); $dl.St = 'copied' }
+        elseif ($dl.Mode -eq 'open') { Open-Downloaded $dst; $dl.St = 'opened' }
         Log ("dl[{0}]: {1} -> {2} ({3} KB)" -f $key, $dl.St, (Split-Path $dst -Leaf), [int]((Get-Item $dst).Length / 1KB))
-        try { $tray.ShowBalloonTip(3000, $(if ($dl.St -eq 'copied') { 'File copied' } else { 'File saved' }), $(if ($dl.St -eq 'copied') { "$(Split-Path $dst -Leaf) - paste it anywhere (also in Downloads)" } else { "Downloads\$(Split-Path $dst -Leaf)" }), [System.Windows.Forms.ToolTipIcon]::None) } catch { }
+        if ($dl.St -ne 'opened') { try { $tray.ShowBalloonTip(3000, $(if ($dl.St -eq 'copied') { 'File copied' } else { 'File saved' }), $(if ($dl.St -eq 'copied') { "$(Split-Path $dst -Leaf) - paste it anywhere (also in Downloads)" } else { "Downloads\$(Split-Path $dst -Leaf)" }), [System.Windows.Forms.ToolTipIcon]::None) } catch { } }
     } catch { $dl.St = 'failed'; Log "dl[$key]: $($_.Exception.Message)" 'WARN' }
     Push-WebState
 }
@@ -2872,7 +2904,7 @@ function Get-WebUiChat($q) {
     $ch = [ordered]@{ id = $id; title = [string]$q.title; st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
                       age = (Format-Age $q.Upd); preview = $pv.Trim(); web = [bool]$wc; sending = $(if ($pend) { [string]$pend.Text } else { $null })
                       unread = (Test-Unread $q); readKey = $(if ($QS.Read[$id]) { [string]$QS.Read[$id].K } else { $null })
-                      act = $(if ($wc -and $wc.Working) { [string]$wc.Act } else { '' }); prompts = @($(if ($wc) { $wc.Prompts } else { @() })); model = $(if ($wc) { [string]$wc.Model } else { '' }); retry = [bool]($wc -and $wc.Retry); pin = [bool]$QS.Pins.Contains($id); bridge = [bool]$q.bridge; skill = (Test-TraySkill $q $msgs); stepsBefore = $sb
+                      act = $(if ($wc -and $wc.Working) { [string]$wc.Act } else { '' }); prompts = @($(if ($wc) { $wc.Prompts } else { @() })); q = $(if ($wc -and $wc.Q) { $wc.Q } else { $null }); model = $(if ($wc) { [string]$wc.Model } else { '' }); retry = [bool]($wc -and $wc.Retry); pin = [bool]$QS.Pins.Contains($id); bridge = [bool]$q.bridge; skill = (Test-TraySkill $q $msgs); stepsBefore = $sb
                       ts = [long](([DateTimeOffset]$q.Upd).ToUnixTimeMilliseconds()); kind = $(if ($id -like 'code/*') { 'code' } else { 'chat' }); proj = $(if ($id -like 'code/*') { 'Claude Code' } elseif ($QS.Proj.ContainsKey($id)) { [string]$QS.Proj[$id] } else { $null }) }
     if ($UI.Drafts.ContainsKey($id)) { $ov = if ($UI.DraftRestore.ContainsKey($id)) { [int]$UI.DraftRestore[$id].V } else { 0 }; $UI.DraftRestore[$id] = @{ T = [string]$UI.Drafts[$id]; V = $ov + 1 }; $UI.Drafts.Remove($id) }
     if ($UI.DraftRestore.ContainsKey($id)) { $ch.draft = $UI.DraftRestore[$id].T; $ch.draftV = $UI.DraftRestore[$id].V }
@@ -2965,7 +2997,7 @@ function Push-WebState([bool]$force = $false) {
                              err = $werr; usage = $us; catalog = $UI.Catalog; newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd) } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -3102,6 +3134,7 @@ function On-WebMsg($m) {
         'menuact' {                                     # the panel's settings menu
             switch ([string]$m.k) {
                 'theme' { Save-CfgKey 'theme' ([string]$m.v); foreach ($o in $miTheme.DropDownItems) { $o.Checked = ($o.Tag -eq [string]$m.v) }; Apply-Theme }
+                'compact' { Save-CfgKey 'compact' (-not [bool]$Cfg.compact); Log ("Menu: compact {0}" -f $Cfg.compact) }
                 'terse' { Save-CfgKey 'terse' (-not [bool]$Cfg.terse); $miTerse.Checked = [bool]$Cfg.terse; foreach ($qt in @($QS.List)) { Save-Results $qt (Get-Results $qt) } }
                 'debug' { Save-CfgKey 'debugLog' (-not [bool]$Cfg.debugLog); Log ("debug logs {0}" -f $(if ($Cfg.debugLog) { 'ON' } else { 'off' })) 'WARN'; if ($Cfg.debugLog) { Write-DebugSnapshot 'debug on' } }
                 'start' { Save-CfgKey 'startWith' ([string]$m.v); New-BootLnk; foreach ($o in $miBoot.DropDownItems) { $o.Checked = ($o.Tag -eq [string]$m.v) } }
@@ -3142,6 +3175,8 @@ function On-WebMsg($m) {
             }
         }
         'read' { if ($q) { $QS.Read[[string]$q.id] = @{ K = [string]$m.key; At = (Get-Date) }; Save-State; Update-TrayIcon; Sync-Anim } }
+        'qpick' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qpick'; I = [int]$m.i; Label = [string]$m.label; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qpick[{0}]: choice {1}" -f $q.id, [int]$m.i) } }
+        'qsub' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qsub'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qsub[{0}]" -f $q.id) } }
         'press' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'press'; I = [int]$m.i; Label = [string]$m.label; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("press[{0}]: '{1}'" -f $q.id, $m.label) } }
         'reload' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'reload'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log "reload[$($q.id)] (from the panel)" } }
         'restart' { Restart-Tray 'panel' }
@@ -3166,7 +3201,7 @@ function On-WebMsg($m) {
             if ($q) {
                 $key = "{0}|{1}|{2}" -f $q.id, [int]$m.x, [int]$m.k; $dl = $UI.Dl[$key]
                 if ($dl -and $dl.Path -and (Test-Path $dl.Path)) {     # already here: open its folder / copy again
-                    if ([string]$m.mode -eq 'copy') { $sc = New-Object System.Collections.Specialized.StringCollection; [void]$sc.Add($dl.Path); [System.Windows.Forms.Clipboard]::SetFileDropList($sc); $dl.St = 'copied' } else { Start-Process explorer.exe "/select,`"$($dl.Path)`"" }
+                    if ([string]$m.mode -eq 'copy') { $sc = New-Object System.Collections.Specialized.StringCollection; [void]$sc.Add($dl.Path); [System.Windows.Forms.Clipboard]::SetFileDropList($sc); $dl.St = 'copied' } elseif ([string]$m.mode -eq 'open') { Open-Downloaded $dl.Path; $dl.St = 'opened'; Push-WebState } else { Start-Process explorer.exe "/select,`"$($dl.Path)`"" }
                 } elseif (-not $dl -or $dl.St -ne 'working') {
                     $ck = [guid]::NewGuid().ToString('N'); $dir = Join-Path $env:LOCALAPPDATA ('ClaudeTray\dl\' + $ck.Substring(0, 8))
                     $UI.Dl[$key] = @{ Id = [string]$q.id; St = 'working'; Mode = [string]$m.mode; Dir = $dir; Cmd = $ck; At = (Get-Date); Res = $null; Path = $null }
@@ -3392,8 +3427,8 @@ $questTimer.add_Tick({
             $Web.Idle = -not ($UI.AnyWorking -or $UI.Shown -or $UI.Docked -or $UI.Pending -or $UI.WebSends.Count -or $Web.Cmds.Count)
             foreach ($qq in @($QS.List | Where-Object { $_.Visible })) {
                 $cc = $Web.Chats[[string]$qq.id]; if (-not $cc) { continue }
-                $psg = (@($cc.Prompts) -join '|'); $ppv = [string]$UI.PromptWas[[string]$qq.id]; $UI.PromptWas[[string]$qq.id] = $psg
-                if ($psg -and $psg -ne $ppv -and -not ($QS.Bells.ContainsKey([string]$qq.id) -and -not $QS.Bells[[string]$qq.id])) { try { $tray.ShowBalloonTip(5000, [string]$qq.title, ("Claude asks: {0}" -f (@($cc.Prompts) -join ' / ')), [System.Windows.Forms.ToolTipIcon]::None) } catch { }; Log "notify: page asks in $($qq.id)"; Sync-Anim }
+                $psg = (@($cc.Prompts) -join '|') + $(if ($cc.Q) { '|?' + [string]$cc.Q.t } else { '' }); $ppv = [string]$UI.PromptWas[[string]$qq.id]; $UI.PromptWas[[string]$qq.id] = $psg
+                if ($psg -and $psg -ne $ppv -and -not ($QS.Bells.ContainsKey([string]$qq.id) -and -not $QS.Bells[[string]$qq.id])) { try { $tray.ShowBalloonTip(5000, [string]$qq.title, $(if ($cc.Q -and -not @($cc.Prompts).Count) { "Claude asks: {0}" -f [string]$cc.Q.t } else { "Claude asks: {0}" -f (@($cc.Prompts) -join ' / ') }), [System.Windows.Forms.ToolTipIcon]::None) } catch { }; Log "notify: page asks in $($qq.id)"; Sync-Anim }
                 $prevW = $UI.WebWas[[string]$qq.id]; $UI.WebWas[[string]$qq.id] = [bool]$cc.Working
                 if ($prevW -and -not $cc.Working -and -not $UI.Shown -and -not ($QS.Bells.ContainsKey([string]$qq.id) -and -not $QS.Bells[[string]$qq.id])) {
                     try { $tray.ShowBalloonTip(4000, [string]$qq.title, 'Claude finished - your turn', [System.Windows.Forms.ToolTipIcon]::None) } catch { }

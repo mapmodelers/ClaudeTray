@@ -236,3 +236,14 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
 - Drag: CSS `app-region: drag` when the runtime supports it (native move loop -> `ResizeEnd` -> `Set-DockHere`),
   else the page posts `drag` and `$dragTimer` follows the cursor.
 - Test the page without Windows: Playwright + a mocked `window.chrome.webview` (post a `state` object).
+- 0.2.0 bars: `#top` is only the grip; `#gripz` is no-drag, so mousedown posts `drag` (PS `$dragTimer`) and a mouseup
+  without moving calls `foldAll`. The tools live in `#tb` above `#usage`; `popMenu(x, y, items, up)` opens menus upward.
+- Compact mode (`compact` in config, `body.compact`): a collapsed card hides `.head` and shows `.mini` as one row:
+  `.mdot` (data-a `toggle`, draggable) · `.mfld` (the input, placeholder = title · preview) · `.mt` (bell, open, age).
+- Hover labels: the page moves `title` to `data-tt` on hover and draws `#tip` (Windows tooltips never show in a
+  no-activate window).
+- Questions: `$js` returns `q` {t, multi, sub, o:[{l, d, s}]} found by structure (role radio / checkbox / option or
+  inputs near the composer or the last reply, largest group of 2-12, nav / aside excluded), with `window.__ctQ` holding
+  the elements. The `qpick` / `qsub` commands click them (label checked first). A new question queues a `diag` that
+  also logs `ZONE` (the composer's surroundings: tags, roles, types, aria-checked - no text).
+- Files: `dl` mode `open` -> `Open-Downloaded` (default app; risky extensions are shown in their folder, never run).
