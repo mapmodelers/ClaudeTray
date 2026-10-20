@@ -2,11 +2,10 @@
 
 What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELOG.md).
 
-## Now - after 0.2.0 testing
+## Now
 
-- Claude Code questions (0.2.1 reads claude.ai's card):
-  - Confirm on a live question that picking, Next, Skip and Send answers all work.
-  - Multi-select: how a several-answers step marks itself is still unknown (only step 1 was captured).
+- Questions: confirmed working from the tray in 0.2.4 (pick, Next, Back, several answers, Send). Still to check:
+  Skip, the Other answer box, and a question that has only one step.
 - Images: thumbnails in the conversation (today a click opens them).
 
 ## Decided
