@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.1.2
+
+- An open chat keeps its title bar in view while you scroll the list.
+- Settings show the version (bottom of the menu).
+- Short replies from Claude is on by default: the skill now writes for the panel - outcome first, then blockers, steps,
+  suggestions; no recaps. The setting is passed to Claude as `style terse` / `style normal`.
+
 ## 0.1.1
 
 - A round's steps stay with the Claude reply they came from: once you answer (from the tray or the app), they scroll

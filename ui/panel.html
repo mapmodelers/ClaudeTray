@@ -26,6 +26,7 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 .head{display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:6px;cursor:pointer;min-height:20px}
 .head:hover{background:var(--card)}
 .card.open .head{border-radius:8px 8px 0 0}
+.card.open>.head{position:sticky;top:0;z-index:6;background:var(--bg)}.card.open>.head:hover{background:var(--card)}     /* an open chat keeps its title in view while you scroll */
 .dot{width:5px;height:5px;border-radius:50%;flex:none;background:var(--mu);margin:0 3px}
 .dot.act{background:var(--act)}.dot.done{background:var(--pur)}
 .dots{width:11px;height:11px;flex:none;position:relative}
@@ -285,7 +286,7 @@ function setMenu(x, y){                             // settings, inside the pane
     { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
     { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, '-',
     { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }, { t: 'Sign in for live chats…', f: a('weblogin') }, { t: 'Open log folder', f: a('logs') }, { t: 'Open quest folder', f: a('quests') }, '-',
-    { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }]);
+    { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }]);
 }
 function chatMenu(id, x, y){                          // right-click on a chat title
   const c = chatOf(id); if (!c) return;

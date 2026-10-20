@@ -11,6 +11,20 @@ The tray can run, for the user, these actions: run a PowerShell / cmd command or
 admin if needed), start a program, open a folder / file / web link, ask a one-line question, tick a manual step.
 Use them **only when the user has to do something on their PC** - never for a reply that just answers.
 
+## Replies are read in a small tray panel
+
+Unless the results file (or the `[tray]` line) says `style normal`, write every reply in this chat for that panel:
+
+- **Outcome first, one line.** Then only what needs the user, in this order: **blockers** (what's stuck, why, what you
+  need from them), **steps** (also in the quest), **suggestions** (one line each).
+- Skip recaps of what you did, background, restating the question, caveats that change nothing, politeness, headers,
+  long code (it's in the files / steps). Telegraphic is fine; a short numbered list beats a paragraph.
+- Anything the user must act on stays explicit - never cut a blocker, a step or a decision to make it shorter.
+
+With `style normal`: your usual length, still to the point.
+
+## Where the quest goes
+
 **Root folder:** `<QUEST_ROOT>` (filled in by `ClaudeTray.ps1 -QuestRoot <folder>`, which writes
 `skill\tray-personal.zip`). If this chat can't write there (a claude.ai web chat, no folder connected), use
 **bridge mode**: put the same quest JSON, minified, in a fenced code block tagged `tray-quest` as the very last
@@ -42,8 +56,7 @@ Read `<root>\results\<id>.json` first: per step `status` (`done`/`failed`/`skipp
 `exit`, the last lines of output (`out`, already trimmed) and one-line `answer`s. Use it instead of asking
 the user to paste anything. Missing or `quest_updated` ≠ your quest → use the chat. In bridge mode the
 user's message ends with a `[tray]` line instead: `n ✓/✗/– exit / "answer" / last output` per step.
-If it has `"style": "terse"` (bridge mode: `style terse` in the `[tray]` line): from then on write every reply in this chat as short as possible -
-telegraphic, abbreviations and shortcuts OK, no recap, no politeness, typos don't matter.
+Its `style` (bridge mode: `style ...` in the `[tray]` line) is the user's "Short replies" setting: see the top section.
 
 ## Keep it cheap
 

@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.1.1'
+$Version = '0.1.2'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -93,7 +93,7 @@ function Short([string]$text, [int]$n = 300) {
 }
 
 # ---------------------------------------------------------------- config
-$Cfg = @{ pollSeconds = 180; refreshToken = $true; credentialsPath = ''; questRoots = @(); theme = 'auto'; holdWhileWorking = $false; engine = 'auto'; webPort = 0; logMessages = $false; resultChars = 1500; webProfile = ''; screenshots = $false; sideWindows = $false; debugLog = $false; usageAlerts = $true; ui = 'web'; panelWidth = 340; panelZoom = 0.9; webDevTools = $false; terse = $false }
+$Cfg = @{ pollSeconds = 180; refreshToken = $true; credentialsPath = ''; questRoots = @(); theme = 'auto'; holdWhileWorking = $false; engine = 'auto'; webPort = 0; logMessages = $false; resultChars = 1500; webProfile = ''; screenshots = $false; sideWindows = $false; debugLog = $false; usageAlerts = $true; ui = 'web'; panelWidth = 340; panelZoom = 0.9; webDevTools = $false; terse = $true }
 if (Test-Path $CfgFile) {
     try {
         $j = [IO.File]::ReadAllText($CfgFile) | ConvertFrom-Json
@@ -1007,7 +1007,7 @@ function Read-Results($q) {
 function Save-Results($q, $res) {
     $d = Join-Path $q.Root 'results'; if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
     $f = Join-Path $d ((Get-FileId $q.id) + '.json')
-    if ($Cfg.terse) { $res | Add-Member -NotePropertyName style -NotePropertyValue 'terse' -Force } elseif ($res.PSObject.Properties['style']) { $res.PSObject.Properties.Remove('style') }    # Claude reads this file on 'check': the toggle costs no tokens
+    $res | Add-Member -NotePropertyName style -NotePropertyValue $(if ($Cfg.terse) { 'terse' } else { 'normal' }) -Force     # the skill: terse = shortest replies for the tray (default), normal = usual    # Claude reads this file on 'check': the toggle costs no tokens
     try { [IO.File]::WriteAllText($f, ($res | ConvertTo-Json -Depth 8 -Compress), (New-Object Text.UTF8Encoding $false)) } catch { Log "results save: $($_.Exception.Message)" 'WARN' }
 }
 function New-Results($q) { return [pscustomobject]@{ v = 1; id = $q.id; quest_updated = [string]$q.updated; steps = @(); sent = @() } }
@@ -2765,7 +2765,7 @@ function Get-BridgeLine($q) {                            # '[tray] 1 ✓ exit 0 
         $p0
     }
     if (-not @($parts).Count) { return '' }
-    return "`n`n[tray] " + (@($parts) -join ' | ') + $(if ($Cfg.terse) { ' | style terse' } else { '' })
+    return "`n`n[tray] " + (@($parts) -join ' | ') + $(if ($Cfg.terse) { ' | style terse' } else { ' | style normal' })
 }
 function Poll-NewChat {                               # results of catalog / newchat / rename commands
     if ($UI.CatKey -and $Web.Results[$UI.CatKey]) {
@@ -2934,7 +2934,7 @@ function Push-WebState([bool]$force = $false) {
                              err = $werr; usage = $us; catalog = $UI.Catalog; newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd) } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
