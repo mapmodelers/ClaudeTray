@@ -82,6 +82,8 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
 - Bump `$Version`, add a `CHANGELOG.md` entry, run `-Once`; after UI changes `node tools/readme-shots.js`, check the images.
 - `git status --ignored` must show `oauth.json`, `config.json`, `logs/` as ignored — never commit them.
 - Grep the diff for `sk-ant-`, `Bearer`, e-mail addresses and personal paths before pushing.
+- Release: push the tag first and stop if that fails; `gh release create vX --verify-tag --notes-file ...` (without
+  `--verify-tag`, gh tags whatever the remote main is: v0.2.8 once landed on the 0.2.7 commit).
 
 ## Quest log
 
