@@ -1,0 +1,850 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:;">
+<style>
+:root{--bg:#262624;--card:#30302e;--tx:#eeece2;--mu:#9a978d;--ln:#3b3a37;--acc:#d97757;--act:#6296d6;--pur:#7e6bc4;--ok:#6fa876;--field:#30302e;--bub:#1a1a18;--convh:300px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:11px/1.3 "Segoe UI Variable Text","Segoe UI",sans-serif;overflow:hidden;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ib{width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--mu);flex:none}
+.ib:hover{background:var(--ln);color:var(--tx)}
+.ib.on{color:var(--acc)}
+#wrap{display:flex;height:100%}
+#app{display:flex;flex-direction:column;height:100%;flex:1;min-width:0}
+#top{height:14px;position:relative;flex:none;cursor:move}
+body.nc #top{app-region:drag;-webkit-app-region:drag}
+body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
+#grip{position:absolute;left:50%;top:5px;width:28px;height:3px;margin-left:-14px;border-radius:2px;background:var(--ln)}
+#tbtn{position:absolute;right:4px;top:0;display:flex;gap:1px}
+#lbtn{position:absolute;left:4px;top:0;display:flex}#lbtn .ib{width:16px;height:14px}#fold{display:none}#fold.on{display:inline-flex}
+#tbtn .ib{width:16px;height:14px}
+#list{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 4px 3px;position:relative}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--ln);border-radius:3px}::-webkit-scrollbar-track{background:transparent}
+.card{border:1px solid transparent;border-radius:8px;margin:0 0 2px}
+.card.open{border-color:var(--ln);background:var(--bg)}
+.head{display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:6px;cursor:pointer;min-height:20px}
+.head:hover{background:var(--card)}
+.card.open .head{border-radius:8px 8px 0 0}
+.dot{width:5px;height:5px;border-radius:50%;flex:none;background:var(--mu);margin:0 3px}
+.dot.act{background:var(--act)}.dot.done{background:var(--pur)}
+.dots{width:11px;height:11px;flex:none;position:relative}
+.dots i{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--acc);opacity:.3;animation:dd 1s infinite steps(1)}
+.dots i:nth-child(1){left:1px;top:1px}.dots i:nth-child(2){right:1px;top:1px;animation-delay:.25s}
+.dots i:nth-child(3){right:1px;bottom:1px;animation-delay:.5s}.dots i:nth-child(4){left:1px;bottom:1px;animation-delay:.75s}
+@keyframes dd{0%{opacity:1}25%{opacity:.3}}
+.rt{flex:1;min-width:0;position:relative}.rt.rk1 b{padding-right:16px}.rt.rk2 b{padding-right:32px}
+.rt b{font-weight:400;color:color-mix(in srgb,var(--tx) 78%,var(--mu));font-size:11.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt span{display:block;color:var(--mu);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-1px}
+.age{color:var(--mu);font-size:10.5px;flex:none}
+.tools{display:flex;gap:0;position:absolute;right:0;top:50%;transform:translateY(-50%);border-radius:5px}.tools .ib{visibility:hidden}.tools .ib.keep{visibility:visible;opacity:.7}
+.head:hover .tools{background:var(--card);box-shadow:-8px 0 6px var(--card)}.head:hover .tools .ib{visibility:visible;opacity:1}
+.empty{color:var(--mu);font-size:11.5px;padding:10px 8px}
+.body{display:none}.card.open .body{display:block}
+.conv{max-height:var(--convh);overflow-y:auto;padding:4px 6px 0;user-select:text;border-top:1px solid var(--ln)}
+.more{color:var(--mu);font-size:9.5px;text-align:center;padding:0 0 4px}
+.m{margin:0 0 5px;position:relative}
+.m.u{display:flex;justify-content:flex-end}
+.m.u .b{background:var(--bub);border-radius:8px;padding:2px 7px;max-width:88%;white-space:pre-wrap;word-wrap:break-word}
+.m.u.sending{margin-bottom:18px}.m.u.sending .b{opacity:.55}
+.m.u .sst{font-size:10px;color:var(--mu);position:absolute;right:3px;bottom:-13px}
+.m.a .b{word-wrap:break-word;cursor:default}
+.m.a .pv{color:var(--tx);cursor:pointer}.m.a .pv .mo{color:var(--mu);font-size:10px;margin-left:3px;white-space:nowrap}
+.m.a.hot .b{background:var(--card);border-radius:4px;box-shadow:0 0 0 3px var(--card)}
+.rnd{display:flex;flex-direction:column;align-items:flex-end;margin:2px 0 0;font-size:10px;color:var(--mu)}
+.rnd div{max-width:92%;text-align:right}.rnd .lab{color:var(--mu)}.rnd .ans{color:var(--tx)}.rnd .okc{color:var(--ok)}.rnd .bad{color:var(--acc)}
+.m.u{flex-direction:column;align-items:flex-end}
+.m.a .b p{margin:0 0 6px}.m.a .b>*:last-child{margin-bottom:0}
+.m.a .b ul,.m.a .b ol{margin:0 0 6px;padding-left:18px}
+.m.a .b h1,.m.a .b h2,.m.a .b h3,.m.a .b h4,.m.a .b h5,.m.a .b h6{font-size:12px;margin:8px 0 3px;font-weight:600}
+.m.a .b code{font-family:Consolas,monospace;font-size:10.5px;background:var(--card);padding:0 3px;border-radius:3px}
+.m.a .b pre{background:var(--card);border-radius:6px;padding:6px 8px;overflow:auto;margin:0 0 6px}
+.m.a .b pre code{background:none;padding:0;white-space:pre}
+.m.a .b table{border-collapse:collapse;margin:0 0 6px;font-size:11px}
+.m.a .b th,.m.a .b td{border:1px solid var(--ln);padding:2px 6px;text-align:left}
+.m.a .b blockquote{margin:0 0 6px;padding-left:8px;border-left:3px solid var(--ln);color:var(--mu)}
+.m .cp{position:absolute;top:-3px;right:-3px;display:none;width:20px;height:20px;background:var(--bg)}
+.m:hover .cp{display:inline-flex}
+.m.u .cp{right:auto;left:0;top:0}
+.writing{color:var(--mu);font-size:11px;display:flex;align-items:center;gap:6px;margin:0 0 8px}.writing .rf{opacity:0;width:14px;height:14px}.writing:hover .rf{opacity:.6}.writing .rf svg{width:10px;height:10px}
+.acts{padding:0 0 4px;margin:-2px -3px 0}
+.st{display:flex;align-items:flex-start;gap:5px;padding:1px 3px;border-radius:5px}
+.st.done .l .lab{text-decoration:line-through;text-decoration-color:var(--mu)}.st .ans{color:var(--tx)}
+.st:hover{background:var(--card)}
+.st .k{color:var(--mu);margin-top:3px;flex:none}
+.st .l{flex:1;min-width:0;padding-top:2px}
+.st.done .l{color:var(--mu)}.st.skipped .l{color:var(--mu);text-decoration:line-through;opacity:.6}
+.st .x{font:10px Consolas,monospace;color:var(--ok);padding-top:4px;flex:none}.st .x.bad{color:var(--acc)}
+.st .run{color:var(--acc)}.st.done .run,.st.skipped .run{color:var(--mu)}
+.chk{width:12px;height:12px;border:1.5px solid var(--mu);border-radius:3px;margin:3px 0 0;flex:none;cursor:pointer;position:relative}
+.chk.on{background:var(--ok);border-color:var(--ok)}
+.chk.on:after{content:"";position:absolute;left:3px;top:0;width:3px;height:6px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.field{background:var(--field);border:1px solid var(--ln);border-radius:6px;padding:1px 6px;margin:2px 0 1px}
+.field:focus-within,.cbox:focus-within{border-color:var(--mu)}
+textarea{width:100%;display:block;resize:none;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;line-height:1.35;padding:1px 0;min-height:15px}
+textarea::placeholder{color:var(--mu)}
+.comp{padding:2px 4px 4px}
+.cbox{display:flex;align-items:flex-end;gap:2px;background:var(--field);border:1px solid var(--ln);border-radius:9px;padding:2px 2px 2px 7px}
+.cbox textarea{flex:1;max-height:100px;padding:1px 0}
+.send{color:var(--acc)}.stop{color:var(--acc);display:none}
+.atts{display:flex;flex-wrap:wrap;gap:3px;margin:0 0 2px}.atts:empty{display:none}
+.att{display:inline-flex;align-items:center;gap:2px;max-width:100%;background:var(--card);border-radius:5px;padding:0 1px 0 3px;font-size:9.5px;color:var(--mu);height:16px}
+.att img{width:12px;height:12px;object-fit:cover;border-radius:3px}.att span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.files{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0 0}
+.fch{display:inline-flex;align-items:center;gap:1px;background:var(--card);border-radius:5px;padding:0 1px 0 4px;font-size:9.5px;max-width:100%;height:16px}
+.fch span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}.fch .fs{color:var(--mu)}.fch .fs.bad{color:var(--acc)}.fch .fs.ok{color:var(--ok)}
+.card.drop .cbox{border-color:var(--acc)}
+#newf{flex:none;border:1px solid var(--ln);border-radius:8px;margin:4px 0 3px;padding:4px 5px;display:none;flex-direction:column;gap:3px}
+#newf.on{display:flex}
+#newf .r{display:flex;gap:3px;align-items:center}
+#newf select,#newf input{flex:1;min-width:0;background:var(--field);color:var(--tx);border:1px solid var(--ln);border-radius:5px;font:inherit;font-size:10.5px;padding:1px 4px;height:19px;outline:0}
+#newf select:focus,#newf input:focus{border-color:var(--mu)}
+#newf .field{margin:0}
+#nfSt{flex:1;color:var(--mu);font-size:10px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#nfSt.bad{color:var(--acc)}
+#nfGo{background:var(--acc);color:#fff;border-radius:5px;padding:0 9px;height:19px;font-size:10.5px}#nfGo:disabled{opacity:.5}
+.m.a.old .b{opacity:.62}
+.head.unread b{color:var(--tx);font-weight:600}.dot.new{background:var(--pur)}
+.mdl{color:var(--mu);font-size:9.5px;flex:none;max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.writing .wt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ask{display:flex;flex-wrap:wrap;align-items:center;gap:3px;padding:3px 6px;margin:0 -3px 5px;border-radius:6px;background:color-mix(in srgb,var(--act) 12%,transparent)}
+.ask span{color:var(--act);font-size:10px;margin-right:2px}.ask button{border:1px solid var(--act);color:var(--tx);border-radius:5px;padding:0 7px;height:18px;font-size:10.5px}.ask button:hover{background:var(--act)}
+.m.a .b a{color:var(--act);text-decoration:underline;cursor:pointer}
+.prew{position:relative}.prew .cpc{position:absolute;top:2px;right:2px;display:none;background:var(--card)}.prew:hover .cpc{display:inline-flex}
+.m .rt2{position:absolute;top:-3px;right:15px;display:none;width:16px;height:16px;background:var(--bg)}.m:hover .rt2{display:inline-flex}
+.jump{position:absolute;right:10px;margin-top:-26px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--ln);color:var(--tx);display:none;align-items:center;justify-content:center;z-index:2}
+.jump.on{display:inline-flex}.jump.new{border-color:var(--acc);color:var(--acc)}
+.body{position:relative}
+.acts.locked{opacity:.45;pointer-events:none}.lockn{color:var(--mu);font-size:10px;padding:2px 6px 0}.lockn .lk{color:var(--mu);text-decoration:underline;cursor:pointer;margin-left:4px}.lockn .lk:hover{color:var(--tx)}
+.sit{padding:2px 7px 3px;border-top:1px solid var(--ln);color:var(--tx);font-size:11px}.sit div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card:not(.big) .conv,.card:not(.big) .jump,.card:not(.big) .comp{display:none}.card.big .mini,.card.big .sit{display:none}
+.mini{display:flex;align-items:center;gap:1px;margin:0 4px 3px 17px;background:var(--field);border:1px solid var(--ln);border-radius:7px;padding:0 2px 0 5px;height:19px}
+.mini:focus-within{border-color:var(--mu)}.mini .mi{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:10.5px;height:17px;padding:0}
+.mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
+.mf{display:inline-flex;align-items:center;color:var(--mu);font-size:9.5px;gap:1px}.mf svg{width:10px;height:10px}
+.okm{color:var(--mu);margin-top:2px}
+.trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
+#slp{position:fixed;z-index:21;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:150px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vw{opacity:.45;width:14px;height:14px}.vw:hover{opacity:1}.vw svg{width:11px;height:11px}
+.card.open:not(.big) .acts{border-top:0}
+.pill{font-size:10px;color:var(--mu);border:1px solid var(--ln);border-radius:8px;padding:0 6px;height:16px;display:none}
+.pill:hover{color:var(--tx);background:var(--ln)}
+#usage{flex:none;display:flex;gap:10px;padding:2px 8px 4px;border-top:1px solid var(--ln)}
+.u{margin:1px 0 0;flex:1;min-width:0}
+.u .ul{display:flex;justify-content:space-between;gap:4px;white-space:nowrap;overflow:hidden;font-size:9.5px;color:var(--mu);line-height:1.3}
+.u .ul b{color:var(--tx);font-weight:600;margin-left:5px}
+.u .bar{height:2px;border-radius:1px;background:var(--ln);margin-top:2px;overflow:hidden}
+.u .bar i{display:block;height:100%;background:var(--mu)}
+.u.warn .ul b{color:var(--acc)}.u.warn .bar i{background:var(--acc)}
+#err{color:var(--acc);font-size:10.5px}
+.rz{position:fixed;z-index:40;app-region:no-drag;-webkit-app-region:no-drag}.rz.l,.rz.r{top:6px;bottom:6px;width:4px;cursor:ew-resize}.rz.l{left:0}.rz.r{right:0}
+.rz.t,.rz.b{left:6px;right:6px;height:3px;cursor:ns-resize}.rz.t{top:0}.rz.b{bottom:0}.rz.tl,.rz.tr,.rz.bl,.rz.br{width:7px;height:7px}
+.rz.tl{left:0;top:0;cursor:nwse-resize}.rz.br{right:0;bottom:0;cursor:nwse-resize}.rz.tr{right:0;top:0;cursor:nesw-resize}.rz.bl{left:0;bottom:0;cursor:nesw-resize}
+.sec{margin:0 0 2px}.sh,.bh{display:flex;align-items:center;gap:4px;padding:3px 4px 1px;color:var(--mu);font-size:10px;cursor:pointer;border-radius:5px}
+.sh .sn,.bh .sn{font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:9.5px;outline:0;min-width:10px}.sh .sn[contenteditable=true]{text-transform:none;letter-spacing:0;color:var(--tx);background:var(--field);border-radius:3px;padding:0 3px;cursor:text}
+.sh .sc{opacity:.7}.sp{flex:1}.car{width:8px;font-size:8px;flex:none}.sh .ss{font-size:9.5px;color:var(--mu);padding:0 3px;border-radius:4px}.sh .ss:hover{background:var(--ln);color:var(--tx)}
+.sh .sm,.sh .ss{opacity:0}.sh:hover .sm,.sh:hover .ss{opacity:1}.sh .sm{width:14px;height:14px}
+.sec.col .sb{display:none}.secempty{color:var(--mu);font-size:10px;padding:3px 10px 4px;font-style:italic}.secempty.bad{color:var(--acc)}
+.sh.dropin,.bh.dropin{background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--tx)}
+.card.dropb{box-shadow:0 -2px 0 var(--acc)}.card.dropa{box-shadow:0 2px 0 var(--acc)}.card.dragging{opacity:.4}#pins.dropin{box-shadow:inset 0 0 0 1px var(--acc)}
+#pmenu{position:fixed;z-index:20;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:3px;min-width:150px;box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:11px}
+#pmenu .pmi{padding:3px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}#pmenu .pmi:hover{background:var(--ln)}#pmenu .pmi.off{opacity:.4;cursor:default}#pmenu .pms{height:1px;background:var(--ln);margin:3px 2px}
+#brw{border-top:1px solid var(--ln);margin:4px 0 2px;padding-top:1px}#brw .bq{width:calc(100% - 8px);margin:1px 4px 3px;background:var(--field);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font:inherit;font-size:10.5px;height:19px;padding:0 6px;outline:0}#brw .bq:focus{border-color:var(--mu)}
+#brw .bl{max-height:240px;overflow-y:auto}#brw .bg{color:var(--mu);font-size:9.5px;padding:2px 8px 1px}
+#brw .bp{display:flex;align-items:center;gap:4px;padding:2px 6px;cursor:pointer;border-radius:5px;font-size:10.5px}#brw .bp:hover{background:var(--card)}
+#brw .br{display:flex;align-items:center;gap:5px;padding:1px 4px 1px 18px;border-radius:5px;font-size:10.5px}#brw .br:hover{background:var(--card)}#brw .bn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#brw .bt{color:var(--ok)}#brw .bt svg{width:11px;height:11px}
+#brw .bnote{color:var(--mu);font-size:9.5px;padding:4px 8px 2px;font-style:italic}
+#pins{flex:none;overflow-y:auto;overflow-x:hidden;padding:0 4px 1px;border-bottom:1px solid var(--ln);margin:0 0 2px}#pins:empty{display:none}
+.pinm{color:var(--mu);flex:none;display:inline-flex}.pinm svg{width:9px;height:9px}
+.ib.pon{color:var(--acc)}
+#hid{color:var(--mu);font-size:10px;padding:3px 8px 2px}#hid .ht{cursor:pointer}
+#hid .hr{display:flex;align-items:center;gap:5px;padding:1px 0 1px 6px;border-radius:5px}#hid .hr:hover{background:var(--card)}
+#hid .hr span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#hid .hr .ib{width:15px;height:15px}
+</style></head>
+<body><div class="rz l" data-e="l"></div><div class="rz r" data-e="r"></div><div class="rz t" data-e="t"></div><div class="rz b" data-e="b"></div><div class="rz tl" data-e="tl"></div><div class="rz tr" data-e="tr"></div><div class="rz bl" data-e="bl"></div><div class="rz br" data-e="br"></div><div id="wrap"><div id="app">
+  <div id="top" title="Drag to move (parks the panel)"><div id="grip"></div><div id="lbtn"><button class="ib" id="fold" title="Collapse all chats"></button></div>
+    <div id="tbtn"><button class="ib" id="plus" title="New chat (with /tray)"></button><button class="ib" id="gear" title="Settings"></button><button class="ib" id="pin" title="Pin here (stays on top)"></button></div></div>
+  <div id="newf">
+    <div class="r"><select id="nfProj" title="Project"><option value="">No project</option></select></div>
+    <div class="r"><input id="nfName" placeholder="Name (optional)" maxlength="120"></div>
+    <div class="r"><select id="nfModel" title="Model"><option value="">Model: default</option><option>Opus</option><option>Sonnet</option><option>Haiku</option><option>Fable</option></select>
+      <select id="nfThink" title="Extended thinking"><option value="">Thinking: default</option><option value="on">Thinking on</option><option value="off">Thinking off</option></select></div>
+    <div class="field"><textarea id="nfMsg" rows="2" placeholder="First message… (/tray is added)"></textarea></div>
+    <div class="r"><select id="nfRecent" title="Track a chat you already have (no /tray needed)"><option value="">…or track a recent chat</option></select><button class="ib" data-a="track" title="Track it in the tray" id="nfTrack"></button></div>
+    <div class="r"><span id="nfSt"></span><button class="ib" id="nfX" title="Cancel"></button><button id="nfGo">Create</button></div>
+  </div>
+  <div id="pins"></div>
+  <div id="list"></div>
+  <div id="usage"></div>
+</div></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const post = m => window.chrome.webview.postMessage(m);
+const I = {
+  pin:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-4 4h12l-4-4V3M12 13v8"/></svg>',
+  unpin:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-4 4h12l-4-4V3M12 13v8M3 3l18 18"/></svg>',
+  gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  app:'<svg viewBox="0 0 24 24"><path d="M13 4H5v15h15v-8M10 14l10-10M14 4h6v6"/></svg>',
+  web:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>',
+  bell:'<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2M10 20a2 2 0 0 0 4 0"/></svg>',
+  belloff:'<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2M10 20a2 2 0 0 0 4 0M3 3l18 18"/></svg>',
+  x:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  send:'<svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-7-8-1z"/></svg>',
+  stop:'<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
+  run:'<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" fill="currentColor"/></svg>',
+  copy:'<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>',
+  bot:'<svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01"/></svg>',
+  cmd:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10l3 2-3 2M12 15h5"/></svg>',
+  dir:'<svg viewBox="0 0 24 24"><path d="M3 6h6l2 2h10v11H3z"/></svg>',
+  file:'<svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7zM14 3v4h4"/></svg>',
+  eye:'<svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  key:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/></svg>',
+  retry:'<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg>',
+  fold:'<svg viewBox="0 0 24 24"><path d="M7 11l5-5 5 5M7 18l5-5 5 5"/></svg>',
+  note:'<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg>',
+  ok:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+  v0:'<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+  v1:'<svg viewBox="0 0 24 24"><path d="M5 9h14M5 15h9"/></svg>',
+  v2:'<svg viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h14M5 20h8"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  clip:'<svg viewBox="0 0 24 24"><path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/></svg>',
+  dl:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>',
+  mv:'<svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3zM13 14h5M16 11l3 3-3 3"/></svg>'
+};
+let S = null, firstState = true, prevH = 0, lastExp = '', hoverT = null, leaveT = null, hotEl = null;
+const col = { L: { open: false, pinned: false, id: null, i: -1, html: '', el: null }, R: { open: false, pinned: false, id: null, i: -1, html: '', el: null } };
+const opened = new Set(), big = new Set(), cards = new Map(), lastSt = {}, drafts = {}, draftSeen = {}, sugSeen = {}, localSend = {}, moreBusy = {};
+$('#gear').innerHTML = I.gear; const JUMP = '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>'; $('#plus').innerHTML = I.plus; $('#fold').innerHTML = I.fold; $('#nfX').innerHTML = I.x; $('#nfTrack').innerHTML = I.plus;
+const trayArm = {}; let slp = null;
+let newSeen = '', hidOpen = false, rootCss = '', usageH = '', LAY = null, layT = null, dirtyView = true, dragId = null, brQ = '';
+const secEls = new Map(), views = {}, brOpen = new Set();
+const SORTN = { manual: 'custom', date: 'by last used', name: 'by name', project: 'by project' }, SORTS = ['date', 'name', 'project'], SORTOK = ['manual', 'date', 'name', 'project'];
+function validLay(l){
+  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, open: [], big: [] };
+  if (!l || typeof l !== 'object') return d;
+  const sec = Array.isArray(l.sec) ? l.sec.filter(s => s && s.id).map(s => ({ id: String(s.id), name: String(s.name || 'Section'), sort: SORTOK.includes(s.sort) ? s.sort : 'date', col: !!s.col })) : [];
+  if (!sec.some(s => s.id === 'main')) sec.unshift(d.sec[0]);
+  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [] };
+}
+function saveLay(){ clearTimeout(layT); layT = setTimeout(() => { LAY.open = [...opened]; LAY.big = [...big]; post({ type: 'layout', layout: LAY }); }, 400); }
+function secOf(c){ if (c.pin) return 'pin'; const s = LAY.at[c.id]; return s && LAY.sec.some(x => x.id === s) ? s : 'main'; }
+function secEl(id){ let e = secEls.get(id); if (!e) { e = document.createElement('div'); e.className = 'sec'; e.dataset.sec = id; e.innerHTML = '<div class="sh" data-sec="' + esc(id) + '"></div><div class="sb"></div>'; secEls.set(id, e); } return e; }
+function viewOf(sid, list, mode){                  // a section's display order; re-sorted only while the panel is hidden or after you change something
+  const oi = id => { const i = LAY.ord.indexOf(id); return i < 0 ? 1e9 : i; }, pj = c => (c.proj == null ? '\uffff' : (c.proj || '\ufffe')).toLowerCase();
+  const cmp = { manual: (a, b) => oi(a.id) - oi(b.id), date: (a, b) => (b.ts || 0) - (a.ts || 0), name: (a, b) => String(a.title).localeCompare(String(b.title), undefined, { sensitivity: 'base' }), project: (a, b) => pj(a).localeCompare(pj(b)) || (b.ts || 0) - (a.ts || 0) };
+  const ids = new Set(list.map(c => c.id)); let v = views[sid];
+  if (dirtyView || !v || mode === 'manual') v = list.slice().sort(cmp[mode] || cmp.manual).map(c => c.id);
+  else { v = v.filter(id => ids.has(id)); for (const c of list.slice().sort(cmp[mode] || cmp.manual)) if (!v.includes(c.id)) v.unshift(c.id); }
+  views[sid] = v; const by = new Map(list.map(c => [c.id, c])); return v.map(id => by.get(id));
+}
+function moveChat(id, toSec, refId, after){            // drag & drop / "Move to": section + place in the manual order
+  const c = chatOf(id); if (!c) return;
+  if (toSec === 'pin') { if (!c.pin) { c.pin = true; post({ type: 'pinc', id: id }); } }
+  else { if (c.pin) { c.pin = false; post({ type: 'pinc', id: id }); } if (toSec === 'main') delete LAY.at[id]; else LAY.at[id] = toSec; }
+  LAY.ord = LAY.ord.filter(x => x !== id);
+  let i = refId ? LAY.ord.indexOf(refId) : -1;
+  if (i >= 0) LAY.ord.splice(after ? i + 1 : i, 0, id);
+  else { let last = -1; LAY.ord.forEach((x, k) => { const cx = chatOf(x); if (cx && secOf(cx) === toSec) last = k; }); LAY.ord.splice(last + 1, 0, id); }
+  const sc = LAY.sec.find(s => s.id === toSec); if (sc && refId && sc.sort !== 'manual') sc.sort = 'manual';     // you placed it by hand: the section becomes manual
+  dirtyView = true; saveLay(); render();
+}
+function newSection(){ const sc = { id: 's' + Date.now().toString(36), name: 'New section', sort: 'date', col: false }; LAY.sec.push(sc); dirtyView = true; saveLay(); render(); setTimeout(() => renameSec(sc.id), 0); return sc; }
+function renameSec(sid){
+  const e = secEls.get(sid); if (!e) return; const sn = e.querySelector('.sn'); if (!sn) return;
+  sn.contentEditable = 'true'; sn.focus(); const r = document.createRange(); r.selectNodeContents(sn); getSelection().removeAllRanges(); getSelection().addRange(r);
+  const done = ok => { sn.contentEditable = 'false'; const sc = LAY.sec.find(s => s.id === sid); const v = sn.textContent.replace(/\s+/g, ' ').trim().slice(0, 40); if (sc && ok && v) sc.name = v; e.firstElementChild.dataset.h = ''; saveLay(); render(); };
+  sn.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); sn.onblur = null; done(true); } else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); sn.onblur = null; done(false); } };
+  sn.onblur = () => done(true);
+}
+function popMenu(x, y, items){                          // small menu inside the panel (a tray-side menu would steal the focus)
+  closeMenu(); const m = document.createElement('div'); m.id = 'pmenu';
+  m.innerHTML = items.map((it, i) => it === '-' ? '<div class="pms"></div>' : '<div class="pmi' + (it.on ? ' on' : '') + (it.off ? ' off' : '') + '" data-i="' + i + '">' + (it.on ? '✓ ' : '') + esc(it.t) + '</div>').join('');
+  document.body.appendChild(m); const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(2, Math.min(x, innerWidth - w - 2)) + 'px'; m.style.top = Math.max(2, Math.min(y, innerHeight - h - 2)) + 'px';
+  m.onclick = ev => { const r = ev.target.closest('.pmi'); if (!r || r.classList.contains('off')) return; const it = items[+r.dataset.i]; closeMenu(); it.f(); };
+  setTimeout(() => document.addEventListener('mousedown', menuAway, true), 0);
+}
+function menuAway(e){ if (!e.target.closest('#pmenu')) closeMenu(); }
+function closeMenu(){ const m = $('#pmenu'); if (m) m.remove(); document.removeEventListener('mousedown', menuAway, true); }
+let menuLeaveT = null;                                // the pointer left the panel (clicked elsewhere on the screen): close the menu
+window.addEventListener('blur', () => closeMenu());
+document.documentElement.addEventListener('mouseleave', () => { clearTimeout(menuLeaveT); menuLeaveT = setTimeout(closeMenu, 900); });
+document.documentElement.addEventListener('mouseenter', () => clearTimeout(menuLeaveT));
+function moveMenu(id, x, y){
+  const c = chatOf(id); if (!c) return; const cur = secOf(c);
+  const items = [{ t: 'Pinned (on top)', on: cur === 'pin', f: () => moveChat(id, 'pin') }].concat(LAY.sec.map(sc => ({ t: sc.id === 'main' ? sc.name + ' (main)' : sc.name, on: cur === sc.id, f: () => moveChat(id, sc.id) })), ['-', { t: 'New section with it…', f: () => { const sc = newSection(); moveChat(id, sc.id); } }]);
+  popMenu(x, y, items);
+}
+function setMenu(x, y){                             // settings, inside the panel
+  const st = S.settings || {}, a = (k, v) => () => post({ type: 'menuact', k: k, v: v });
+  popMenu(x, y, [{ t: 'Theme: follow Windows', on: st.theme === 'auto' || !st.theme, f: a('theme', 'auto') }, { t: 'Theme: light', on: st.theme === 'light', f: a('theme', 'light') }, { t: 'Theme: dark', on: st.theme === 'dark', f: a('theme', 'dark') }, '-',
+    { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
+    { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, '-',
+    { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }, { t: 'Sign in for live chats…', f: a('weblogin') }, { t: 'Open log folder', f: a('logs') }, { t: 'Open quest folder', f: a('quests') }, '-',
+    { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }]);
+}
+function chatMenu(id, x, y){                          // right-click on a chat title
+  const c = chatOf(id); if (!c) return;
+  popMenu(x, y, [{ t: c.pin ? 'Unpin' : 'Pin on top', f: () => post({ type: 'pinc', id: id }) }, { t: 'Move to a section…', f: () => moveMenu(id, x, y) },
+    { t: c.bell ? 'Mute notifications' : 'Unmute notifications', f: () => post({ type: 'bell', id: id }) }, '-',
+    { t: 'Open in the Claude app', f: () => post({ type: 'open', id: id, web: false }) }, { t: 'Open on claude.ai', f: () => post({ type: 'open', id: id, web: true }) }, '-',
+    { t: 'Hide', f: () => { opened.delete(id); big.delete(id); hideNow.add(id); post({ type: 'hide', id: id }); } }]);
+}
+function plusMenu(x, y){
+  const main = LAY.sec.find(s => s.id === 'main');
+  popMenu(x, y, [{ t: 'New chat…', f: () => { const f = $('#newf'); f.classList.add('on'); post({ type: 'catalog' }); setTimeout(() => { $('#nfMsg').focus(); f.scrollIntoView({ block: 'nearest' }); }, 0); sizeReport(); } },
+    { t: 'New section', f: () => newSection() },
+    { t: 'Browse claude.ai chats', on: LAY.browse, f: () => { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); saveLay(); render(); } },
+    '-'].concat(SORTS.map(sm => ({ t: 'Sort ' + (LAY.sec.length > 1 ? main.name + ' ' : '') + SORTN[sm], on: main.sort === sm, f: () => { main.sort = sm; if (sm === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } }))));
+}
+function secMenu(sid, x, y){
+  const i = LAY.sec.findIndex(s => s.id === sid), sc = LAY.sec[i]; if (!sc) return;
+  popMenu(x, y, [{ t: 'Rename', f: () => renameSec(sid) }].concat(SORTS.map(sm => ({ t: 'Sort ' + SORTN[sm], on: sc.sort === sm, f: () => { sc.sort = sm; if (sm === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } })), ['-',
+    { t: 'Move up', off: i === 0, f: () => { LAY.sec.splice(i - 1, 0, LAY.sec.splice(i, 1)[0]); saveLay(); render(); } },
+    { t: 'Move down', off: i === LAY.sec.length - 1, f: () => { LAY.sec.splice(i + 1, 0, LAY.sec.splice(i, 1)[0]); saveLay(); render(); } },
+    { t: sid === 'main' ? 'Delete (the main section stays)' : 'Delete (its chats go back to the main section)', off: sid === 'main', f: () => { for (const k of Object.keys(LAY.at)) if (LAY.at[k] === sid) delete LAY.at[k]; LAY.sec.splice(i, 1); dirtyView = true; saveLay(); render(); } }]));
+}
+const agoTxt = iso => { const t0 = Date.parse(iso || ''); if (!t0) return ''; const m = Math.round((Date.now() - t0) / 60000); return m < 60 ? Math.max(1, m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
+function renderBrowse(L){                           // Browse claude.ai: recent chats and projects -> + brings one into the tray
+  let b = $('#brw');
+  if (!LAY.browse) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'brw'; b.innerHTML = '<div class="bh"><span class="car">▾</span><span class="sn">Browse claude.ai</span><span class="sp"></span><button class="ib" data-a="brref" title="Refresh">' + I.retry + '</button><button class="ib" data-a="brx" title="Close Browse (+ menu brings it back)">' + I.x + '</button></div><input class="bq" placeholder="Search chats and projects…" spellcheck="false"><div class="bl"></div>'; b.querySelector('.bq').addEventListener('input', e => { brQ = e.target.value; renderBrowse($('#list')); sizeReport(); }); }
+  const hid = $('#hid'); if (b.parentElement !== L || (hid && b.nextElementSibling !== hid) || (!hid && L.lastElementChild !== b)) L.insertBefore(b, hid && hid.parentElement === L ? hid : null);
+  const cat = S.catalog || {}, tracked = new Set((S.chats || []).map(c => c.id).concat((S.hidden || []).map(h => h.id)));
+  const row = r => { const id = 'chat/' + r.id, on = tracked.has(id); return '<div class="br" title="' + esc(r.name || '(untitled)') + '"><span class="bn">' + esc(r.name || '(untitled)') + '</span><span class="age">' + esc(agoTxt(r.at)) + '</span>' + (on ? '<span class="bt" title="In the tray">' + I.ok + '</span>' : '<button class="ib" data-a="brtrack" data-id="' + esc(id) + '" data-t="' + esc(r.name || '') + '" title="Bring it into the tray">' + I.plus + '</button>') + '</div>'; };
+  const projs = cat.projects || [], rec = cat.recent || [], byP = cat.byProj || {};
+  const convsOf = pid => { const seen = new Set(), out = []; for (const r of ((byP[pid] || {}).rows || []).concat(rec.filter(x => x.p === pid))) if (!seen.has(r.id)) { seen.add(r.id); out.push(r); } return out.sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)); };
+  let h = '';
+  if (cat.loading && !rec.length) h = '<div class="secempty">loading…</div>';
+  else if (cat.err && !rec.length) h = '<div class="secempty bad">' + esc(cat.err) + '</div>';
+  else if (brQ.trim()) {
+    const q = brQ.trim().toLowerCase(), pn = Object.fromEntries(projs.map(p => [p.id, p.name])), all = new Map();
+    for (const r of rec) all.set(r.id, r); for (const k of Object.keys(byP)) for (const r of byP[k].rows || []) all.set(r.id, Object.assign({ p: k }, r));
+    const hits = [...all.values()].filter(r => (r.name || '').toLowerCase().includes(q) || (pn[r.p] || '').toLowerCase().includes(q)).slice(0, 40);
+    h = hits.length ? hits.map(row).join('') : '<div class="secempty">nothing found' + (projs.length ? ' - open a project to search inside it' : '') + '</div>';
+  } else {
+    const loose = rec.filter(r => !r.p).slice(0, 12);
+    h = '<div class="bg">Recent</div>' + (loose.length ? loose.map(row).join('') : '<div class="secempty">-</div>');
+    for (const p of projs) { const op = brOpen.has(p.id), cs = op ? convsOf(p.id) : [];
+      h += '<div class="bp" data-a="brproj" data-pid="' + esc(p.id) + '"><span class="car">' + (op ? '▾' : '▸') + '</span>' + esc(p.name) + '</div>' + (op ? (cs.length ? cs.slice(0, 40).map(row).join('') : '<div class="secempty">' + ((byP[p.id] || {}).err ? 'could not list it' : byP[p.id] ? 'no chats' : 'loading…') + '</div>') : ''); }
+    h += '<div class="bnote">Claude Code sessions: open one on claude.ai/code with /tray in it.</div>';
+  }
+  const bl = b.querySelector('.bl'); if (bl.dataset.h !== h) { bl.dataset.h = h; bl.innerHTML = h; }
+}
+const goneAt = {}, hideNow = new Set();
+window.onerror = (m, src, line) => { try { post({ type: 'log', text: 'js error: ' + m + ' @' + line }); } catch (e) { } };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// second safety pass on Claude's HTML (the claude.ai tab already reduced it to a tag whitelist). DOMParser documents are inert.
+const OK = new Set(['P','BR','UL','OL','LI','PRE','CODE','STRONG','B','EM','I','H1','H2','H3','H4','H5','H6','TABLE','THEAD','TBODY','TR','TH','TD','BLOCKQUOTE','HR','DEL','S']);
+function clean(html){
+  const d = new DOMParser().parseFromString('<div>' + (html || '') + '</div>', 'text/html');
+  const walk = n => { for (const c of [...n.childNodes]) { if (c.nodeType === 1) { walk(c);
+    if (c.tagName === 'A' && /^https?:\/\/[^\s"<>]+$/i.test(c.getAttribute('data-href') || '')) { const h = c.getAttribute('data-href'); for (const a of [...c.attributes]) c.removeAttribute(a.name); c.setAttribute('data-href', h); c.setAttribute('title', h); continue; }
+    if (!OK.has(c.tagName)) c.replaceWith(...c.childNodes); else for (const a of [...c.attributes]) c.removeAttribute(a.name); } else if (c.nodeType !== 3) c.remove(); } };
+  const root = d.body.firstChild; walk(root); return root.innerHTML;
+}
+function marker(c){
+  if (c.working) return '<span class="dots" title="Claude is working"><i></i><i></i><i></i><i></i></span>';
+  if ((c.prompts || []).length) return '<span class="dot act" title="Claude asks you something"></span>';
+  return '<span class="dot ' + c.st + (c.unread ? ' new' : '') + '" title="' + (c.st === 'act' ? 'Steps for you' : c.unread ? 'New reply' : c.st === 'done' ? 'Your turn' : 'Sent') + '"></span>';
+}
+const hash = t => { let h = 5381; const s0 = String(t || '').slice(0, 300); for (let i = 0; i < s0.length; i++) h = ((h << 5) + h + s0.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+function chatOf(id){ return (S && S.chats || []).find(c => c.id === id); }
+function sendExp(){ const v = [...opened].sort().join('|') + '/' + [...big].sort().join('|'); if (v !== lastExp) { lastExp = v; post({ type: 'expand', ids: [...opened], big: [...big] }); if (LAY) saveLay(); } }
+function render(){
+  if (!S) return;
+  const css = Object.entries(S.theme).map(([k, v]) => '--' + k + ':' + v).join(';') + ';--convh:' + (S.fixedH ? Math.max(120, S.fixedH - 120) : Math.min(320, Math.max(120, Math.round(S.maxH * 0.5)))) + 'px;--mainw:' + (S.mainW || 340) + 'px';
+  if (css !== rootCss) { rootCss = css; document.documentElement.style.cssText = css; }
+  const sd = S.sides || {};
+  for (const [X, on] of [['L', !!sd.l], ['R', !!sd.r]]) if (col[X].open && !on && Date.now() - (col[X].at || 0) > 1500) { col[X].open = false; col[X].pinned = false; }   // the tray closed it (panel hidden / dragged)
+  document.body.classList.toggle('nc', !!S.nc);
+  $('#pin').innerHTML = S.docked ? I.unpin : I.pin; $('#pin').classList.toggle('on', !!S.docked); $('#pin').title = S.docked ? 'Unpin (closes when you click outside)' : 'Pin here (stays on top)';
+  const uh = (S.usage || []).map(u => '<div class="u' + (u.used >= 75 ? ' warn' : '') + '" title="' + esc(u.tip) + '"><div class="ul"><span>' + esc(u.label) + '<b>' + Math.round(u.used) + '%</b></span><span title="resets">' + (u.at ? '↻ ' + esc(u.at) + ' · ' + esc(u.left) : '') + '</span></div><div class="bar"><i style="width:' + Math.min(100, Math.max(1, u.used)) + '%"></i></div></div>').join('') + (S.err ? '<div id="err">' + esc(S.err) + '</div>' : '');
+  if (uh !== usageH) { usageH = uh; $('#usage').innerHTML = uh; }
+  renderNew();
+  const chats = S.chats || [];
+  for (const c of chats) {                       // expand: what PS remembers on the first state, then chats that get new steps
+    if (firstState ? ((S.expanded || []).length ? (S.expanded || []).includes(c.id) : c.st === 'act') : (c.st === 'act' && lastSt[c.id] !== 'act')) opened.add(c.id);   // new steps: compact view (gist + actions)
+    if (firstState && (S.big || []).includes(c.id)) { opened.add(c.id); big.add(c.id); }     // after a reload: full where it was full
+    lastSt[c.id] = c.st;
+  }
+  firstState = false;
+  for (const id of opened) big.add(id);              // one open view: the full conversation (the compact step was dropped)
+  const now = Date.now(), have = new Set(chats.map(c => c.id));
+  for (const id of have) { delete goneAt[id]; hideNow.delete(id); }
+  for (const id of cards.keys()) if (!have.has(id) && !goneAt[id]) goneAt[id] = now;
+  const dead = id => !have.has(id) && (hideNow.has(id) || now - (goneAt[id] || now) > 5000);
+  for (const id of [...opened]) if (dead(id)) { opened.delete(id); big.delete(id); }
+  sendExp(); $('#fold').classList.toggle('on', opened.size > 0);
+  const L = $('#list');
+  for (const [id, cd] of cards) { if (dead(id)) { cd.el.remove(); cards.delete(id); delete goneAt[id]; hideNow.delete(id); } else cd.el.style.display = have.has(id) ? '' : 'none'; }
+  // layout: sections (yours + the main one), manual order, sort per section - kept by the tray in state.json
+  if (!LAY) { LAY = validLay(S.layout); if ((!S.expanded || !S.expanded.length) && LAY.open) { for (const id of LAY.open) if (have.has(id)) opened.add(id); for (const id of LAY.big || []) if (have.has(id)) { opened.add(id); big.add(id); } } }
+  const fresh = chats.filter(c => !LAY.ord.includes(c.id)).map(c => c.id), layCh0 = fresh.length > 0; if (layCh0) LAY.ord = fresh.concat(LAY.ord);     // new chats: top of the manual order (in the tray's order)
+  let layCh = layCh0;
+  if (LAY.ord.length > 400) { LAY.ord = LAY.ord.slice(0, 400); layCh = true; }
+  if (layCh) saveLay();
+  const P = $('#pins'); P.style.maxHeight = Math.round((S.maxH || 430) * 0.6) + 'px';
+  const place = (box, list) => list.forEach((c, i) => { let cd = cards.get(c.id); if (!cd) cd = makeCard(c.id);
+    if (box.children[i] !== cd.el) { const ae = document.activeElement, keep = ae && cd.el.contains(ae) ? ae : null, st = cd.conv.scrollTop, lst = box.scrollTop; box.insertBefore(cd.el, box.children[i] || null); cd.conv.scrollTop = st; box.scrollTop = lst; if (keep) keep.focus({ preventScroll: true }); }
+    updateCard(cd, c); });
+  const groups = { pin: [] }; for (const sc of LAY.sec) groups[sc.id] = [];
+  for (const c of chats) groups[secOf(c)].push(c);
+  place(P, viewOf('pin', groups.pin, 'manual'));
+  const multi = LAY.sec.length > 1;
+  for (const [sid, e] of secEls) if (!LAY.sec.some(s => s.id === sid)) { for (const ce of [...e.querySelectorAll('.card')]) P.appendChild(ce); e.remove(); secEls.delete(sid); }
+  LAY.sec.forEach((sc, i) => {
+    const e = secEl(sc.id); if (L.children[i] !== e) L.insertBefore(e, L.children[i] || null);
+    const list = viewOf(sc.id, groups[sc.id], sc.sort);
+    const hh = '<span class="car">' + (sc.col ? '▸' : '▾') + '</span><span class="sn" title="Double-click to rename">' + esc(sc.name) + '</span><span class="sc">' + list.length + '</span><span class="sp"></span>' +
+      '<button class="ss" data-a="secsort" title="Sort: click for last used / name / project (dragging a chat makes it custom)">' + SORTN[sc.sort || 'manual'] + '</button><button class="ib sm" data-a="secmenu" title="Section menu">' + I.more + '</button>';
+    const hd = e.firstElementChild; if (hd.dataset.h !== hh && !hd.querySelector('[contenteditable=true]')) { hd.dataset.h = hh; hd.innerHTML = hh; }
+    hd.style.display = multi ? '' : 'none'; e.classList.toggle('col', !!sc.col);
+    const body = e.lastElementChild; place(body, list);
+    let ph = body.querySelector('.secempty'); if (!list.length && !ph) { ph = document.createElement('div'); ph.className = 'secempty'; ph.textContent = sc.id === 'main' ? (S.hiddenAll ? 'All chats hidden - they come back when Claude writes to them.' : 'No chat yet. Type /tray in a Claude chat.') : 'Drag chats here'; body.appendChild(ph); } else if (list.length && ph) ph.remove();
+  });
+  renderBrowse(L);
+  const nf = $('#newf'), bw = $('#brw'), hd0 = $('#hid'), ref = bw && bw.parentElement === L ? bw : hd0 && hd0.parentElement === L ? hd0 : null;     // New chat form: at the bottom, above Browse
+  if (nf.parentElement !== L || nf.nextElementSibling !== ref) L.insertBefore(nf, ref);
+  if (!S.shown) dirtyView = true; else dirtyView = false;
+  renderHidden(L);
+  sizeReport();
+}
+function renderHidden(L){                       // chats you hid: one muted line at the end, click to list them and bring one back
+  const hs = S.hidden || []; let h = $('#hid');
+  if (!hs.length) { if (h) h.remove(); hidOpen = false; return; }
+  if (!h) { h = document.createElement('div'); h.id = 'hid'; }
+  if (L.lastElementChild !== h) L.appendChild(h);
+  const html = '<div class="ht" data-a="hidt" title="Chats you hid - they come back by themselves when Claude writes again">' + hs.length + ' hidden ' + (hidOpen ? '▴' : '▾') + '</div>' +
+    (hidOpen ? hs.map(x => '<div class="hr"><span title="' + esc(x.title) + '">' + esc(x.title) + '</span><span class="age" style="flex:none">' + esc(x.age) + '</span><button class="ib" data-a="unhide" data-id="' + esc(x.id) + '" title="Show it again">' + I.plus + '</button></div>').join('') : '');
+  if (h.dataset.h !== html) { h.dataset.h = html; h.innerHTML = html; }
+}
+function renderNew(){
+  const cat = S.catalog, sel = $('#nfProj');
+  if (cat && cat.projects) { const want = '<option value="">No project</option>' + cat.projects.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>').join(''); if (sel.dataset.h !== want) { const v = sel.value; sel.innerHTML = want; sel.dataset.h = want; sel.value = v; } }
+  if (cat && cat.recent) { const rs = $('#nfRecent'), tracked = new Set((S.chats || []).map(c => c.id)); const want = '<option value="">…or track a recent chat</option>' + cat.recent.filter(r => !tracked.has('chat/' + r.id)).map(r => '<option value="chat/' + esc(r.id) + '">' + esc(r.name || '(untitled)') + '</option>').join(''); if (rs.dataset.h !== want) { rs.innerHTML = want; rs.dataset.h = want; } }
+  const nc = S.newchat, st = $('#nfSt'), go = $('#nfGo');
+  let txt = cat && cat.loading ? 'loading projects…' : (cat && cat.err ? 'projects: ' + cat.err : ''), bad = !!(cat && cat.err);
+  if (nc && nc.key && nc.key !== newSeen) {
+    if (nc.st === 'working') { txt = 'creating…'; bad = false; }
+    else if (nc.st === 'failed') { txt = nc.msg || 'failed'; bad = true; }
+    else if (nc.st === 'ok') { newSeen = nc.key; openCard(nc.id); $('#newf').classList.remove('on'); $('#nfMsg').value = ''; $('#nfName').value = ''; txt = ''; }
+  }
+  go.disabled = !!(nc && nc.st === 'working' && nc.key !== newSeen);
+  st.textContent = txt; st.classList.toggle('bad', bad); st.title = txt;
+}
+function newChat(){
+  const t = $('#nfMsg').value.trim(); if (!t) { $('#nfSt').textContent = 'write a first message'; $('#nfMsg').focus(); return; }
+  post({ type: 'newchat', project: $('#nfProj').value, name: $('#nfName').value.trim(), model: $('#nfModel').value, think: $('#nfThink').value, text: t });
+}
+function makeCard(id){
+  const el = document.createElement('div'); el.className = 'card'; el.dataset.id = id;
+  el.innerHTML = '<div class="head" title="Click to expand / collapse"></div><div class="body"><div class="sit"></div><div class="conv"><div class="msgs"></div><div class="actw"></div><div class="askw"></div></div><button class="jump" data-a="jump" title="Jump to the latest"></button><div class="comp"><div class="atts"></div><div class="cbox"><textarea rows="1" placeholder="Reply to Claude…"></textarea><input type="file" multiple hidden><button class="trc" data-a="trc"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button>' +
+    '<button class="ib send" data-a="send" title="Send (Enter) - Shift+Enter: new line">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><button class="pill" data-a="auto" title="Ask Claude to do these steps itself">auto</button></div></div></div>' +
+    '<div class="mini"><input class="mi" spellcheck="false"><span class="mfiles"></span><button class="trc" data-a="trc"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button></div>';
+  el.querySelector('.head').draggable = true;
+  const cd = { id: id, el: el, head: el.querySelector('.head'), conv: el.querySelector('.conv'), msgs: el.querySelector('.msgs'), actw: el.querySelector('.actw'), ta: el.querySelector('textarea'), send: el.querySelector('.send'), stop: el.querySelector('.stop'), auto: el.querySelector('.pill'), headH: '', actH: '', items: [], stick: true, full: new Set(), edit: new Set(), obs: {}, files: [], mi: el.querySelector('.mi'), mfiles: el.querySelector('.mfiles'), mstop: el.querySelector('.mini .stop'), sit: el.querySelector('.sit'), sitH: '', jump: el.querySelector('.jump'), ask: el.querySelector('.askw'), askH: '', atts: el.querySelector('.atts'), fin: el.querySelector('input[type=file]') };
+  cd.fin.addEventListener('change', () => { addFiles(id, cd.fin.files); cd.fin.value = ''; });
+  el.addEventListener('dragover', e => { if (dragId) return; e.preventDefault(); el.classList.add('drop'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drop'));
+  el.addEventListener('drop', e => { if (dragId) return; e.preventDefault(); el.classList.remove('drop'); if (e.dataTransfer && e.dataTransfer.files.length) { addFiles(id, e.dataTransfer.files); } });
+  cd.ta.value = drafts[id] || '';
+  cd.conv.addEventListener('scroll', () => { if (cd.conv.scrollTop < 20) wantMore(id); const b = cd.conv; const far = b.scrollHeight - b.scrollTop - b.clientHeight > 60; cd.jump.classList.toggle('on', far); if (!far) cd.jump.classList.remove('new'); });
+  cd.conv.addEventListener('wheel', e => { if (e.deltaY < 0 && cd.conv.scrollTop < 20) wantMore(id); }, { passive: true });
+  cd.jump.innerHTML = JUMP; cards.set(id, cd); return cd;
+}
+function updateCard(cd, c){
+  const open = opened.has(c.id), isBig = big.has(c.id);
+  if (cd.el.classList.contains('big') !== isBig) { cd.el.classList.toggle('big', isBig); if (isBig) { cd.stick = true; cd.items = []; } }
+  if (cd.el.classList.contains('open') !== open) cd.el.classList.toggle('open', open);
+  const ph = c.suggest && !c.working ? 'Enter = send "' + c.suggest + '" (steps done)' : (c.preview || 'Reply…');
+  if (cd.mi.placeholder !== ph) { cd.mi.placeholder = ph; cd.mi.title = ph; }
+  cd.mstop.style.display = c.working ? 'inline-flex' : 'none';
+  const arm = trayArm[c.id] !== false, trT = arm ? '/tray will start your next message: Claude can then give you steps to run in one click here. Click: don\'t add it' : 'Click: add /tray to your next message (one-click steps in this chat)';
+  for (const tc of cd.el.querySelectorAll('.trc')) { tc.style.display = c.skill ? 'none' : ''; tc.classList.toggle('on', arm); if (tc.title !== trT) { tc.title = trT; tc.textContent = '/tray'; } }
+  const proj = !(open && c.model) && LAY && c.proj && ((LAY.sec.find(s => s.id === secOf(c)) || {}).sort === 'project');
+  // tools float over the end of the title, always in the same slots; the pin (when pinned) and a muted bell stay visible in their own slot
+  const tools = '<div class="tools">' + '<button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button><button class="ib" data-a="web" title="Open on claude.ai">' + I.web + '</button>' +
+    '<button class="ib" data-a="mv" title="Move to a section…">' + I.mv + '</button><button class="ib" data-a="hide" title="Hide (comes back when Claude writes again, or from &quot;hidden&quot; at the bottom)">' + I.x + '</button>' +
+    '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button>' +
+    '<button class="ib' + (c.pin ? ' pon keep' : '') + '" data-a="pinc" title="' + (c.pin ? 'Unpin (back to the list)' : 'Pin on top (always shown, stays in view while you scroll)') + '">' + I.pin + '</button></div>';
+  const hh = marker(c) + '<div class="rt' + (c.pin || !c.bell ? ' rk' + ((c.pin ? 1 : 0) + (!c.bell ? 1 : 0)) : '') + '"><b>' + esc(c.title) + '</b>' + tools + '</div>' +
+    (open && c.model ? '<span class="mdl" title="Model">' + esc(c.model) + '</span>' : proj ? '<span class="mdl" title="Project">' + esc(c.proj) + '</span>' : '') + '<span class="age">' + esc(c.age) + '</span>';
+  if (hh !== cd.headH) { cd.headH = hh; cd.head.innerHTML = hh; }
+  cd.head.classList.toggle('unread', !!c.unread);
+  if (c.draftV && draftSeen[c.id] !== c.draftV) {          // a send that failed: text (and files) back in the box you used
+    draftSeen[c.id] = c.draftV; const box0 = cd.sentFrom === 'mi' || !isBig ? cd.mi : cd.ta;
+    if (!box0.value.trim()) { box0.value = c.draft; if (box0 === cd.ta) drafts[c.id] = c.draft; }
+    if (cd.sentFiles && cd.sentFiles.length && !cd.files.length) { cd.files = cd.sentFiles; cd.sentFiles = null; drawAtts(cd); }
+  }
+  if (!open) return;
+  // compact (1): one sentence about where we are; the conversation only in expanded (2)
+  const sit = situation(c);
+  const sitH = isBig ? '' : '<div title="' + esc(sit) + '">' + esc(sit) + '</div>';
+  if (sitH !== cd.sitH) { cd.sitH = sitH; cd.sit.innerHTML = sitH; }
+  const askH = (c.prompts || []).length ? '<div class="ask"><span>Claude asks:</span>' + c.prompts.map((p, i) => '<button data-a="press" data-i="' + i + '" data-label="' + esc(p) + '" title="Press it in the chat">' + esc(p) + '</button>').join('') + '</div>' : '';
+  if (askH !== cd.askH) { cd.askH = askH; cd.ask.innerHTML = askH; sizeReport(); if (isBig) cd.stick = true; }
+  cd.stop.style.display = c.working ? 'inline-flex' : 'none';
+  cd.auto.style.display = !c.locked && (c.steps || []).some(s => s.status !== 'done' && s.status !== 'skipped') ? 'inline-flex' : 'none';
+  if (localSend[c.id] && (c.sending || Date.now() - localSend[c.id].at > 2500)) delete localSend[c.id];
+  if (!isBig) { drawAtts(cd); const ah0 = (c.steps || []).length ? actsHtml(c, cd) : ''; if (ah0 !== cd.actH) { setActs(cd, ah0); } return; }
+  // conversation: patch only changed items (streaming keeps a selection in older text); Claude's steps follow its last reply
+  const box = cd.conv, items = convItems(c, cd);
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30, oldH = box.scrollHeight, oldTop = box.scrollTop;
+  const grew = cd.items.length && items.length > cd.items.length;
+  patchList(cd.msgs, cd.items, items);
+  cd.items = items;
+  const ah = c.st === 'act' && (c.steps || []).length ? actsHtml(c, cd) : '';      // this round's steps only; once you sent, your message shows what you did
+  if (ah !== cd.actH) setActs(cd, ah);
+  for (const X of ['L', 'R']) if (col[X].open && col[X].id === c.id) refreshCol(X);
+  if (moreBusy[c.id] && grew && box.scrollHeight > oldH) { box.scrollTop = oldTop + (box.scrollHeight - oldH); delete moreBusy[c.id]; const f0 = cd.msgs.firstElementChild; if (f0 && f0.classList.contains('more')) { f0.textContent = 'scroll up for earlier messages'; cd.items[0] = f0.outerHTML; } }
+  else if (cd.stick || atBottom) box.scrollTop = box.scrollHeight;
+  else if (items[items.length - 1] !== (cd.lastItem || '')) { cd.jump.classList.add('on', 'new'); }
+  cd.lastItem = items[items.length - 1];
+  cd.stick = false;
+  // composer
+  const ta = cd.ta;
+  if (c.suggest && sugSeen[c.id] !== c.suggestKey && !ta.value.trim()) { sugSeen[c.id] = c.suggestKey; ta.value = c.suggest; drafts[c.id] = c.suggest; }
+  grow(ta);
+}
+function patchList(box, old, items){                   // DOM = old list -> new list: same start and same end stay untouched, only the middle changes
+  if (!old.length || box.children.length !== old.length) { box.innerHTML = items.join(''); return; }
+  let p = 0; while (p < old.length && p < items.length && old[p] === items[p]) p++;
+  let s = 0; while (s < old.length - p && s < items.length - p && old[old.length - 1 - s] === items[items.length - 1 - s]) s++;
+  const mid = old.length - p - s, add = items.slice(p, items.length - s);
+  // same count in the middle: replace one by one (streaming = last message only)
+  for (let i = 0; i < Math.min(mid, add.length); i++) { const o = box.children[p + i]; o.insertAdjacentHTML('afterend', add[i]); o.remove(); }
+  for (let i = add.length; i < mid; i++) box.children[p + add.length].remove();
+  if (add.length > mid) { const ref = box.children[p + mid] || null, tpl = document.createElement('template'); tpl.innerHTML = add.slice(mid).join(''); box.insertBefore(tpl.content, ref); }
+}
+function setActs(cd, html){                           // steps rebuilt: keep the answer box you're typing in focused, caret in place
+  const ae = document.activeElement, fo = ae && ae.dataset && ae.dataset.obs && cd.actw.contains(ae) ? ae.dataset.obs : null, sel = fo ? [ae.selectionStart, ae.selectionEnd] : null;
+  cd.actH = html; cd.actw.innerHTML = html;
+  for (const ta of cd.actw.querySelectorAll('[data-obs]')) if (ta.value) { ta.style.height = 'auto'; ta.style.height = Math.min(64, ta.scrollHeight) + 'px'; }
+  if (fo) { const t2 = cd.actw.querySelector('[data-obs="' + fo + '"]'); if (t2) { t2.focus({ preventScroll: true }); try { t2.setSelectionRange(sel[0], sel[1]); } catch (e) { } } }
+}
+function convItems(c, cd){
+  const it = []; curChat = c;
+  if (c.web) it.push('<div class="more">' + (moreBusy[c.id] ? 'loading earlier messages…' : 'scroll up for earlier messages') + '</div>');
+  const msgs = c.msgs || [];
+  const pend = c.sending || (localSend[c.id] && localSend[c.id].t);
+  if (!msgs.length && !pend) it.push(c.answer ? msgHtml({ r: 'a', t: c.answer }) : '<div class="empty">' + (c.web ? 'Loading the conversation…' : esc(S.webHint || 'Conversation not available yet.')) + '</div>');
+  // what you sent this round (ticks / answers) under your matching message, or under the pending one
+  const norm = t => String(t || '').replace(/\s+/g, ' ').trim();
+  let ri = -1; if (c.lastSent) for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'u') { if (norm(msgs[i].t).startsWith(norm(c.lastSent).slice(0, 40))) ri = i; break; }
+  const rnd = roundHtml(c);
+  let ki = -1; if (c.readKey) for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a' && hash(msgs[i].t) === c.readKey) { ki = i; break; }
+  let lastA = -1; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a') { lastA = i; break; }
+  msgs.forEach((m, i) => { if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
+  if (pend) it.push('<div class="m u sending"><div class="b">' + esc(pend) + '</div>' + rnd + '<span class="sst">sending…</span></div>');
+  const lastM = msgs[msgs.length - 1];
+  if (c.working) it.push('<div class="writing" title="Claude is working"><span class="dots"><i></i><i></i><i></i><i></i></span><button class="ib rf" data-a="reload" title="Stuck? Reload this chat\'s page (Claude keeps working)">' + I.retry + '</button></div>');
+  return it;
+}
+function roundHtml(c){
+  const done = (c.steps || []).filter(s => s.status === 'done' || s.status === 'skipped' || s.status === 'failed');
+  if (!done.length || !c.lastSent) return '';
+  return '<div class="rnd">' + done.map(s => {
+    const mk = s.status === 'skipped' ? '<span>–</span>' : (s.status === 'failed' || (s.exit != null && s.exit !== '' && s.exit != 0)) ? '<span class="bad">✗</span>' : '<span class="okc">✓</span>';
+    const lab = s.label.length > 30 ? s.label.slice(0, 29) + '…' : s.label;
+    return '<div title="' + esc(s.label) + '">' + mk + ' <span class="lab">' + esc(lab) + '</span>' + (s.answer ? ' <span class="ans">' + esc(s.answer) + '</span>' : '') + '</div>';
+  }).join('') + '</div>';
+}
+let curChat = null;
+function filesHtml(m){
+  if (!m.f || !m.f.length || m.x < 0) return '';      // x < 0: kept by the tray after claude.ai unloaded it - no longer fetchable
+  const dl = (curChat && curChat.dl) || {};
+  return '<div class="files">' + m.f.map((n, k) => { const st = dl[m.x + '#' + k] || '';
+    const lab = st === 'working' ? '<span class="fs">…</span>' : st === 'failed' ? '<span class="fs bad" title="Could not get it - open the chat on claude.ai">failed</span>' : st === 'saved' ? '<span class="fs ok">saved</span>' : st === 'copied' ? '<span class="fs ok">copied</span>' : '';
+    return '<span class="fch" title="' + esc(n) + '">' + I.file + '<span>' + esc(n) + '</span>' + lab + '<button class="ib" data-a="dl" data-x="' + m.x + '" data-k="' + k + '" data-mode="save" title="' + (st === 'saved' || st === 'copied' ? 'Show in Downloads' : 'Save to Downloads') + '">' + I.dl + '</button><button class="ib" data-a="dl" data-x="' + m.x + '" data-k="' + k + '" data-mode="copy" title="Copy the file (paste it anywhere)">' + I.copy + '</button></span>'; }).join('') + '</div>';
+}
+function situation(c){                                    // compact view: Claude's gist (quest answer), else the first sentence of its last reply
+  if (c.gist) return String(c.gist).replace(/\s+/g, ' ').trim();
+  const msgs = c.msgs || []; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a' && msgs[i].t) { const t = String(msgs[i].t).replace(/\s+/g, ' ').trim(); const m = t.match(/^.{20,200}?[.!?](\s|$)/); return m ? m[0].trim() : t.slice(0, 200); }
+  return c.preview || '';
+}
+function isLong(m){ const t = String(m.t || '').replace(/\s+/g, ' ').trim(); return t.length > 240 || /<(pre|table)/.test(m.h || ''); }
+function codeCopy(h){ return h.replace(/<pre>/g, '<div class="prew"><button class="ib cpc" data-a="copycode" title="Copy code">' + I.copy + '</button><pre>').replace(/<\/pre>/g, '</pre></div>'); }
+function msgHtml(m, i, full, rnd, old, retry){
+  if (m.r === 'u') return '<div class="m u"><button class="ib cp" data-copy="' + esc(m.t) + '" title="Copy">' + I.copy + '</button><div class="b">' + esc(m.t) + '</div>' + (rnd || '') + '</div>';
+  const head = '<div class="m a' + (old ? ' old' : '') + '" data-i="' + (i == null ? -1 : i) + '"><button class="ib cp" data-copy="' + esc(m.t) + '" title="Copy">' + I.copy + '</button>' + (retry ? '<button class="ib rt2" data-a="retry" title="Retry (Claude writes this reply again)">' + I.retry + '</button>' : '');
+  if (!full && isLong(m)) { const t = String(m.t || '').replace(/\s+/g, ' ').trim(); return head + '<div class="b pv" title="' + (S && S.sideOn ? 'Hover: read it on the side - click: open here' : 'Click to read it all here') + '">' + esc(t.slice(0, 160)) + '…<span class="mo">more</span></div>' + filesHtml(m) + '</div>'; }
+  return head + '<div class="b' + (full ? ' fullv' : '') + '"' + (full ? ' title="Click: fold"' : '') + '>' + (m.h ? codeCopy(clean(m.h)) : esc(m.t).replace(/\n/g, '<br>')) + '</div>' + filesHtml(m) + '</div>';
+}
+function actsHtml(c, cd){
+  const ic = { cmd: I.cmd, ps: I.cmd, exe: I.run, dir: I.dir, file: I.file, url: I.web, observe: I.eye };
+  return '<div class="acts' + (c.locked ? ' locked' : '') + '"' + (c.locked ? ' title="Claude is working - the steps unlock when it is done"' : '') + '>' + c.steps.map(s => {
+    const done = s.status === 'done', sk = s.status === 'skipped', bad = s.status === 'failed';
+    const left = s.kind === 'manual' ? '<span class="chk' + (done ? ' on' : '') + '" data-a="tick" data-n="' + s.n + '" title="' + (done ? 'Done - click to undo' : 'Mark done') + '"></span>' : '<span class="k" title="' + esc(s.kind) + '">' + (ic[s.kind] || I.cmd) + '</span>';
+    let right = '';
+    if (s.running) right = '<span class="x">running…</span>';
+    else if (sk) right = '<span class="x">skipped</span>';
+    else if (s.exit != null && s.exit !== '' && s.exit != 0) right = '<span class="x bad">exit ' + esc(s.exit) + '</span>';
+    else if (s.exit != null && s.exit !== '') right = '<span class="k okm" title="Done (exit 0)">' + I.ok + '</span>';
+    else if (bad) right = '<span class="x bad">failed</span>';
+    else if (done && s.kind !== 'manual' && s.kind !== 'observe') right = '<span class="k okm" title="Done">' + I.ok + '</span>';
+    if (s.kind === 'cmd' || s.kind === 'ps') right += '<button class="ib run" data-a="run" data-n="' + s.n + '" title="' + (done ? 'Run again' : 'Run (hidden, output captured)') + '">' + I.run + '</button><button class="ib" data-a="copycmd" data-n="' + s.n + '" title="Copy the command">' + I.copy + '</button><button class="ib" data-a="autostep" data-n="' + s.n + '" title="Ask Claude to do this step itself">' + I.bot + '</button>';
+    else if (s.kind === 'exe') right += '<button class="ib run" data-a="run" data-n="' + s.n + '" title="Run">' + I.run + '</button>';
+    else if (s.kind === 'dir' || s.kind === 'file' || s.kind === 'url') right += '<button class="ib run" data-a="run" data-n="' + s.n + '" title="Open">' + (s.kind === 'url' ? I.web : I.dir) + '</button>';
+    if (s.admin) right = '<span class="k" title="Needs admin (UAC prompt)">' + I.key + '</span>' + right;
+    const small = (done || sk) && !(cd && cd.edit.has(s.n));
+    if (small) return '<div class="st small' + (done ? ' done' : '') + (sk ? ' skipped' : '') + '" data-n="' + s.n + '"' + (s.kind === 'observe' ? ' data-a="edit"' : '') + ' title="' + (s.kind === 'observe' ? 'Click: edit the answer - right-click: unskip' : 'Right-click: skip / unskip') + '">' + left + '<div class="l"><span class="lab">' + esc(s.label) + '</span>' + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</div>' + right + '</div>';
+    if (s.kind === 'manual') right += '<button class="ib" data-a="edit" data-n="' + s.n + '" title="Add a note for Claude (saved with the tick)">' + I.note + '</button>';
+    const typed = cd && cd.obs[s.n] != null ? cd.obs[s.n] : (s.answer || '');
+    const obs = (s.kind === 'observe' || (s.kind === 'manual' && cd && cd.edit.has(s.n))) ? '<div class="field"><textarea rows="1" data-obs="' + s.n + '" placeholder="' + (s.kind === 'manual' ? 'Note for Claude… (Enter)' : 'Your answer… (Enter)') + '">' + esc(typed) + '</textarea></div>' : '';
+    const hint = s.cmd || s.path || s.url || '';
+    const cl = c.bridge && hint && !done && !sk ? '<div class="cl" title="What this runs (written in the chat - check it)">' + esc(String(hint).split('\n')[0].slice(0, 120)) + '</div>' : '';
+    return '<div class="st' + (done ? ' done' : '') + (sk ? ' skipped' : '') + '" data-n="' + s.n + '" title="' + esc(hint.length > 90 ? hint.slice(0, 89) + '…' : hint) + (hint ? ' - ' : '') + 'right-click: skip">' + left + '<div class="l">' + esc(s.label) + cl + obs + '</div>' + right + '</div>';
+  }).join('') + '</div>';
+}
+function pickCol(){                                  // where a hover goes: the free column with room (a pinned one stays)
+  const sd = S.sides || {}, cand = [];
+  if (sd.roomL || col.L.open) cand.push('L'); if (sd.roomR || col.R.open) cand.push('R');
+  const hov = cand.find(X => col[X].open && !col[X].pinned); if (hov) return hov;
+  return cand.find(X => !col[X].pinned) || null;
+}
+function showCol(m){
+  const card = m.closest('.card'); if (!card) return;
+  const c = chatOf(card.dataset.id), i = +m.dataset.i, msg = c && (c.msgs || [])[i]; if (!msg) return;
+  if (!m.querySelector('.pv')) return;                     // shown in full already
+  for (const X of ['L', 'R']) if (col[X].open && col[X].id === c.id && col[X].i === i) return;     // already on a side
+  const X = pickCol(); if (!X) return;
+  const k = col[X];
+  if (hotEl) hotEl.classList.remove('hot'); hotEl = m; m.classList.add('hot');
+  k.id = c.id; k.i = i; k.html = ''; k.open = true; k.at = Date.now(); refreshCol(X, true);
+}
+function refreshCol(X, force){
+  const k = col[X], c = chatOf(k.id), msg = c && (c.msgs || [])[k.i]; if (!msg || !k.open) return;
+  const h = msg.h || esc(msg.t).replace(/\n/g, '<br>');
+  if (force || h !== k.html) { k.html = h; post({ type: 'col', x: X, open: true, key: k.id + '#' + k.i, title: 'Claude · ' + c.title, html: h }); }
+}
+function closeCols(force){
+  for (const X of ['L', 'R']) { const k = col[X]; if (k.open && (force || !k.pinned)) { k.open = false; k.pinned = false; k.hov = false; k.at = Date.now(); post({ type: 'col', x: X, open: false }); } }
+  if (hotEl && !col.L.open && !col.R.open) { hotEl.classList.remove('hot'); hotEl = null; }
+}
+function anyHover(){ return (col.L.open && !col.L.pinned) || (col.R.open && !col.R.pinned); }
+function sideHovered(){ return col.L.hov || col.R.hov; }
+function schedClose(){ if (anyHover() && !sideHovered()) { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!sideHovered()) closeCols(false); }, 600); } }
+document.addEventListener('mouseover', e => {
+  if (e.target.closest('.conv')) clearTimeout(leaveT);      // anywhere in a conversation or a side column keeps it open
+  else { clearTimeout(hoverT); schedClose(); return; }
+});
+let lastXY = '';
+document.addEventListener('mousemove', e => {
+  const xy = e.screenX + ',' + e.screenY; if (xy === lastXY) return; lastXY = xy;        // real movement only (layout shifts fire mouseover, not mousemove)
+  clearTimeout(hoverT);
+  const m = e.target.closest && e.target.closest('.m.a');
+  if (S && S.sideOn && m && m !== hotEl && m.querySelector('.pv')) hoverT = setTimeout(() => showCol(m), anyHover() ? 300 : 550);     // side reading windows: off by default (one window)
+});
+document.documentElement.addEventListener('mouseleave', () => { clearTimeout(hoverT); schedClose(); });
+const canScroll = (el, dy) => { const cs = getComputedStyle(el); if (!/(auto|scroll)/.test(cs.overflowY) || el.scrollHeight <= el.clientHeight + 1) return false; return dy < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1; };
+document.addEventListener('wheel', e => {
+  if (e.ctrlKey) { e.preventDefault(); post({ type: 'zoom', d: e.deltaY < 0 ? 1 : -1 }); return; }
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 300 : e.deltaY; if (!dy) return;
+  for (let el = e.target; el && el !== document.body; el = el.parentElement) if (el.nodeType === 1 && canScroll(el, dy)) return;      // something here scrolls: the browser does it
+  const card = e.target.closest && e.target.closest('.card.big'), conv = card && card.querySelector('.conv');
+  const tgt = conv && canScroll(conv, dy) ? conv : [$('#list'), $('#pins')].find(x => x && canScroll(x, dy));
+  if (tgt) { e.preventDefault(); tgt.scrollTop += dy; }
+}, { passive: false });
+function grow(ta){ ta.style.height = 'auto'; ta.style.height = Math.min(110, ta.scrollHeight) + 'px'; }
+function sizeReport(){
+  if (!S) return;
+  const L = $('#list'); let last = L.lastElementChild; while (last && !last.offsetHeight) last = last.previousElementSibling;     // hidden blocks (New chat form) don't count
+  const P = $('#pins'), ph = P.children.length ? Math.min(P.scrollHeight, parseInt(P.style.maxHeight) || 9999) + 3 : 0;
+  const want = Math.ceil($('#top').offsetHeight + $('#newf').offsetHeight + ph + (last ? last.offsetTop + last.offsetHeight + 4 : (P.children.length ? 4 : 30)) + $('#usage').offsetHeight + 2);
+  if (Math.abs(want - prevH) > 1) { prevH = want; post({ type: 'size', h: want }); }
+}
+function openCard(id){ opened.add(id); big.add(id); }
+function cycle(id){                                       // the small view button: collapsed -> compact (gist + actions) -> full -> collapsed
+  if (!opened.has(id)) opened.add(id); else if (!big.has(id)) big.add(id); else { opened.delete(id); big.delete(id); }
+  render(); const cd = cards.get(id); if (opened.has(id)) cd.el.scrollIntoView({ block: 'nearest' });
+}
+function toggle(id){                                      // title click: collapsed or compact -> full, full -> collapsed
+  if (!opened.has(id) || !big.has(id)) openCard(id); else { opened.delete(id); big.delete(id); }
+  render(); const cd = cards.get(id); if (opened.has(id)) cd.el.scrollIntoView({ block: 'nearest' });
+  setTimeout(() => (big.has(id) ? cd.ta : cd.mi).focus(), 0);
+}
+function wantMore(id){
+  const c = chatOf(id), cd = cards.get(id); if (moreBusy[id] || !c || !c.web || !cd) return;
+  moreBusy[id] = Date.now(); const f = cd.msgs.firstElementChild; if (f && f.classList.contains('more')) f.textContent = 'loading earlier messages…';
+  post({ type: 'more', id: id });
+  setTimeout(() => { if (moreBusy[id] && Date.now() - moreBusy[id] > 3900) { delete moreBusy[id]; const f2 = cd.msgs.firstElementChild; if (f2 && f2.classList.contains('more')) f2.textContent = 'no earlier messages loaded - scroll up to retry'; } }, 4000);
+}
+function addFiles(id, list){
+  const cd = cards.get(id); if (!cd) return;
+  for (const f of [...list].slice(0, 5)) {
+    if (f.size > 15 * 1024 * 1024) { post({ type: 'log', text: 'attachment too big (' + Math.round(f.size / 1048576) + ' MB), skipped' }); continue; }
+    const r = new FileReader();
+    r.onload = () => { const u = String(r.result); cd.files.push({ name: f.name || ('pasted-' + Date.now() + '.png'), type: f.type, size: f.size, b64: u.split(',')[1] || '', thumb: /^image\//.test(f.type) ? u : '' }); drawAtts(cd); };
+    r.readAsDataURL(f);
+  }
+}
+function drawAtts(cd){
+  if (cd.mfiles) cd.mfiles.innerHTML = cd.files.length ? '<span class="mf" title="' + esc(cd.files.map(f => f.name).join(', ')) + '">' + I.clip + cd.files.length + '<button class="ib" data-a="unattall" title="Remove the files">' + I.x + '</button></span>' : '';
+  cd.atts.innerHTML = cd.files.map((f, i) => '<span class="att" title="' + esc(f.name) + ' - ' + Math.max(1, Math.round(f.size / 1024)) + ' KB">' + (f.thumb ? '<img src="' + f.thumb + '">' : I.file) + '<span>' + esc(f.name) + '</span><button class="ib" data-a="unatt" data-i="' + i + '" title="Remove">' + I.x + '</button></span>').join('');
+  sizeReport();
+}
+function slashFor(inp){                              // "/" at the start of a box: the chat's commands and skills (read from claude.ai)
+  const v = inp.value; if (!/^\/[\w:.-]*$/.test(v)) { closeSlash(); return; }
+  const card = inp.closest('.card'); if (!card) return; const sl = S.slash;
+  if (!sl) post({ type: 'slash', id: card.dataset.id });
+  const items = ((sl && sl.items) || []).filter(x => x.n.toLowerCase().startsWith(v.toLowerCase())).slice(0, 30);
+  if (!slp || slp.inp !== inp) { closeSlash(); slp = { inp: inp, i: 0, el: document.createElement('div') }; slp.el.id = 'slp'; document.body.appendChild(slp.el); slp.el.addEventListener('mousedown', e => { const r = e.target.closest('.si'); if (r) { e.preventDefault(); pickSlash(+r.dataset.i); } }); }
+  slp.items = items; slp.i = Math.min(slp.i, Math.max(0, items.length - 1));
+  slp.el.innerHTML = items.length ? items.map((x, i) => '<div class="si' + (i === slp.i ? ' on' : '') + '" data-i="' + i + '" title="' + esc(x.d) + '"><b>' + esc(x.n) + '</b><span>' + esc(x.d) + '</span></div>').join('') : '<div class="sx">' + (!sl ? 'loading commands…' : sl.err ? 'commands: ' + esc(sl.err) : 'no command starts with ' + esc(v)) + '</div>';
+  const r = inp.getBoundingClientRect(), w = Math.min(innerWidth - 8, Math.max(220, r.width)); slp.el.style.width = w + 'px'; slp.el.style.left = Math.max(4, Math.min(r.left, innerWidth - w - 4)) + 'px';
+  const h = slp.el.offsetHeight; slp.el.style.top = (r.top - h - 3 > 2 ? r.top - h - 3 : r.bottom + 3) + 'px';
+}
+function pickSlash(i){ if (!slp || !slp.items[i]) return; const inp = slp.inp; inp.value = slp.items[i].n + ' '; closeSlash(); inp.focus(); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+function closeSlash(){ if (slp) { slp.el.remove(); slp = null; } }
+document.addEventListener('focusout', e => { if (slp && e.target === slp.inp) setTimeout(() => { if (slp && document.activeElement !== slp.inp) closeSlash(); }, 150); });
+function doSend(id, mini){
+  const cd = cards.get(id); const box = mini ? cd.mi : cd.ta; let t = box.value.trim();
+  if (!t && !cd.files.length) { const c = chatOf(id); if (mini && c && c.suggest && !c.working) t = c.suggest; else return; }     // empty one-line box + all steps done = "check"
+  cd.sentFrom = mini ? 'mi' : 'ta'; cd.sentFiles = cd.files.slice(); closeSlash();
+  const fl = cd.files.map(f => ({ name: f.name, type: f.type, b64: f.b64 }));
+  localSend[id] = { t: t || ('(' + cd.files.map(f => f.name).join(', ') + ')'), at: Date.now() }; const c0 = chatOf(id); post({ type: 'send', id: id, text: t, files: fl, tray: !!(c0 && !c0.skill && trayArm[id] !== false) });
+  if (!mini) { drafts[id] = ''; cd.conv.style.maxHeight = ''; } box.value = ''; cd.files = []; drawAtts(cd); cd.stick = true; render();
+}
+// ---------- events
+document.addEventListener('mousedown', e => { const rz = e.target.closest && e.target.closest('.rz'); if (rz && e.button === 0) { e.preventDefault(); post({ type: 'rsz', e: rz.dataset.e }); return; } post({ type: 'focus' }); if (e.button === 0 && e.target.closest('#top') && !e.target.closest('button')) { e.preventDefault(); post({ type: 'drag' }); } });
+document.addEventListener('click', e => {
+  if (e.target.id === 'gear' || e.target.closest('#gear')) { const r = $('#gear').getBoundingClientRect(); setMenu(r.right - 200, r.bottom + 2); return; }
+  if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
+  if (e.target.closest('#plus')) { const r = $('#plus').getBoundingClientRect(); plusMenu(r.right - 160, r.bottom + 2); return; }
+  const shd = e.target.closest('.sh'); if (shd && !e.target.closest('[data-a]') && !e.target.closest('[contenteditable=true]')) { const sc = LAY.sec.find(s => s.id === shd.dataset.sec); if (sc) { sc.col = !sc.col; saveLay(); render(); } return; }
+  if (e.target.closest('.bh') && !e.target.closest('[data-a]')) { LAY.browse = false; saveLay(); render(); return; }
+  if (e.target.closest('#fold')) { opened.clear(); big.clear(); render(); return; }
+  if (e.target.closest('#nfX')) { $('#newf').classList.remove('on'); sizeReport(); return; }
+  if (e.target.closest('#nfGo')) { newChat(); return; }
+  const b = e.target.closest('[data-a],[data-copy]'), card = e.target.closest('.card'), id = card && card.dataset.id;
+  if (b && b.dataset.copy != null) { post({ type: 'copy', text: b.dataset.copy }); return; }
+  const lk = e.target.closest('a[data-href]'); if (lk) { e.preventDefault(); post({ type: 'openurl', url: lk.getAttribute('data-href') }); return; }
+  const mb = e.target.closest('.m.a .b');
+  if (mb && card && !e.target.closest('[data-a]') && !String(window.getSelection())) { const cd = cards.get(id), i = +mb.parentElement.dataset.i; if (cd.full.has(i)) cd.full.delete(i); else cd.full.add(i); render(); return; }
+  if (!b) { if (e.target.closest('.head')) toggle(id); return; }
+  const a = b.dataset.a, n = b.dataset.n != null ? +b.dataset.n : null;
+  if (S && S.settings && S.settings.debug) post({ type: 'log', text: 'ui: ' + a + (id ? ' ' + id : '') + (n != null ? '#' + n : '') });
+  switch (a) {
+    case 'open': post({ type: 'open', id: id, web: false }); break;
+    case 'web': post({ type: 'open', id: id, web: true }); break;
+    case 'bell': post({ type: 'bell', id: id }); break;
+    case 'hide': opened.delete(id); big.delete(id); hideNow.add(id); post({ type: 'hide', id: id }); break;
+    case 'send': doSend(id); break;
+    case 'msend': doSend(id, true); break;
+    case 'pinc': post({ type: 'pinc', id: id }); break;
+    case 'trc': trayArm[id] = trayArm[id] === false; render(); break;
+    case 'mv': { const r = b.getBoundingClientRect(); moveMenu(id, r.left - 120, r.bottom + 2); break; }
+    case 'secsort': { const sc = LAY.sec.find(s => s.id === b.closest('.sh').dataset.sec); if (sc) { sc.sort = SORTS[(SORTS.indexOf(sc.sort) + 1) % SORTS.length]; if (sc.sort === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } break; }
+    case 'secmenu': { const r = b.getBoundingClientRect(); secMenu(b.closest('.sh').dataset.sec, r.right - 170, r.bottom + 2); break; }
+    case 'brref': post({ type: 'catalog', force: true }); for (const pid of brOpen) post({ type: 'catproj', pid: pid }); break;
+    case 'brx': LAY.browse = false; saveLay(); render(); break;
+    case 'brproj': { const pid = b.dataset.pid; if (brOpen.has(pid)) brOpen.delete(pid); else { brOpen.add(pid); const bp = ((S.catalog || {}).byProj || {})[pid]; if (!bp) post({ type: 'catproj', pid: pid }); } renderBrowse($('#list')); sizeReport(); break; }
+    case 'brtrack': { const tid = b.dataset.id; openCard(tid); post({ type: 'track', id: tid, title: b.dataset.t }); b.disabled = true; break; }
+    case 'hidt': hidOpen = !hidOpen; renderHidden($('#list')); sizeReport(); break;
+    case 'unhide': post({ type: 'unhide', id: b.dataset.id }); b.disabled = true; break;
+    case 'reload': post({ type: 'reload', id: id }); b.disabled = true; break;
+    case 'unattall': { const cd = cards.get(id); cd.files = []; drawAtts(cd); break; }
+    case 'attach': cards.get(id).fin.click(); break;
+    case 'unatt': { const cd = cards.get(id); cd.files.splice(+b.dataset.i, 1); drawAtts(cd); break; }
+    case 'dl': post({ type: 'dl', id: id, x: +b.dataset.x, k: +b.dataset.k, mode: b.dataset.mode }); break;
+    case 'press': post({ type: 'press', id: id, i: +b.dataset.i, label: b.dataset.label }); b.disabled = true; setTimeout(() => { b.disabled = false; }, 3000); break;
+    case 'retry': post({ type: 'retry', id: id }); break;
+    case 'jump': { const cd = cards.get(id); cd.conv.scrollTop = cd.conv.scrollHeight; cd.jump.classList.remove('on', 'new'); break; }
+    case 'copycode': { const pre = b.parentElement.querySelector('pre'); if (pre) post({ type: 'copy', text: pre.innerText }); break; }
+    case 'track': { const sel = $('#nfRecent'); if (sel.value) { openCard(sel.value); post({ type: 'track', id: sel.value, title: sel.options[sel.selectedIndex].text }); } $('#newf').classList.remove('on'); sizeReport(); break; }
+    case 'stop': post({ type: 'stop', id: id }); break;
+    case 'auto': post({ type: 'auto', id: id }); break;
+    case 'run': post({ type: 'run', id: id, n: n }); break;
+    case 'copycmd': { const s = ((chatOf(id) || {}).steps || []).find(x => x.n === n); post({ type: 'copy', text: s ? (s.cmd || s.path || s.url || '') : '' }); break; }
+    case 'autostep': post({ type: 'autostep', id: id, n: n }); break;
+    case 'tick': post({ type: 'tick', id: id, n: n }); break;
+    case 'edit': { const cd = cards.get(id); cd.edit.add(n); render(); const t = cd.actw.querySelector('[data-obs="' + n + '"]'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } break; }
+  }
+});
+document.addEventListener('dblclick', e => { const sn = e.target.closest('.sh .sn'); if (sn) { e.preventDefault(); renameSec(sn.closest('.sh').dataset.sec); } });
+// drag a chat by its title: between chats (reorder), onto a section title (move there), onto the pinned area (pin)
+const clearDrop = () => { for (const x of document.querySelectorAll('.dropb,.dropa,.dropin')) x.classList.remove('dropb', 'dropa', 'dropin'); };
+document.addEventListener('dragstart', e => { const hd = e.target.closest && e.target.closest('.head'); if (!hd) return; const card = hd.closest('.card'); dragId = card.dataset.id; card.classList.add('dragging'); try { e.dataTransfer.setData('text/plain', ''); e.dataTransfer.effectAllowed = 'move'; } catch (x) { } });
+document.addEventListener('dragend', () => { const cd = dragId && cards.get(dragId); if (cd) cd.el.classList.remove('dragging'); dragId = null; clearDrop(); });
+document.addEventListener('dragover', e => {
+  if (!dragId) return; e.preventDefault(); clearDrop();
+  const card = e.target.closest('.card'), sh = e.target.closest('.sh'), pins = e.target.closest('#pins'), sec = e.target.closest('.sec');
+  if (card && card.dataset.id !== dragId) { const r = card.getBoundingClientRect(); card.classList.add(e.clientY < r.top + r.height / 2 ? 'dropb' : 'dropa'); }
+  else if (sh) sh.classList.add('dropin');
+  else if (pins) pins.classList.add('dropin');
+  else if (sec) sec.firstElementChild.classList.add('dropin');
+});
+document.addEventListener('drop', e => {
+  if (!dragId) return; e.preventDefault();
+  const id = dragId, card = e.target.closest('.card'), sh = e.target.closest('.sh'), pins = e.target.closest('#pins'), sec = e.target.closest('.sec');
+  dragId = null; clearDrop(); const cd = cards.get(id); if (cd) cd.el.classList.remove('dragging');
+  if (card && card.dataset.id !== id) { const r = card.getBoundingClientRect(), tc = chatOf(card.dataset.id); if (tc) moveChat(id, secOf(tc), tc.id, e.clientY >= r.top + r.height / 2); }
+  else if (sh) moveChat(id, sh.dataset.sec);
+  else if (pins) moveChat(id, 'pin');
+  else if (sec) moveChat(id, sec.dataset.sec);
+}, true);
+document.addEventListener('contextmenu', e => {
+  const st = e.target.closest('.st'), card = e.target.closest('.card');
+  if (e.target.closest('.head') && card) { e.preventDefault(); chatMenu(card.dataset.id, e.clientX, e.clientY); return; }
+  if (!st && !e.target.closest('.conv, textarea, input, [contenteditable=true], .sh, #brw')) { e.preventDefault(); setMenu(e.clientX, e.clientY); return; }
+  if (st && card && !e.target.closest('textarea, input')) { e.preventDefault(); post({ type: 'skip', id: card.dataset.id, n: +st.dataset.n }); return; }
+  if (!e.target.closest('.conv') && !e.target.closest('textarea')) e.preventDefault();
+});
+document.addEventListener('paste', e => {
+  const t = e.target; if (!(t.tagName === 'TEXTAREA' || t.classList.contains('mi')) || t.dataset.obs) return; const card = t.closest('.card'); if (!card) return;
+  const fl = e.clipboardData && e.clipboardData.files; if (fl && fl.length) { e.preventDefault(); addFiles(card.dataset.id, fl); }
+});
+document.addEventListener('dragover', e => e.preventDefault()); document.addEventListener('drop', e => e.preventDefault());     // never let a dropped file navigate the panel
+document.addEventListener('input', e => {
+  const t = e.target; if (t.classList && (t.classList.contains('mi') || (t.tagName === 'TEXTAREA' && !t.dataset.obs && t.closest('.cbox')))) slashFor(t);
+  if (t.tagName !== 'TEXTAREA') return;
+  if (t.dataset.obs) { t.style.height = 'auto'; t.style.height = Math.min(64, t.scrollHeight) + 'px'; const card0 = t.closest('.card'), cd0 = card0 && cards.get(card0.dataset.id); if (cd0) cd0.obs[t.dataset.obs] = t.value; }
+  else { const card = t.closest('.card'); if (card) { drafts[card.dataset.id] = t.value; grow(t); const cd1 = cards.get(card.dataset.id); if (cd1 && t === cd1.ta) { const ex = Math.max(0, t.offsetHeight - 17); cd1.conv.style.maxHeight = ex ? 'calc(var(--convh) - ' + ex + 'px)' : ''; } } }
+  sizeReport();
+});
+document.addEventListener('keydown', e => {
+  if (slp && e.target === slp.inp && slp.items && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key) && !e.isComposing) {
+    if (e.key === 'Escape') { e.preventDefault(); closeSlash(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (slp.items.length) { slp.i = (slp.i + (e.key === 'ArrowDown' ? 1 : -1) + slp.items.length) % slp.items.length; slashFor(slp.inp); } return; }
+    if (slp.items.length) { e.preventDefault(); pickSlash(slp.i); return; }
+  }
+  if (e.key === 'Escape') { if (e.target.closest && e.target.closest('#newf')) { $('#newf').classList.remove('on'); sizeReport(); } else post({ type: 'esc' }); return; }
+  const t = e.target; if (t.tagName !== 'TEXTAREA' && t.tagName !== 'INPUT' || e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+  if (t.closest('#newf')) { if (!e.shiftKey) { e.preventDefault(); newChat(); } return; }
+  const card = t.closest('.card'); if (!card) return; const id = card.dataset.id;
+  if (t.classList.contains('mi')) { e.preventDefault(); doSend(id, true); return; }      // one line on purpose
+  if (e.shiftKey || e.ctrlKey) { if (e.ctrlKey) { e.preventDefault(); t.setRangeText('\n', t.selectionStart, t.selectionEnd, 'end'); t.dispatchEvent(new Event('input', { bubbles: true })); } return; }
+  e.preventDefault();
+  if (t.dataset.obs) { cards.get(id).edit.delete(+t.dataset.obs); delete cards.get(id).obs[t.dataset.obs]; post({ type: 'answer', id: id, n: +t.dataset.obs, text: t.value }); const all = [...card.querySelectorAll('[data-obs]')]; const nx = all[all.indexOf(t) + 1]; (nx || cards.get(id).ta).focus(); }
+  else doSend(id);
+});
+window.addEventListener('resize', () => { for (const cd of cards.values()) if (cd.el.classList.contains('open')) { const b = cd.conv; if (b.scrollHeight - b.scrollTop - b.clientHeight < 30) b.scrollTop = b.scrollHeight; } });
+const seenSince = {};
+setInterval(() => {
+  if (!S || !S.shown) return;
+  for (const cd of cards.values()) {
+    const c = chatOf(cd.id); if (!c || !cd.el.classList.contains('big') || !cd.conv.clientHeight) { delete seenSince[cd.id]; continue; }     // compact / collapsed = not read
+    const msgs = c.msgs || []; let lastA = null; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a' && msgs[i].t) { lastA = msgs[i]; break; }
+    const b = cd.conv, atEnd = b.scrollHeight - b.scrollTop - b.clientHeight < 40;
+    if (!lastA || c.working || !atEnd) { delete seenSince[cd.id]; continue; }
+    const k = hash(lastA.t); if (k === c.readKey && !c.unread) { delete seenSince[cd.id]; continue; }
+    if (!seenSince[cd.id]) seenSince[cd.id] = Date.now();
+    else if (Date.now() - seenSince[cd.id] > 1500) { delete seenSince[cd.id]; c.readKey = k; c.unread = false; post({ type: 'read', id: cd.id, key: k }); }
+  }
+}, 500);
+window.chrome.webview.addEventListener('message', e => {
+  const m = e.data;
+  if (m.type === 'state') { const t0 = performance.now(); S = m; if (!S.shown) closeMenu(); render(); if (slp) slashFor(slp.inp); const dt = performance.now() - t0; if (S.settings && S.settings.debug && dt > 30) post({ type: 'log', text: 'ui: slow render ' + Math.round(dt) + ' ms, ' + (S.chats || []).length + ' chats' }); }
+  else if (m.type === 'colev') {                          // from a side window (through the tray)
+    const k = col[m.x]; if (!k) return;
+    if (m.ev === 'hover') { k.hov = !!m.on; if (m.on) clearTimeout(leaveT); else schedClose(); }
+    else if (m.ev === 'pin') k.pinned = !!m.on;
+    else if (m.ev === 'close') { k.open = false; k.pinned = false; k.hov = false; if (hotEl && !col.L.open && !col.R.open) { hotEl.classList.remove('hot'); hotEl = null; } }
+  }
+});
+post({ type: 'ready' });
+</script></body></html>

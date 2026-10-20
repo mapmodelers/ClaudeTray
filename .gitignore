@@ -1,0 +1,8 @@
+logs/
+config.json
+oauth.json
+cache.dat
+*.bak
+state.json
+skill/tray-personal.zip
+browser-profile/

@@ -1,0 +1,5 @@
+{
+  "pollSeconds": 180,
+  "theme": "auto",
+  "refreshToken": true
+}
