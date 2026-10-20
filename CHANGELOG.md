@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.5
+
+- The question card looks like claude.ai's, one line per row, in the tray's colors:
+  - the question with ‹ n/m ›;
+  - numbered choices (one answer) or checkboxes (several);
+  - "Other…" with Skip, and Send answers.
+- "Other…" goes into the card's own Other box:
+  - with one answer, Enter sends it;
+  - with several, it counts as one more choice next to your picks.
+- Claude's Allow / Deny prompts use the tray's colors too (no more blue).
+
 ## 0.2.4
 
 - Questions, several-answers step:

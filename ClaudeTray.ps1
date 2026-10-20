@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.4'
+$Version = '0.2.5'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1574,6 +1574,14 @@ $webScript = {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const l = document.querySelector('[data-testid=""transcript-list""]') || document.querySelector('[data-testid=""user-message""]'); let n = l; while (n && !(n.scrollHeight > n.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(n).overflowY))) n = n.parentElement; if (!n) return 'no-scroller'; n.scrollTop = 0; return 'scrolled'; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'press') {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const b = (window.__ctPrompts || [])[$([int]$cmd.I)]; if (!b) return 'gone'; const tx = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]; if (tx !== $(ConvertTo-Json ([string]$cmd.Label))) return 'changed:' + tx; b.click(); return 'pressed:' + tx; })()"; returnByValue = $true }).result.result.value
+                        } elseif ($cmd.Kind -eq 'qother') {
+                            # the card's own "Other" box (one more answer, next to the picks): replace its text, Enter only for a one-answer step
+                            $f1 = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const g = document.querySelector('[data-cds=""AskUserQuestion""]') || document.querySelector('[data-testid=""hub-ask-user-question-card""]'); const i = g && g.querySelector('form input[type=""text""], form textarea'); if (!i) return 'no-input'; i.focus(); if (i.select) i.select(); return 'ok'; })()"; returnByValue = $true }).result.result.value
+                            if ($f1 -ne 'ok') { $res = $f1 }
+                            else {
+                                [void](Cdp $ws 'Input.insertText' @{ text = [string]$cmd.Text }); Start-Sleep -Milliseconds 120
+                                if ($cmd.Enter) { [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyDown'; key = 'Enter'; code = 'Enter'; windowsVirtualKeyCode = 13; nativeVirtualKeyCode = 13; text = "`r" }); [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyUp'; key = 'Enter'; code = 'Enter'; windowsVirtualKeyCode = 13; nativeVirtualKeyCode = 13 }); $res = 'other sent' } else { $res = 'other set' }
+                            }
                         } elseif ($cmd.Kind -in 'qpick', 'qsub', 'qnext', 'qskip', 'qprev') {
                             $lbJs = ConvertTo-Json ([string]$cmd.Label)
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const q = window.__ctQ; if (!q) return 'gone'; if ('$($cmd.Kind)' === 'qsub' && q.sub) { if (q.sub.disabled) return 'send-disabled'; q.sub.click(); return 'submitted'; } if ('$($cmd.Kind)' === 'qsub') { const ci = document.querySelector('[data-testid=""chat-input""], div.ProseMirror[contenteditable=""true""]'); let z = ci; for (let i = 0; i < 6 && z && z.parentElement; i++) z = z.parentElement; const sbt = z ? Array.from(z.querySelectorAll('button')).find(b => !b.disabled && b.offsetParent !== null && /send|envoyer/i.test(b.getAttribute('aria-label') || '') && !b.closest('[data-testid=""hub-ask-user-question-card""]')) : null; if (sbt) { sbt.click(); return 'clicked send'; } return 'enter'; } if ('$($cmd.Kind)' === 'qnext') { if (!q.next) return 'no-next'; q.next.click(); return 'next'; } if ('$($cmd.Kind)' === 'qskip') { if (!q.skip) return 'no-skip'; q.skip.click(); return 'skipped'; } if ('$($cmd.Kind)' === 'qprev') { if (!q.prev) return 'no-prev'; q.prev.click(); return 'prev'; } const e = q.o[$([int]$cmd.I)]; if (!e) return 'gone'; const lb = e.matches('input') ? (e.closest('label') || e.parentElement) : e; const bd = lb.querySelector && lb.querySelector('bdi'); const tx = ((bd && bd.innerText) || lb.innerText || '').trim().split('\n').filter(x => !/^\d+$/.test(x.trim()))[0].trim(); if (tx.slice(0, 60) !== $lbJs) return 'changed'; (e.matches('input') ? e : lb).click(); return 'picked'; })()"; returnByValue = $true }).result.result.value
@@ -3207,6 +3215,7 @@ function On-WebMsg($m) {
         'read' { if ($q) { $QS.Read[[string]$q.id] = @{ K = [string]$m.key; At = (Get-Date) }; Save-State; Update-TrayIcon; Sync-Anim } }
         'qpick' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qpick'; I = [int]$m.i; Label = [string]$m.label; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'diag'; Key = 'diagq-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qpick[{0}]: choice {1}" -f $q.id, [int]$m.i) } }
         'qnext' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qnext'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'diag'; Key = 'diagq-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }
+        'qother' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qother'; Text = [string]$m.text; Enter = [bool]$m.enter; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qother[{0}]: {1} chars, enter={2}" -f $q.id, ([string]$m.text).Length, [bool]$m.enter) } }
         'qprev' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qprev'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }
         'qskip' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qskip'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }
         'qsub' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qsub'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'diag'; Key = 'diagq-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qsub[{0}]" -f $q.id) } }
