@@ -117,12 +117,12 @@ textarea::placeholder{color:var(--mu)}
 .sit{padding:2px 7px 3px;border-top:1px solid var(--ln);color:var(--tx);font-size:11px}.sit div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card:not(.big) .conv,.card:not(.big) .jump,.card:not(.big) .comp{display:none}.card.big .mini,.card.big .sit{display:none}
 .mini{display:flex;align-items:center;gap:3px;margin:0 4px 3px 17px}.mini .mdot,.mini .mt{display:none}
-.mfld{flex:1;min-width:0;display:flex;align-items:center;gap:1px;background:var(--field);border:1px solid var(--ln);border-radius:7px;padding:0 2px 0 5px;height:19px}.mfld:focus-within{border-color:var(--mu)}
+.mfld{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:1px;background:var(--field);border:1px solid var(--ln);border-radius:7px;padding:0 2px 0 5px;height:19px}.mfld:focus-within{border-color:var(--mu)}
 body.compact .card:not(.open) .head{display:none}body.compact .card:not(.open) .mini{margin:0;padding:1px 4px;gap:4px;border-radius:6px}body.compact .card:not(.open) .mini:hover{background:var(--card)}
 body.compact .card:not(.open) .mdot{display:inline-flex;align-items:center;justify-content:center;width:14px;height:18px;flex:none;cursor:pointer;border-radius:4px}body.compact .card:not(.open) .mdot:hover{background:var(--ln)}body.compact .card:not(.open) .mdot .dot{margin:0}
 body.compact .card:not(.open) .mt{display:flex;align-items:center;gap:0;flex:none}body.compact .card:not(.open) .mt .age{margin-left:3px;min-width:18px;text-align:right}
 body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=attach],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=msend]{display:none}
-body.compact .mi::placeholder{color:color-mix(in srgb,var(--tx) 62%,var(--mu));opacity:1}body.compact .mi.un::placeholder{font-weight:600;color:color-mix(in srgb,var(--tx) 80%,var(--mu))}body.compact .mi{font-size:11px}
+.mph{display:none}body.compact .card:not(.open) .mph{display:block;position:absolute;left:6px;right:4px;top:0;line-height:17px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;color:var(--mu)}.mph b{font-weight:600;color:color-mix(in srgb,var(--tx) 66%,var(--mu))}.mph.un b{color:color-mix(in srgb,var(--tx) 84%,var(--mu))}.mph i{font-style:normal;opacity:.85}body.compact .card:not(.open) .mi:focus+.mph,body.compact .card:not(.open) .mi:not(:placeholder-shown)+.mph{display:none}body.compact .mi{font-size:11px}
 .mi:focus::placeholder{color:transparent!important}.mi:not(:focus):not(:placeholder-shown){font-style:italic}.mini .mi{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:10.5px;height:17px;padding:0}
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
 .mf{display:inline-flex;align-items:center;color:var(--mu);font-size:9.5px;gap:1px}.mf svg{width:10px;height:10px}
@@ -454,9 +454,9 @@ function makeCard(id){
   const el = document.createElement('div'); el.className = 'card'; el.dataset.id = id;
   el.innerHTML = '<div class="head" title="Click to expand / collapse"></div><div class="body"><div class="sit"></div><div class="conv"><div class="msgs"></div><div class="actw"></div><div class="askw"></div></div><button class="jump" data-a="jump" title="Jump to the latest"></button><div class="comp"><div class="atts"></div><div class="cbox"><textarea rows="1" placeholder="Reply to Claude…"></textarea><input type="file" multiple hidden><button class="trc" data-a="trc"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button>' +
     '<button class="ib send" data-a="send" title="Send (Enter) - Shift+Enter: new line">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><button class="pill" data-a="auto" title="Ask Claude to do these steps itself">auto</button></div></div></div>' +
-    '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation"></span><div class="mfld"><input class="mi" spellcheck="false"><span class="mfiles"></span><button class="trc" data-a="trc"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button></div><span class="mt"></span></div>';
+    '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation"></span><div class="mfld"><input class="mi" spellcheck="false"><span class="mph"></span><span class="mfiles"></span><button class="trc" data-a="trc"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button></div><span class="mt"></span></div>';
   el.querySelector('.head').draggable = true;
-  const cd = { id: id, el: el, head: el.querySelector('.head'), conv: el.querySelector('.conv'), msgs: el.querySelector('.msgs'), actw: el.querySelector('.actw'), ta: el.querySelector('textarea'), send: el.querySelector('.send'), stop: el.querySelector('.stop'), auto: el.querySelector('.pill'), headH: '', actH: '', items: [], stick: true, full: new Set(), edit: new Set(), obs: {}, files: [], mi: el.querySelector('.mi'), mdot: el.querySelector('.mdot'), mt: el.querySelector('.mt'), mdH: '', mtH: '', mfiles: el.querySelector('.mfiles'), mstop: el.querySelector('.mini .stop'), sit: el.querySelector('.sit'), sitH: '', jump: el.querySelector('.jump'), ask: el.querySelector('.askw'), askH: '', atts: el.querySelector('.atts'), fin: el.querySelector('input[type=file]') };
+  const cd = { id: id, el: el, head: el.querySelector('.head'), conv: el.querySelector('.conv'), msgs: el.querySelector('.msgs'), actw: el.querySelector('.actw'), ta: el.querySelector('textarea'), send: el.querySelector('.send'), stop: el.querySelector('.stop'), auto: el.querySelector('.pill'), headH: '', actH: '', items: [], stick: true, full: new Set(), edit: new Set(), obs: {}, files: [], mi: el.querySelector('.mi'), mdot: el.querySelector('.mdot'), mph: el.querySelector('.mph'), mphH: '', mt: el.querySelector('.mt'), mdH: '', mtH: '', mfiles: el.querySelector('.mfiles'), mstop: el.querySelector('.mini .stop'), sit: el.querySelector('.sit'), sitH: '', jump: el.querySelector('.jump'), ask: el.querySelector('.askw'), askH: '', atts: el.querySelector('.atts'), fin: el.querySelector('input[type=file]') };
   cd.fin.addEventListener('change', () => { addFiles(id, cd.fin.files); cd.fin.value = ''; });
   el.addEventListener('dragover', e => { if (dragId) return; e.preventDefault(); el.classList.add('drop'); });
   el.addEventListener('dragleave', () => el.classList.remove('drop'));
@@ -471,10 +471,11 @@ function updateCard(cd, c){
   if (cd.el.classList.contains('big') !== isBig) { cd.el.classList.toggle('big', isBig); if (isBig) { cd.stick = true; cd.items = []; } }
   if (cd.el.classList.contains('open') !== open) cd.el.classList.toggle('open', open);
   const cmp = document.body.classList.contains('compact'), pv = String(c.preview || '').replace(/\s+/g, ' ').trim();
-  const ph = cmp ? c.title + (pv ? ' · ' + pv : '') : c.suggest && !c.working ? 'Enter = send "' + c.suggest + '" (steps done)' : (c.preview || 'Reply…');
+  const ph = cmp ? ' ' : c.suggest && !c.working ? 'Enter = send "' + c.suggest + '" (steps done)' : (c.preview || 'Reply…');
   const mtt = cmp ? c.title + (c.suggest && !c.working ? ' - Enter sends "' + c.suggest + '"' : '') : ph;
   if (cd.mi.placeholder !== ph) cd.mi.placeholder = ph; if (cd.mi.title !== mtt) cd.mi.title = mtt;
   cd.mi.classList.toggle('un', !!c.unread);
+  const mph = cmp ? '<b>' + esc(c.title) + '</b>' + (pv ? '<i> · ' + esc(pv) + '</i>' : '') : ''; if (mph !== cd.mphH) { cd.mphH = mph; cd.mph.innerHTML = mph; } cd.mph.classList.toggle('un', !!c.unread);
   if (cmp && !open) {                                    // compact: one line - dot (opens it) · field (title) · bell · open in Claude · age
     const md = marker(c); if (md !== cd.mdH) { cd.mdH = md; cd.mdot.innerHTML = md; }
     const mt = '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button><button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button><span class="age" title="Last activity">' + esc(c.age) + '</span>';
@@ -565,9 +566,11 @@ function convItems(c, cd){
 }
 function qHtml(c){                                    // a question Claude asks with choices (Claude Code): pick here, or type your own answer in the box
   const q = c.q; if (!q || !(q.o || []).length) return '';
-  return '<div class="ask qz"><div class="qt"><span>Claude asks:</span>' + esc(q.t || '') + (q.multi ? ' <span class="qh">(several allowed)</span>' : '') + '</div><div class="qo">' +
-    q.o.map((o, i) => '<button data-a="qpick" data-i="' + i + '" data-label="' + esc(o.l) + '" class="' + (o.s ? 'on' : '') + '" title="' + esc(o.d || 'Pick it') + '">' + esc(o.l) + '</button>').join('') +
-    (q.sub ? '<button class="qs" data-a="qsub" title="Send your choice">' + esc(q.sub) + '</button>' : '') + '</div><div class="qh">or type your own answer in the box below</div></div>';
+  const stp = q.steps > 1 ? ' <span class="qh">' + q.step + '/' + q.steps + '</span>' : '';
+  return '<div class="ask qz"><div class="qt"><span>Claude asks:</span>' + esc(q.t || '') + stp + (q.multi ? ' <span class="qh">(several allowed)</span>' : '') + '</div><div class="qo">' +
+    q.o.map((o, i) => '<button data-a="qpick" data-i="' + i + '" data-label="' + esc(o.l) + '" class="' + (o.s ? 'on' : '') + '" title="' + esc(o.d || 'Pick it') + '">' + esc(o.l) + '</button>').join('') + '</div><div class="qo">' +
+    (q.next ? '<button data-a="qnext" title="Next question">Next ›</button>' : '') + (q.skip ? '<button data-a="qskip" title="Skip this question">' + esc(q.skip) + '</button>' : '') +
+    (q.card || q.sub ? '<button class="qs" data-a="qsub" title="Send your answers to Claude">' + esc(q.sub || 'Send answers') + '</button>' : '') + '</div><div class="qh">or type your own answer in the box below and send it</div></div>';
 }
 function pastSteps(c){                                 // read-only, one line per step
   const ic = { cmd: I.cmd, ps: I.cmd, exe: I.run, dir: I.dir, file: I.file, url: I.web, observe: I.eye, manual: I.ok };
@@ -772,6 +775,8 @@ document.addEventListener('click', e => {
     case 'toggle': toggle(id); break;
     case 'qpick': post({ type: 'qpick', id: id, i: +b.dataset.i, label: b.dataset.label }); b.classList.add('on'); break;
     case 'qsub': post({ type: 'qsub', id: id }); b.disabled = true; break;
+    case 'qnext': post({ type: 'qnext', id: id }); break;
+    case 'qskip': post({ type: 'qskip', id: id }); break;
     case 'open': post({ type: 'open', id: id, web: false }); break;
     case 'web': post({ type: 'open', id: id, web: true }); break;
     case 'bell': post({ type: 'bell', id: id }); break;

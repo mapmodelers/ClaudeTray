@@ -247,3 +247,9 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   the elements. The `qpick` / `qsub` commands click them (label checked first). A new question queues a `diag` that
   also logs `ZONE` (the composer's surroundings: tags, roles, types, aria-checked - no text).
 - Files: `dl` mode `open` -> `Open-Downloaded` (default app; risky extensions are shown in their folder, never run).
+- claude.ai's question card (captured 2026-10, French UI): `[data-testid=hub-ask-user-question-card]` in the composer
+  dock (same fieldset as `[data-testid=chat-input]`), `[data-cds=AskUserQuestion]` role=group with `aria-labelledby`
+  (question), a nav span "N sur M" between prev / next buttons, options = `button[aria-pressed]` (`bdi` label +
+  description), a `form input[type=text]` "Other" with a skip button. One question per step. Answering: Enter in the
+  message box sends the picks; text typed in the message box becomes the "Other" answer. `[data-testid=hub-question-announcer]`
+  (role=alert) also holds the question. Labels are localized: match structure, not text.

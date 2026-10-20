@@ -2,6 +2,16 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.2.1
+
+- Claude Code questions now really show in the tray, read from claude.ai's question card:
+  - the question with its "1/2" step, the choices (with their descriptions on hover);
+  - Next, Skip, and Send answers;
+  - or type your own answer in the box below and send it.
+  - 0.2.0 looked for the wrong kind of buttons and never found them.
+- Compact mode: the title is bold, Claude's last line dimmer.
+- Logs: at most one structure dump per chat every 30 s (opening / folding chats wrote one each time).
+
 ## 0.2.0
 
 - **Compact mode** (Settings, off by default): a collapsed chat takes one line.

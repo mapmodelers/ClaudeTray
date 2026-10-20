@@ -4,11 +4,9 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 
 ## Now - after 0.2.0 testing
 
-- Claude Code questions:
-  - Check the layout the 0.2.0 log captures on a real question and adjust the selectors.
-  - Handle several questions in one prompt (tabs), multi-select, and the "Other" box.
-- Compact mode: Claude's last line in a dimmer grey than the title (the field can't color part of its text; needs an
-  overlay).
+- Claude Code questions (0.2.1 reads claude.ai's card):
+  - Confirm on a live question that picking, Next, Skip and Send answers all work.
+  - Multi-select: how a several-answers step marks itself is still unknown (only step 1 was captured).
 - Images: thumbnails in the conversation (today a click opens them).
 
 ## Decided
@@ -29,4 +27,5 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - 2026-10-20: Claude Code questions must show properly in the tray.
 - 2026-10-20: images / files viewable without a download or open-folder step.
 - 2026-10-20: keep track of everything said; backlog what doesn't fit one run.
+- 2026-10-20: compact mode - the title in the field must be bold.
 - 2026-10-20: answers - last line after the title: yes; toolbar: own bar above usage; compact mode: off by default.

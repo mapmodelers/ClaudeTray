@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.0'
+$Version = '0.2.1'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1221,7 +1221,21 @@ $webScript = {
   window.__ctPrompts = pb;
   // a question with choices (Claude Code's multiple-choice prompt), found by structure: radios / checkboxes / options near the message box or the last reply
   let qn = null; window.__ctQ = null;
-  { const qz = qa('[role="dialog"], [role="alertdialog"]'); if (composer) { let cz = composer; for (let i = 0; i < 8 && cz.parentElement; i++) cz = cz.parentElement; qz.push(cz); } if (lastRep && lastRep.parentElement) qz.push(lastRep.parentElement);
+  // claude.ai's own card (seen 2026-10): [data-testid=hub-ask-user-question-card] in the composer dock > [data-cds=AskUserQuestion] (role=group):
+  //   label span (aria-labelledby) · nav: prev / "N sur M" / next buttons · options = button[aria-pressed] (bdi[0] label, bdi[1] description) · form input "Other" + skip button
+  const qcard = document.querySelector('[data-testid="hub-ask-user-question-card"]') || (document.querySelector('[data-cds="AskUserQuestion"]') || {}).parentElement;
+  if (qcard && vis(qcard)) {
+    const g = qcard.querySelector('[data-cds="AskUserQuestion"]') || qcard, lid = g.getAttribute('aria-labelledby'), le = (lid && document.getElementById(lid)) || g.querySelector('span[id$="-label"]');
+    const ob = Array.from(g.querySelectorAll('button[aria-pressed]')).filter(vis);
+    const stp = Array.from(g.querySelectorAll('span')).map(s => (s.children.length ? '' : (s.textContent || '').trim())).find(x => /^\d+\s*\D{1,6}\s*\d+$/.test(x)) || '';
+    const sm = stp.match(/(\d+)\D+(\d+)/), stN = sm ? +sm[1] : 1, stM = sm ? +sm[2] : 1;
+    let nx = null, pv = null; const stEl = Array.from(g.querySelectorAll('span')).find(s => !s.children.length && (s.textContent || '').trim() === stp && stp); if (stEl && stEl.parentElement) { const bs = Array.from(stEl.parentElement.querySelectorAll('button')); pv = bs[0] || null; nx = bs[bs.length - 1] || null; }
+    const fi = g.querySelector('form input[type="text"], form textarea'), skip = fi ? (fi.closest('label') || fi.parentElement).querySelector('button') : null;
+    window.__ctQ = { o: ob, next: nx && !nx.disabled && nx !== pv ? nx : null, skip: skip, card: true };
+    qn = { t: ((le && le.innerText) || '').trim().slice(0, 220), step: stN, steps: stM, next: !!window.__ctQ.next, skip: skip ? (skip.innerText || '').trim().slice(0, 20) : '', multi: false, sub: '', card: true,
+      o: ob.slice(0, 8).map(b => { const bd = Array.from(b.querySelectorAll('bdi')).map(x => (x.innerText || '').trim()); const ls = bd.length ? bd : (b.innerText || '').split('\n').map(x => x.trim()).filter(x => x && !/^\d+$/.test(x)); return { l: (ls[0] || '').slice(0, 60), d: (ls[1] || '').slice(0, 160), s: b.getAttribute('aria-pressed') === 'true' }; }) };
+  }
+  if (!qn) { const qz = qa('[role="dialog"], [role="alertdialog"]'); if (composer) { let cz = composer; for (let i = 0; i < 8 && cz.parentElement; i++) cz = cz.parentElement; qz.push(cz); } if (lastRep && lastRep.parentElement) qz.push(lastRep.parentElement);
     const OS = '[role="radio"], [role="checkbox"], [role="option"], [role="menuitemradio"], [role="menuitemcheckbox"], input[type="radio"], input[type="checkbox"]';
     const lab = e => e.matches('input') ? (e.closest('label') || (e.id && document.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.parentElement) : e;
     let os = []; for (const z of qz) for (const e of z.querySelectorAll(OS)) if (!os.includes(e) && vis(lab(e)) && !e.closest('[data-testid="user-message"], [cmdk-root], [data-testid="model-selector-dropdown"], nav, aside, header, [role="navigation"]') && (lab(e).innerText || '').trim()) os.push(e);
@@ -1551,9 +1565,13 @@ $webScript = {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const l = document.querySelector('[data-testid=""transcript-list""]') || document.querySelector('[data-testid=""user-message""]'); let n = l; while (n && !(n.scrollHeight > n.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(n).overflowY))) n = n.parentElement; if (!n) return 'no-scroller'; n.scrollTop = 0; return 'scrolled'; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'press') {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const b = (window.__ctPrompts || [])[$([int]$cmd.I)]; if (!b) return 'gone'; const tx = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]; if (tx !== $(ConvertTo-Json ([string]$cmd.Label))) return 'changed:' + tx; b.click(); return 'pressed:' + tx; })()"; returnByValue = $true }).result.result.value
-                        } elseif ($cmd.Kind -eq 'qpick' -or $cmd.Kind -eq 'qsub') {
+                        } elseif ($cmd.Kind -in 'qpick', 'qsub', 'qnext', 'qskip') {
                             $lbJs = ConvertTo-Json ([string]$cmd.Label)
-                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const q = window.__ctQ; if (!q) return 'gone'; if ('$($cmd.Kind)' === 'qsub') { if (!q.sub) return 'no-submit'; q.sub.click(); return 'submitted'; } const e = q.o[$([int]$cmd.I)]; if (!e) return 'gone'; const lb = e.matches('input') ? (e.closest('label') || e.parentElement) : e; const tx = (lb.innerText || '').trim().split('\n')[0].trim(); if (tx.slice(0, 60) !== $lbJs) return 'changed'; (e.matches('input') ? e : lb).click(); return 'picked'; })()"; returnByValue = $true }).result.result.value
+                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const q = window.__ctQ; if (!q) return 'gone'; if ('$($cmd.Kind)' === 'qsub' && q.sub) { q.sub.click(); return 'submitted'; } if ('$($cmd.Kind)' === 'qsub') return 'enter'; if ('$($cmd.Kind)' === 'qnext') { if (!q.next) return 'no-next'; q.next.click(); return 'next'; } if ('$($cmd.Kind)' === 'qskip') { if (!q.skip) return 'no-skip'; q.skip.click(); return 'skipped'; } const e = q.o[$([int]$cmd.I)]; if (!e) return 'gone'; const lb = e.matches('input') ? (e.closest('label') || e.parentElement) : e; const bd = lb.querySelector && lb.querySelector('bdi'); const tx = ((bd && bd.innerText) || lb.innerText || '').trim().split('\n').filter(x => !/^\d+$/.test(x.trim()))[0].trim(); if (tx.slice(0, 60) !== $lbJs) return 'changed'; (e.matches('input') ? e : lb).click(); return 'picked'; })()"; returnByValue = $true }).result.result.value
+                            if ($res -eq 'enter') {                    # claude.ai's card: "send your message to answer" - Enter in the (empty) message box sends the picks
+                                $f0 = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value
+                                if ($f0 -eq 'ok') { [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyDown'; key = 'Enter'; code = 'Enter'; windowsVirtualKeyCode = 13; nativeVirtualKeyCode = 13; text = "`r" }); [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyUp'; key = 'Enter'; code = 'Enter'; windowsVirtualKeyCode = 13; nativeVirtualKeyCode = 13 }); $res = 'sent (Enter)' } else { $res = $f0 }
+                            }
                         } elseif ($cmd.Kind -eq 'slash') {
                             $pre2 = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'no-composer'; if ((e.innerText || '').replace(/\u200b/g,'').trim().length) return 'busy'; e.focus(); return 'ok'; })()"; returnByValue = $true }).result.result.value
                             if ($pre2 -ne 'ok') { $res = "slash:{`"err`":`"$pre2`"}" }
@@ -1579,7 +1597,10 @@ $webScript = {
                                 [void](Cdp $ws 'Runtime.evaluate' @{ expression = 'delete window.__ctdl'; returnByValue = $true })
                                 $fpart = Join-Path $cmd.Dir ($fnm + '.part'); [IO.File]::WriteAllBytes($fpart, [Convert]::FromBase64String($sb.ToString())); Move-Item $fpart (Join-Path $cmd.Dir $fnm) -Force; $res = "saved:$fnm"
                             }
+                        } elseif ($cmd.Kind -eq 'diag' -and $Web.Chats[$id] -and $Web.Chats[$id].DiagAt -and ((Get-Date) - $Web.Chats[$id].DiagAt).TotalSeconds -lt 30 -and [string]$cmd.Key -notlike 'diagq-*') {
+                            $res = 'skip'                     # one structure dump per chat per 30 s (expanding / folding chats queued one each time)
                         } elseif ($cmd.Kind -eq 'diag') {
+                            if ($Web.Chats[$id]) { $Web.Chats[$id].DiagAt = Get-Date }
                             # STRUCTURE ONLY (privacy): tags, data-testids, link/download flags of the last messages - no text
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const els = Array.from(document.querySelectorAll('[data-testid=""user-message""], [data-testid=""assistant-message""], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e))); const L = /download|télécharg|copy|copier|open|ouvrir|file|fichier|attach|pièce|preview|aperçu/i; const tree = (n, d) => d > 4 ? '' : Array.from(n.children).slice(0, 8).map(c => c.tagName.toLowerCase() + ((c.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 2).map(x => '.' + x.slice(0, 18)).join('')) + (c.dataset.testid ? '#' + c.dataset.testid : '') + ':' + (c.textContent || '').length + (c.children.length ? '(' + tree(c, d + 1) + ')' : '')).join(' '); const lastA = els.filter(e => !e.matches('[data-testid=""user-message""]')).pop(); const cmp0 = document.querySelector('div.ProseMirror[contenteditable=""true""]'); let cz0 = cmp0; for (let i = 0; i < 6 && cz0 && cz0.parentElement; i++) cz0 = cz0.parentElement; const tz = (n, d) => d > 6 ? '' : Array.from(n.children).slice(0, 10).map(c => c.tagName.toLowerCase() + (c.getAttribute('role') ? '[' + c.getAttribute('role') + ']' : '') + (c.getAttribute('type') ? '{' + c.getAttribute('type') + '}' : '') + (c.getAttribute('aria-checked') ? '~c' + c.getAttribute('aria-checked') : '') + (c.dataset.testid ? '#' + c.dataset.testid : '') + ':' + (c.textContent || '').length + (c.children.length ? '(' + tz(c, d + 1) + ')' : '')).join(' '); window.__ctZ = cz0 ? 'ZONE ' + tz(cz0, 0) : 'ZONE none'; return window.__ctZ.slice(0, 2500) + ' || TREE ' + (lastA ? tree(lastA, 0).slice(0, 1500) : '-') + ' || ' + els.slice(-3).map((e, j) => (e.matches('[data-testid=""user-message""]') ? 'U' : 'A') + '[' + Array.from(e.querySelectorAll('[data-testid], a, button, img, [download]')).slice(0, 40).map(x => x.tagName.toLowerCase() + (x.dataset.testid ? '#' + x.dataset.testid : '') + (x.getAttribute('href') ? '(href:' + (x.getAttribute('href').match(/^[a-z]+:|^\/[a-z_-]+/i) || ['?'])[0] + ')' : '') + (x.hasAttribute('download') ? '(dl)' : '') + (L.test(x.getAttribute('aria-label') || '') ? '{' + (x.getAttribute('aria-label').match(L) || [''])[0] + '}' : '')).join(' ') + ']').join(' | '); })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'reload') {
@@ -1590,7 +1611,7 @@ $webScript = {
                         }
                     } catch { $res = "error: $($_.Exception.Message)" }
                     $Web.Results[$cmd.Key] = @{ Res = $res; At = (Get-Date); Users = $c0Users }
-                    WL ("{0}: {1} -> {2} ({3} ms after queued)" -f $id, $cmd.Kind, $res, [int]((Get-Date) - $cmd.At).TotalMilliseconds)
+                    if ($res -ne 'skip') { WL ("{0}: {1} -> {2} ({3} ms after queued)" -f $id, $cmd.Kind, $res, [int]((Get-Date) - $cmd.At).TotalMilliseconds) }
                 }
                 if (-not $Web.UsageAt -or ((Get-Date) - $Web.UsageAt).TotalSeconds -gt 170) {          # plan usage from claude.ai itself (the page's own session)
                     $Web.UsageAt = Get-Date
@@ -1634,8 +1655,8 @@ $webScript = {
                 if ([string]$o.quest) { $c.Quest = [string]$o.quest; $c.QuestTag = [bool]$o.qtag }
                 $c.Act = [string]$o.act; $c.Prompts = @($o.prompts | ForEach-Object { [string]$_ }); $c.Model = [string]$o.model; $c.Retry = [bool]$o.retry
                 $pks = ($c.Prompts -join '|'); if ($pks -ne [string]$c.PromptSig) { $c.PromptSig = $pks; if ($pks) { WL ("{0}: page asks: {1}" -f $id, $pks) } }
-                $c.Q = $o.q; $qsg = $(if ($o.q) { '{0}|{1}|{2}' -f @($o.q.o).Count, [bool]$o.q.multi, [string]$o.q.sub } else { '' })
-                if ($qsg -ne [string]$c.QSig) { $c.QSig = $qsg; if ($qsg) { WL ("{0}: question with {1} choices (multi={2}, submit='{3}')" -f $id, @($o.q.o).Count, [bool]$o.q.multi, [string]$o.q.sub); [void]$Web.Cmds.Add(@{ Id = $id; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } else { WL ("{0}: question gone" -f $id) } }
+                $c.Q = $o.q; $qsg = $(if ($o.q) { '{0}|{1}|{2}|{3}/{4}|{5}' -f @($o.q.o).Count, [bool]$o.q.multi, [string]$o.q.sub, [int]$o.q.step, [int]$o.q.steps, [bool]$o.q.card } else { '' })
+                if ($qsg -ne [string]$c.QSig) { $qWas = [string]$c.QSig; $c.QSig = $qsg; if ($qsg) { WL ("{0}: question with {1} choices (card={2}, step {3}/{4}, picked {5})" -f $id, @($o.q.o).Count, [bool]$o.q.card, [int]$o.q.step, [int]$o.q.steps, @($o.q.o | Where-Object { $_.s }).Count); if (-not $qWas) { [void]$Web.Cmds.Add(@{ Id = $id; Kind = 'diag'; Key = 'diagq-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } } else { WL ("{0}: question gone" -f $id) } }
                 $c.Working = $work; $c.Users = [int]$o.users; $c.LastUser = [string]$o.lastUser; $c.Ok = [bool]$o.ok; $c.Cf = [bool]$o.cf; $c.At = Get-Date
                 if ($o.ok -and -not $c.WasOk) { $c.WasOk = $true; WL ("{0}: page ready ({1} replies)" -f $id, $o.replies) }
                 if (-not $o.ok -and -not $c.WarnedOk -and ((Get-Date) - $c.FirstAt).TotalSeconds -gt 10) { $c.WarnedOk = $true; WL ("{0}: no composer (cloudflare={1}, login page={2}) - signed in?" -f $id, $o.cf, ([string]$o.t -match '(?i)log ?in|connexion|sign')) }
@@ -2780,7 +2801,7 @@ function Poll-Downloads {                             # called by the quest time
         if ($done.Count) { Finish-Download $key $done[0].FullName }
         elseif (((Get-Date) - $dl.At).TotalSeconds -gt 40) { $dl.St = 'failed'; Log "dl[$key]: nothing arrived after 40 s ($($dl.Res))" 'WARN'; [void]$Web.Cmds.Add(@{ Id = $dl.Id; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Push-WebState }
     }
-    foreach ($dk in @($Web.Results.Keys | Where-Object { $_ -like 'diag-*' })) { Log ("web diag (structure only): {0}" -f $Web.Results[$dk].Res) 'DEBUG'; $Web.Results.Remove($dk) }
+    foreach ($dk in @($Web.Results.Keys | Where-Object { $_ -like 'diag-*' -or $_ -like 'diagq-*' })) { if ([string]$Web.Results[$dk].Res -ne 'skip') { Log ("web diag (structure only): {0}" -f $Web.Results[$dk].Res) 'DEBUG' }; $Web.Results.Remove($dk) }
 }
 function Write-Placeholder([string]$nid, [string]$ttl, [string]$sentText) {     # makes a chat visible in the tray before (or without) Claude writing a quest
     $qroot = $QuestRoots[0]; $qd = Join-Path $qroot 'quests'; if (-not (Test-Path $qd)) { New-Item -ItemType Directory -Path $qd -Force | Out-Null }
@@ -3176,6 +3197,8 @@ function On-WebMsg($m) {
         }
         'read' { if ($q) { $QS.Read[[string]$q.id] = @{ K = [string]$m.key; At = (Get-Date) }; Save-State; Update-TrayIcon; Sync-Anim } }
         'qpick' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qpick'; I = [int]$m.i; Label = [string]$m.label; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qpick[{0}]: choice {1}" -f $q.id, [int]$m.i) } }
+        'qnext' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qnext'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }
+        'qskip' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qskip'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }
         'qsub' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'qsub'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("qsub[{0}]" -f $q.id) } }
         'press' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'press'; I = [int]$m.i; Label = [string]$m.label; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("press[{0}]: '{1}'" -f $q.id, $m.label) } }
         'reload' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'reload'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log "reload[$($q.id)] (from the panel)" } }
