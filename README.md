@@ -16,7 +16,8 @@ Preview release (0.3.x). It works, but things still change between versions. Bug
   a "?" while Claude is waiting for you.
 - The model and effort of a chat are shown in its reply bar, and you can change them from there.
 - Session and weekly usage, with a notification at 80 % and 95 %.
-- Claude Desktop local chats, experimental and off by default (Settings > Claude Desktop local chats).
+- Claude Desktop local chats (experimental, see [Known issues](#known-issues-and-limits)): they show up in BROWSE
+  when Claude Desktop has some.
 
 <p>
   <img src="docs/question.png" width="340" alt="A question from Claude answered in the panel">
@@ -50,11 +51,14 @@ Claude plan. No installer and no admin rights.
 | Move the panel | Drag the grip. It stays where you leave it. |
 | Keep it on top | Pin button, bottom left |
 | Resize, zoom | Drag an edge, Ctrl + mouse wheel |
+| More room for one of two open chats | Drag the line between them (double-click: even) |
+| BROWSE taller or shorter | Drag the line above it |
 | Send, new line | Enter, Shift + Enter |
 | Slash commands | Type `/` in a reply box |
 | Attach files | Paste, drop, or use the clip button |
 | Pin, move, hide a chat, open it on claude.ai | Right-click its title |
 | One line per chat | Settings > Compact mode |
+| Update | Settings > Check for updates (a git clone updates with `git`, a zip install from the release) |
 
 ## Commands
 
@@ -70,7 +74,8 @@ Run them as `powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps
 
 ## Privacy
 
-- The tray only talks to claude.ai and Anthropic, over HTTPS. No telemetry, no analytics, no other servers.
+- The tray only talks to claude.ai and Anthropic, over HTTPS, plus GitHub when you click Check for updates. No
+  telemetry, no analytics, no other servers.
 - Chats are read in a hidden Edge window with its own profile (`%LOCALAPPDATA%\ClaudeTray`), signed in by you.
   It opens one tab per chat you track and reads only what the panel shows.
 - Steps only run when you click them. Programs and scripts that Claude sends as files are shown in their folder,
@@ -82,6 +87,21 @@ Run them as `powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps
   the tray exits.
 
 To remove everything: run `-Uninstall`, then delete the folder and `%LOCALAPPDATA%\ClaudeTray`.
+
+## Known issues and limits
+
+- The tray reads the claude.ai pages, not a public API. A claude.ai update can break a part of it until the next
+  version.
+- Claude Desktop local (Cowork) chats are experimental. They rely on Desktop's own files and window, which are not
+  documented and can change with any Desktop update. Tested on one setup only (Desktop from the Microsoft Store,
+  Windows 11, French UI, one organization).
+  - No live view from claude.ai: messages and status come from the session's file on disk, so they can lag.
+  - Steps need the quest folder connected to that Cowork session. Bridge mode does not apply.
+  - Sending, stopping and answering go through Desktop's window in the background. Permission prompts need two
+    clicks, and Allow has to be clicked in Desktop.
+  - A question with several steps: answer it in Desktop for now. The model and effort can't be changed from the
+    tray (the chip opens Desktop).
+  - No direct link to a local chat: opening one brings Desktop to the front.
 
 ## Troubleshooting
 

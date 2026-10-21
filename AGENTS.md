@@ -263,8 +263,17 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   Browse (`#brw`, always last, `LAY.browse` = unfolded) lists `S.hidden` first. `Fit-WebPop` ignores `panelHeight`
   while nothing is open. Resizing no longer calls `Set-DockHere` (it pinned the panel).
 - 0.3.0 merged a field test (38 patches, see docs/FIELD-NOTES-2026-10-21.md for what each one does and what failed).
-  Claude Desktop local chats (`local/<sessionId>`) are behind `localChats` (`$Caps.Local`, Settings): `Get-DesktopLocal`
+  Claude Desktop local chats (`local/<sessionId>`) are always on but idle until one is tracked (Desktop's files are read only while BROWSE is open or a local chat is tracked): `Get-DesktopLocal`
   (Browse), `Get-LocalState` (transcript), `Enter-LocalChat` / `Exit-LocalChat` (switch Desktop in the background),
-  `Send-LocalNoFocus`, `Invoke-LocalAsk`; parking / hiding Desktop (`parkDesktop`, `ghostDesktop`) only with it.
+  `Send-LocalNoFocus`, `Invoke-LocalAsk`; parking / hiding Desktop (`parkDesktop`, `ghostDesktop`) are settings shown only when Desktop has local chats (`deskSeen`).
   Model chip on web chats: `modelmenu` / `setmodel` -> web command `model` ($modelJs; the effort sub-menu opens on a
   CDP mouse move) -> `Poll-ModelMenu` -> `$UI.ModelMenu` -> page `modelMenuShow`.
+- 0.3.1 panel sizing. `S.fixedH` (= config `panelHeight`, set by a top/bottom resize) switches open cards to `fill`:
+  `fitConv()` (end of `render`, on `resize`, on BROWSE / splitter drags) gives the space of `#pins` + `#list` to the
+  open conversations by weight (`LAY.cvw`, set by the `.cvz` splitter between two open cards), then takes any
+  overflow off the biggest one. Measure content with element bottoms, never `scrollHeight` (it is never smaller than
+  the box). Pinned cards live in `#pins`, not `#list`: forgetting that made a conversation grow without end.
+  Reply-box growth is `--tax` on the conv. `sizeReport` grows at once, shrinks after 700 ms unless you just clicked
+  or typed. Render never rebuilds what is under a pressed mouse button (`busy`). Titles set during render go through
+  `setTitle` (hover labels hold them in `data-tt`). Drags use `screenX/Y` (the window moves while you drag).
+  Debug logs carry one `ui: fit ...` line per layout change (numbers only).

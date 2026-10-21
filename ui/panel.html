@@ -12,10 +12,10 @@ svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.6;stroke
 .ib.on{color:var(--acc)}
 #wrap{display:flex;height:100%}
 #app{display:flex;flex-direction:column;height:100%;flex:1;min-width:0}
-#top{height:8px;position:relative;flex:none;cursor:move}
+#top{height:10px;position:relative;flex:none}
 body.nc #top{app-region:no-drag;-webkit-app-region:no-drag}
 body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
-#gripz{position:absolute;left:50%;top:0;width:90px;height:8px;margin-left:-45px;cursor:pointer;z-index:41;app-region:no-drag;-webkit-app-region:no-drag}#grip{position:absolute;left:50%;top:3px;width:28px;height:3px;margin-left:-14px;border-radius:2px;background:var(--ln)}#gripz:hover #grip{background:var(--mu)}
+#gripz{position:absolute;left:50%;top:3px;width:40px;height:7px;margin-left:-20px;cursor:pointer;z-index:43;app-region:no-drag;-webkit-app-region:no-drag}#grip{position:absolute;left:50%;top:1px;width:28px;height:3px;margin-left:-14px;border-radius:2px;background:var(--ln)}#gripz:hover #grip{background:var(--mu)}
 #tb{flex:none;display:flex;align-items:center;gap:2px;padding:1px 5px;border-top:1px solid var(--ln);height:17px}#fold.un svg{transform:rotate(180deg)}
 #list{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 4px 3px;position:relative}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--ln);border-radius:3px}::-webkit-scrollbar-track{background:transparent}
@@ -40,7 +40,7 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 .head:hover .tools{background:var(--card);box-shadow:-8px 0 6px var(--card)}.head:hover .tools .ib{visibility:visible;opacity:1}
 .empty{color:var(--mu);font-size:11.5px;padding:10px 8px}
 .body{display:none}.card.open .body{display:block}
-.conv{max-height:var(--convh);overflow-y:auto;padding:4px 6px 0;user-select:text;border-top:1px solid var(--ln)}
+.conv{max-height:calc(var(--convh) - var(--tax,0px));overflow-y:auto;padding:4px 6px 0;user-select:text;border-top:1px solid var(--ln)}
 .more{color:var(--mu);font-size:9.5px;text-align:center;padding:0 0 4px}
 .m{margin:0 0 5px;position:relative}
 .m.u{display:flex;justify-content:flex-end}
@@ -104,7 +104,7 @@ textarea::placeholder{color:var(--mu)}
 .m.a.old .b{opacity:.62}
 .head.unread b{color:var(--tx);font-weight:400}.dot.new{background:var(--act);box-shadow:none}
 .mdl{color:var(--mu);font-size:9.5px;flex:none;max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.writing .wt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.writing .wt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;color:var(--mu)}
 .ask{display:flex;flex-wrap:wrap;align-items:center;gap:3px;padding:3px 6px;margin:0 -3px 5px;border-radius:7px;background:var(--card);border:1px solid var(--ln)}
 .ask span{color:var(--mu);font-size:10px;margin-right:2px}.ask button{border:1px solid var(--ln);color:var(--tx);border-radius:5px;padding:0 7px;height:18px;font-size:10.5px}.ask button:hover{border-color:var(--acc);color:var(--acc)}
 .m.a .b a{color:var(--act);text-decoration:underline;cursor:pointer}
@@ -115,7 +115,9 @@ textarea::placeholder{color:var(--mu)}
 .body{position:relative}
 .acts.locked{opacity:.45;pointer-events:none}.lockn{color:var(--mu);font-size:10px;padding:2px 6px 0}.lockn .lk{color:var(--mu);text-decoration:underline;cursor:pointer;margin-left:4px}.lockn .lk:hover{color:var(--tx)}
 .sit{padding:2px 7px 3px;border-top:1px solid var(--ln);color:var(--tx);font-size:11px}.sit div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.card:not(.big) .conv,.card:not(.big) .jump,.card:not(.big) .comp{display:none}.card.big .mini,.card.big .sit{display:none}
+.card:not(.big) .conv,.card:not(.big) .jump,.card:not(.big) .comp{display:none}
+.card.big.fill .conv{height:calc(var(--convh) - var(--tax,0px));display:flex;flex-direction:column}.card.big.fill .conv>.msgs{margin-top:auto}
+.cvz{display:none;height:8px;margin:-4px 0;position:relative;z-index:3;cursor:ns-resize}.card.big.fill.split>.cvz{display:block}.cvz:hover::after,body.rsz .cvz.on::after{content:'';position:absolute;left:35%;right:35%;top:3px;height:2px;border-radius:1px;background:var(--mu)}.card.big .mini,.card.big .sit{display:none}
 .mini{display:flex;align-items:center;gap:3px;margin:0 4px 3px 17px}.mini .mdot,.mini .mt{display:none}
 .mfld{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:1px;background:var(--field);border:1px solid var(--ln);border-radius:7px;padding:0 2px 0 5px;height:19px}.mfld:focus-within{border-color:var(--mu)}
 body.compact .card:not(.open) .head{display:none}body.compact .card:not(.open) .mini{margin:0;padding:1px 4px;gap:4px;border-radius:6px}body.compact .card:not(.open) .mini:hover{background:var(--card)}
@@ -129,7 +131,7 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .okm{color:var(--mu);margin-top:2px}.chs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}.chb{border:1px solid var(--acc);color:var(--tx);border-radius:6px;padding:0 9px;height:19px;font-size:10.5px}.chb:hover{background:var(--acc);color:#fff}
 .m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}
 .trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
-#slp{position:fixed;z-index:21;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:150px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#slp{position:fixed;z-index:45;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:min(150px,calc(100vh - 8px));overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vw{opacity:.45;width:14px;height:14px}.vw:hover{opacity:1}.vw svg{width:11px;height:11px}
 .card.open:not(.big) .acts{border-top:0}
@@ -155,8 +157,8 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .qz .qoth{flex:1;min-width:0;background:transparent;border:0;color:var(--tx);font:inherit;font-size:10.5px;height:18px;padding:0;outline:0}.qz .qoth::placeholder{color:var(--mu)}
 .qz .qsk{flex:none;border:1px solid var(--ln)!important;border-radius:5px;padding:0 6px!important;height:16px!important;font-size:10px!important;color:var(--tx)}.qz .qsk:hover{border-color:var(--acc)!important;color:var(--acc)!important;background:none!important}
 .qz .qft{display:flex;justify-content:flex-end;gap:4px;border-top:1px solid var(--ln);padding:3px 2px 0}.qz .qs{border:1px solid var(--acc)!important;color:var(--acc)!important;border-radius:5px;padding:0 9px!important;height:18px!important;font-size:10.5px!important}.qz .qs:hover{background:var(--acc)!important;color:#fff!important}.qz .qs:disabled{opacity:.4;cursor:default;background:none!important;color:var(--acc)!important}
-.mchip{width:auto;padding:0 4px;gap:3px;font-size:9.5px;color:var(--mu);white-space:nowrap}.mchip .eb{display:inline-flex;gap:1px;align-items:flex-end;height:9px}.mchip .eb i{width:2px;background:color-mix(in srgb,var(--mu) 35%,transparent);border-radius:1px}.mchip .eb i.on{background:var(--mu)}.rz{position:fixed;z-index:40;app-region:no-drag;-webkit-app-region:no-drag}.sn0{color:var(--mu);font-variant-numeric:tabular-nums}.rz.l,.rz.r{top:10px;bottom:10px;width:6px;cursor:ew-resize}.rz.l{left:0}.rz.r{right:0}
-.rz.t,.rz.b{left:10px;right:10px;height:7px;cursor:ns-resize}.rz.t{height:8px}.rz.t{top:0}.rz.b{bottom:0}.rz.tl,.rz.tr,.rz.bl,.rz.br{width:12px;height:12px}
+.mchip{width:auto;padding:0 4px;gap:3px;font-size:9.5px;color:var(--mu);white-space:nowrap}.mchip .eb{display:inline-flex;gap:1px;align-items:flex-end;height:9px}.mchip .eb i{width:2px;background:color-mix(in srgb,var(--mu) 35%,transparent);border-radius:1px}.mchip .eb i.on{background:var(--mu)}.rz{position:fixed;z-index:40;app-region:no-drag;-webkit-app-region:no-drag}.sn0{color:var(--mu);font-variant-numeric:tabular-nums}.rz.l,.rz.r{top:10px;bottom:10px;width:3px;cursor:ew-resize}#list{margin-right:3px;padding-right:1px}body #pins{margin-right:3px;padding-right:1px}.rz.l{left:0}.rz.r{right:0}
+.rz.t,.rz.b{left:10px;right:10px;height:7px;cursor:ns-resize}.rz.t{height:10px;left:12px;right:12px;z-index:42}.rz.t{top:0}.rz.b{bottom:0}.rz.tl,.rz.tr,.rz.bl,.rz.br{width:12px;height:12px}
 .rz.tl{left:0;top:0;cursor:nwse-resize}.rz.br{right:0;bottom:0;cursor:nwse-resize}.rz.tr{right:0;top:0;cursor:nesw-resize}.rz.bl{left:0;bottom:0;cursor:nesw-resize}
 .sec{margin:0 0 2px}.sh,.bh{display:flex;align-items:center;gap:4px;padding:3px 4px 1px;color:var(--mu);font-size:10px;cursor:pointer;border-radius:5px}
 .sh .sn,.bh .sn{font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:9.5px;outline:0;min-width:10px}.sh .sn[contenteditable=true]{text-transform:none;letter-spacing:0;color:var(--tx);background:var(--field);border-radius:3px;padding:0 3px;cursor:text}
@@ -165,10 +167,11 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .sec.col .sb{display:none}.secempty{color:var(--mu);font-size:10px;padding:3px 10px 4px;font-style:italic}.secempty.bad{color:var(--acc)}
 .sh.dropin,.bh.dropin{background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--tx)}
 .card.dropb{box-shadow:0 -2px 0 var(--acc)}.card.dropa{box-shadow:0 2px 0 var(--acc)}.card.dragging{opacity:.4}#pins.dropin{box-shadow:inset 0 0 0 1px var(--acc)}
-#pmenu{position:fixed;z-index:20;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:3px;min-width:150px;box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:11px}
+#pmenu{position:fixed;z-index:45;max-height:calc(100vh - 6px);overflow-y:auto;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:3px;min-width:150px;box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:11px}
 #pmenu .pmi{padding:3px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}#pmenu .pmi:hover{background:var(--ln)}#pmenu .pmi.off{opacity:.4;cursor:default}#pmenu .pms{height:1px;background:var(--ln);margin:3px 2px}
-#brw{border-top:1px solid var(--ln);margin:4px 0 2px;padding-top:1px}#brw.fold .bq,#brw.fold .bl{display:none}#brw .bh .ib{width:14px;height:14px}#brw .bq{width:calc(100% - 8px);margin:1px 4px 3px;background:var(--field);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font:inherit;font-size:10.5px;height:19px;padding:0 6px;outline:0}#brw .bq:focus{border-color:var(--mu)}
-#brw .bl{max-height:240px;overflow-y:auto}#brw .bg{color:var(--mu);font-size:9.5px;padding:2px 8px 1px}
+#brwbox{flex:none;padding:0 4px}#brw{border-top:1px solid var(--ln);margin:0 0 2px;padding-top:0;position:relative}#brw.fold .bq,#brw.fold .bl{display:none}#brw .bh .ib{width:14px;height:14px}#brw .bq{width:calc(100% - 8px);margin:1px 4px 3px;background:var(--field);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font:inherit;font-size:10.5px;height:19px;padding:0 6px;outline:0}#brw .bq:focus{border-color:var(--mu)}
+#brw .bl{height:240px;overflow-y:auto}#brw .brz{position:absolute;left:0;right:0;top:-4px;height:8px;cursor:ns-resize;z-index:5}#brw .brz:hover{background:color-mix(in srgb,var(--mu) 25%,transparent)}#brw.fold .brz{display:none}
+body.rsz,body.rsz *{cursor:ns-resize!important;user-select:none!important}#brw .bg{color:var(--mu);font-size:9.5px;padding:2px 8px 1px}
 #brw .bp{display:flex;align-items:center;gap:4px;padding:2px 6px;cursor:pointer;border-radius:5px;font-size:10.5px}#brw .bp:hover{background:var(--card)}
 #brw .br{display:flex;align-items:center;gap:5px;padding:1px 4px 1px 8px;border-radius:5px;font-size:10.5px}#brw .br:hover{background:var(--card)}#brw .bn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#brw .bt{color:var(--ok)}#brw .bt svg{width:11px;height:11px}
 #brw .bnote{color:var(--mu);font-size:9.5px;padding:4px 8px 2px;font-style:italic}
@@ -192,6 +195,7 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
   </div>
   <div id="pins"></div>
   <div id="list"></div>
+  <div id="brwbox"></div>
   <div id="tb"><button class="ib" id="fold" title="Collapse all chats"></button><button class="ib" id="plus" title="New chat, sections, browse, sort"></button><button class="ib" id="gear" title="Settings"></button><button class="ib" id="pin" title="Pin here (stays on top)"></button></div>
   <div id="usage"></div><div id="tip"></div>
 </div></div>
@@ -244,12 +248,13 @@ const trayArm = {}; let slp = null;
 let newSeen = '', hidOpen = false, rootCss = '', usageH = '', LAY = null, layT = null, dirtyView = true, dragId = null, brQ = '';
 const secEls = new Map(), views = {}, brOpen = new Set(), brAsked = new Set();
 const SORTN = { manual: 'custom', date: 'by last used', name: 'by name', project: 'by project' }, SORTS = ['date', 'name', 'project'], SORTOK = ['manual', 'date', 'name', 'project'];
+function cvwOk(o){ const r = {}; if (o && typeof o === 'object') for (const [k, v] of Object.entries(o).slice(-40)) if (+v > 0) r[String(k)] = Math.max(0.1, Math.min(10, Math.round(+v * 1000) / 1000)); return r; }     // share of the space per chat (1 = even), set by the splitter
 function validLay(l){
-  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, open: [], big: [] };
+  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, brh: 240, cvw: {}, open: [], big: [] };
   if (!l || typeof l !== 'object') return d;
   const sec = Array.isArray(l.sec) ? l.sec.filter(s => s && s.id).map(s => ({ id: String(s.id), name: String(s.name || 'Section'), sort: SORTOK.includes(s.sort) ? s.sort : 'date', col: !!s.col })) : [];
   if (!sec.some(s => s.id === 'main')) sec.unshift(d.sec[0]);
-  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [] };
+  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [] };
 }
 function saveLay(){ clearTimeout(layT); layT = setTimeout(() => { LAY.open = [...opened]; LAY.big = [...big]; post({ type: 'layout', layout: LAY }); }, 400); }
 function secOf(c){ if (c.pin) return 'pin'; const s = LAY.at[c.id]; return s && LAY.sec.some(x => x.id === s) ? s : 'main'; }
@@ -282,15 +287,18 @@ function renameSec(sid){
   sn.onblur = () => done(true);
 }
 function popMenu(x, y, items, up){                          // small menu inside the panel (a tray-side menu would steal the focus)
-  closeMenu(); const m = document.createElement('div'); m.id = 'pmenu';
+  closeMenu(!!popMenu.re); const m = document.createElement('div'); m.id = 'pmenu';
   m.innerHTML = items.map((it, i) => it === '-' ? '<div class="pms"></div>' : '<div class="pmi' + (it.on ? ' on' : '') + (it.off ? ' off' : '') + '" data-i="' + i + '">' + (it.on ? '✓ ' : '') + esc(it.t) + '</div>').join('');
-  document.body.appendChild(m); const w = m.offsetWidth, h = m.offsetHeight;
+  document.body.appendChild(m); const w = m.offsetWidth, h = m.scrollHeight;
+  if (h + 6 > innerHeight && S && !S.fixedH && !popMenu.re) { const ih = innerHeight, t0 = Date.now(); menuGrow = prevH + h + 8 - ih; prevH = menuGrow; post({ type: 'size', h: menuGrow });     // too tall for the panel: grow it while the menu is open
+    addEventListener('resize', () => { if (!$('#pmenu') || Date.now() - t0 > 1500) return; popMenu.re = 1; popMenu(x, up ? y + innerHeight - ih : y, items, up); popMenu.re = 0; }, { once: true }); }
   m.style.left = Math.max(2, Math.min(x, innerWidth - w - 2)) + 'px'; m.style.top = Math.max(2, Math.min(up ? y - h - 2 : y, innerHeight - h - 2)) + 'px';
   m.onclick = ev => { const r = ev.target.closest('.pmi'); if (!r || r.classList.contains('off')) return; const it = items[+r.dataset.i]; closeMenu(); it.f(); };
   setTimeout(() => document.addEventListener('mousedown', menuAway, true), 0);
 }
 function menuAway(e){ if (!e.target.closest('#pmenu')) closeMenu(); }
-function closeMenu(){ const m = $('#pmenu'); if (m) m.remove(); document.removeEventListener('mousedown', menuAway, true); }
+function closeMenu(keep){ const m = $('#pmenu'); if (m) m.remove(); document.removeEventListener('mousedown', menuAway, true); if (!keep && menuGrow) { menuGrow = 0; sizeReport(true); } }
+let menuGrow = 0;     // panel height asked for while a tall menu is open
 let menuLeaveT = null;                                // the pointer left the panel (clicked elsewhere on the screen): close the menu
 window.addEventListener('blur', () => closeMenu());
 document.documentElement.addEventListener('mouseleave', () => { clearTimeout(menuLeaveT); menuLeaveT = setTimeout(closeMenu, 900); });
@@ -300,14 +308,25 @@ function moveMenu(id, x, y){
   const items = [{ t: 'Pinned (on top)', on: cur === 'pin', f: () => moveChat(id, 'pin') }].concat(LAY.sec.map(sc => ({ t: sc.id === 'main' ? sc.name + ' (main)' : sc.name, on: cur === sc.id, f: () => moveChat(id, sc.id) })), ['-', { t: 'New section with it…', f: () => { const sc = newSection(); moveChat(id, sc.id); } }]);
   popMenu(x, y, items);
 }
+let updAsk = 0, updSt = '';     // you asked for an update check: its result pops up by itself
+function updItem(){ const u = S.update || {}, a = v => () => { updAsk = Date.now(); post({ type: 'menuact', k: 'update', v: v }); };
+  if (u.st === 'checking') return { t: 'Checking for updates\u2026', off: true };
+  if (u.st === 'applying') return { t: 'Updating\u2026', off: true };
+  if (u.st === 'avail') return { t: 'Update to ' + u.new + ' and restart', f: a('apply') };
+  if (u.st === 'none') return { t: 'Up to date (' + u.cur + ') \u00b7 check again', f: a('check') };
+  if (u.st === 'err') return { t: 'Update ' + (u.msg ? 'failed: ' + u.msg : 'check failed') + ' \u00b7 retry', f: a('check') };
+  return { t: 'Check for updates', f: a('check') }; }
+function updShow(){ const st = (S.update || {}).st || ''; if (st === updSt) return; updSt = st;
+  if (!updAsk || Date.now() - updAsk > 120000 || !['avail', 'none', 'err'].includes(st)) return; updAsk = 0;
+  const r = $('#gear').getBoundingClientRect(); popMenu(r.left, r.top, [updItem()], true); }
 function setMenu(x, y, up){                             // settings, inside the panel
   const st = S.settings || {}, a = (k, v) => () => post({ type: 'menuact', k: k, v: v });
   const lightNow = st.theme === 'light' || (st.theme !== 'dark' && st.light);
   popMenu(x, y, [{ t: 'Light theme', on: lightNow, f: a('theme', 'light') }, { t: 'Dark theme', on: !lightNow, f: a('theme', 'dark') }, '-',
     { t: 'Compact mode (one line per chat)', on: !!st.compact, f: a('compact') }, { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
     { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, '-',
-    ].concat([{ t: 'Claude Desktop local chats (experimental) \u203a', on: !!st.local, f: () => popMenu(x, y, [{ t: 'Show and use Desktop local chats', on: !!st.local, f: a('local') }].concat(st.local ? ['-', { t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }] : []), up) }]).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
-    { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }])), up);
+    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
+    updItem(), { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }])), up);
 }
 function chatMenu(id, x, y){                          // right-click on a chat title
   const c = chatOf(id); if (!c) return;
@@ -320,7 +339,7 @@ function chatMenu(id, x, y){                          // right-click on a chat t
 }
 function plusMenu(x, y, up){
   const main = LAY.sec.find(s => s.id === 'main');
-  popMenu(x, y, [{ t: 'New chat…', f: () => { const f = $('#newf'); f.classList.add('on'); post({ type: 'catalog' }); setTimeout(() => { $('#nfMsg').focus(); f.scrollIntoView({ block: 'nearest' }); }, 0); sizeReport(); } },
+  popMenu(x, y, [{ t: 'New chat…', f: () => { const f = $('#newf'); f.classList.add('on'); post({ type: 'catalog' }); setTimeout(() => $('#nfMsg').focus({ preventScroll: true }), 0); sizeReport(true); reveal(f); } },
     { t: 'New section', f: () => newSection() },
     '-'].concat(SORTS.map(sm => ({ t: 'Sort ' + (LAY.sec.length > 1 ? main.name + ' ' : '') + SORTN[sm], on: main.sort === sm, f: () => { main.sort = sm; if (sm === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } }))), up);
 }
@@ -334,10 +353,11 @@ function secMenu(sid, x, y){
 const agoTxt = iso => { const t0 = Date.parse(iso || ''); if (!t0) return ''; const m = Math.round((Date.now() - t0) / 60000); return m < 60 ? Math.max(1, m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
 function renderBrowse(L){                           // BROWSE: claude.ai + Claude Desktop local chats and projects, unified like the Desktop app
   let b = $('#brw');
-  if (!b) { b = document.createElement('div'); b.id = 'brw'; b.innerHTML = '<div class="bh" title="Your chats and projects (claude.ai + Claude Desktop local). + brings a chat into the tray (local chats: quests only)"><span class="car">\u25b8</span><span class="sn">BROWSE</span><span class="sp"></span><button class="ib" data-a="brref" title="Refresh">' + I.retry + '</button></div><input class="bq" placeholder="Search chats and projects\u2026" spellcheck="false"><div class="bl"></div>'; b.querySelector('.bq').addEventListener('input', e => { brQ = e.target.value; renderBrowse($('#list')); sizeReport(); }); }
-  if (b.parentElement !== L || L.lastElementChild !== b) L.appendChild(b);
+  if (!b) { b = document.createElement('div'); b.id = 'brw'; b.innerHTML = '<div class="bh" title="Your chats and projects (claude.ai + Claude Desktop local). + brings a chat into the tray (local chats: quests only)"><span class="car">\u25b8</span><span class="sn">BROWSE</span><span class="sp"></span><button class="ib" data-a="brref" title="Refresh">' + I.retry + '</button></div><input class="bq" placeholder="Search chats and projects\u2026" spellcheck="false"><div class="bl"></div>'; b.insertAdjacentHTML('afterbegin', '<div class="brz" title="Drag to make BROWSE taller or shorter"></div>'); b.querySelector('.bq').addEventListener('input', e => { brQ = e.target.value; renderBrowse($('#list')); sizeReport(); }); }
+  { const bx = $('#brwbox'); if (b.parentElement !== bx) bx.appendChild(b); }
   b.classList.toggle('fold', !LAY.browse); b.querySelector('.car').textContent = LAY.browse ? '\u25be' : '\u25b8'; b.querySelector('[data-a="brref"]').style.display = LAY.browse ? '' : 'none';
   if (!LAY.browse) return;
+  { const bl0 = b.querySelector('.bl'), mh = Math.min(LAY.brh || 240, brMax()) + 'px'; if (bl0.style.height !== mh) bl0.style.height = mh; }
   const cat = S.catalog || {}, tracked = new Set((S.chats || []).map(c => c.id)), loc = S.desklocal || [], seen = S.seen || {};
   const nw = (cid, at) => { const s0 = Date.parse(seen[cid] || ''), a0 = Date.parse(at || ''); return s0 && a0 && a0 > s0 + 5000 && !tracked.has(cid) ? '<span class="dot new" title="New since you last saw it" style="margin:0 2px"></span>' : ''; };
   const projs = cat.projects || [], rec = cat.recent || [], byP = cat.byProj || {};
@@ -372,7 +392,7 @@ function renderBrowse(L){                           // BROWSE: claude.ai + Claud
     h += '<div class="bg">Recents</div>' + (recents.length ? recents.map(row).join('') : '<div class="secempty">-</div>') +
       '<div class="bg">Projects</div>' + (P.length ? P.map(prow).join('') : '<div class="secempty">-</div>');
   }
-  const bl = b.querySelector('.bl'); if (bl.dataset.h !== h) { bl.dataset.h = h; bl.innerHTML = h; }
+  const bl = b.querySelector('.bl'); if (bl.dataset.h !== h && !busy(bl)) { bl.dataset.h = h; bl.innerHTML = h; }
 }
 const goneAt = {}, hideNow = new Set();
 window.onerror = (m, src, line) => { try { post({ type: 'log', text: 'js error: ' + m + ' @' + line }); } catch (e) { } };
@@ -396,15 +416,39 @@ function marker(c){
 const hash = t => { let h = 5381; const s0 = String(t || '').slice(0, 300); for (let i = 0; i < s0.length; i++) h = ((h << 5) + h + s0.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 function chatOf(id){ return (S && S.chats || []).find(c => c.id === id); }
 function sendExp(){ const v = [...opened].sort().join('|') + '/' + [...big].sort().join('|'); if (v !== lastExp) { lastExp = v; post({ type: 'expand', ids: [...opened], big: [...big] }); if (LAY) saveLay(); } }
+const setCv = (cd, h, fill) => { const b = cd.conv, atB = b.scrollHeight - b.scrollTop - b.clientHeight < 8; if (cd.cvH !== h) { cd.cvH = h; if (h) cd.el.style.setProperty('--convh', h + 'px'); else cd.el.style.removeProperty('--convh'); } if (cd.el.classList.contains('fill') !== fill) cd.el.classList.toggle('fill', fill); if (atB && b.scrollHeight - b.scrollTop - b.clientHeight >= 8) b.scrollTop = b.scrollHeight; };     // at the latest message: stay there
+let fitOC = [], fitLog = '', fitT = null;     // open conversations in screen order (last fit)
+const cvW = c => (LAY.cvw || {})[c.id] || 1;
+function fitConv(fromDrag){                            // fixed panel height (you resized it): open conversations take all the free space
+  if (cvDrag && !fromDrag) return;                     // while you drag a splitter only the drag moves things
+  const L = $('#list'), P = $('#pins'), A = $('#app'), hasP = P.children.length > 0;     // pinned chats live in #pins, above the list: both share the space
+  const oc = [...cards.values()].filter(c => c.el.classList.contains('big') && c.el.offsetParent && c.conv).sort((a, b) => a.el.compareDocumentPosition(b.el) & 4 ? -1 : 1);
+  for (const c of cards.values()) if ((c.cvH || c.el.classList.contains('split')) && (!S.fixedH || !oc.includes(c))) { setCv(c, 0, false); c.el.classList.remove('split'); }
+  fitOC = S.fixedH ? oc : [];
+  if (!S.fixedH || !oc.length) return;
+  if (hasP && P.style.maxHeight !== 'none' && oc.some(c => P.contains(c.el))) P.style.maxHeight = 'none';
+  const cont = C => { let l = C.lastElementChild; while (l && !l.offsetHeight) l = l.previousElementSibling; return l ? l.getBoundingClientRect().bottom - C.getBoundingClientRect().top + C.scrollTop : 0; };
+  const others = [...A.children].filter(x => x !== P && x !== L && x.offsetHeight && !/fixed|absolute/.test(getComputedStyle(x).position)).reduce((a, x) => a + x.offsetHeight, 0);
+  const avail = A.clientHeight - others - (hasP ? 3 : 0);
+  if (avail < 40) return;                              // hidden or not laid out yet: keep the last fit
+  const tax = c => parseFloat(c.conv.style.getPropertyValue('--tax')) || 0, content = (hasP ? cont(P) : 0) + cont(L) + 3, rest = content - oc.reduce((a, c) => a + c.conv.offsetHeight + tax(c), 0);
+  const free = Math.max(60 * oc.length, Math.min(innerHeight, Math.floor(avail - rest - 4))), tw = oc.reduce((a, c) => a + cvW(c), 0);
+  let left = free;
+  oc.forEach((c, i) => { const h = i === oc.length - 1 ? left : Math.max(60, Math.min(left - 60 * (oc.length - 1 - i), Math.floor(free * cvW(c) / tw))); setCv(c, Math.max(60, h), true); left -= h; c.el.classList.toggle('split', i < oc.length - 1); });
+  const over = Math.max(0, L.scrollHeight - L.clientHeight) + (hasP ? Math.max(0, P.scrollHeight - P.clientHeight) : 0) + Math.max(0, A.scrollHeight - A.clientHeight);     // still too tall (rounding, zoom, something not measured): take it off the biggest one
+  if (S.settings && S.settings.debug && !fromDrag) { const ln = 'ui: fit ih ' + innerHeight + ' fixedH ' + S.fixedH + ' avail ' + Math.round(avail) + ' pins ' + (hasP ? P.clientHeight + '/' + P.scrollHeight : '-') + ' list ' + L.clientHeight + '/' + L.scrollHeight + ' rest ' + Math.round(rest) + ' free ' + free + ' conv ' + oc.map(c => c.cvH + '/' + c.conv.offsetHeight).join(',') + ' over ' + over; if (ln !== fitLog) { fitLog = ln; post({ type: 'log', text: ln }); } }     // debug logs only: numbers, no text
+  if (over > 0) { const big1 = oc.reduce((a, c) => c.cvH > a.cvH ? c : a, oc[0]); if (big1.cvH > 60) setCv(big1, Math.max(60, big1.cvH - over), true); }
+  if (!fromDrag) for (const c of oc) { const f = c.msgs.firstElementChild; if (f && f.classList.contains('more') && c.conv.scrollHeight <= c.conv.clientHeight + 4 && (c.autoMore || 0) < 4) { c.autoMore = (c.autoMore || 0) + 1; wantMore(c.id); } }     // room to spare: load earlier messages to fill it
+}
 function render(){
   if (!S) return;
-  setTimeout(modelMenuShow, 0);
+  setTimeout(modelMenuShow, 0); setTimeout(updShow, 0);
   const css = Object.entries(S.theme).map(([k, v]) => '--' + k + ':' + v).join(';') + ';--convh:' + (S.fixedH ? Math.max(120, S.fixedH - 120) : Math.min(320, Math.max(120, Math.round(S.maxH * 0.5)))) + 'px;--mainw:' + (S.mainW || 340) + 'px';
   if (css !== rootCss) { rootCss = css; document.documentElement.style.cssText = css; }
   const sd = S.sides || {};
   for (const [X, on] of [['L', !!sd.l], ['R', !!sd.r]]) if (col[X].open && !on && Date.now() - (col[X].at || 0) > 1500) { col[X].open = false; col[X].pinned = false; }   // the tray closed it (panel hidden / dragged)
   document.body.classList.toggle('nc', !!S.nc); document.body.classList.toggle('compact', !!(S.settings && S.settings.compact));
-  $('#pin').innerHTML = S.docked ? I.unpin : I.pin; $('#pin').classList.toggle('on', !!S.docked); $('#pin').title = S.docked ? 'Unpin (closes when you click outside)' : 'Pin here (stays on top)';
+  $('#pin').innerHTML = S.docked ? I.unpin : I.pin; $('#pin').classList.toggle('on', !!S.docked); setTitle($('#pin'), S.docked ? 'Unpin (closes when you click outside)' : 'Pin here (stays on top)');
   const uh = (S.usage || []).map(u => '<div class="u' + (u.used >= 75 ? ' warn' : '') + '" title="' + esc(u.tip) + '"><div class="ul"><span>' + esc(u.label) + '<b>' + Math.round(u.used) + '%</b></span><span title="resets">' + (u.at ? '↻ ' + esc(u.at) + ' · ' + esc(u.left) : '') + '</span></div><div class="bar"><i style="width:' + Math.min(100, Math.max(1, u.used)) + '%"></i></div></div>').join('') + (S.err ? '<div id="err">' + esc(S.err) + '</div>' : '');
   if (uh !== usageH) { usageH = uh; $('#usage').innerHTML = uh; }
   renderNew();
@@ -422,7 +466,7 @@ function render(){
   for (const id of cards.keys()) if (!have.has(id) && !goneAt[id]) goneAt[id] = now;
   const dead = id => !have.has(id) && (hideNow.has(id) || now - (goneAt[id] || now) > 5000);
   for (const id of [...opened]) if (dead(id)) { opened.delete(id); big.delete(id); }
-  sendExp(); { const fo = $('#fold'), any = opened.size > 0; fo.classList.toggle('un', !any); const ft = any ? 'Collapse all chats' : 'Expand the chats you had open'; if (fo.title !== ft && !fo.dataset.tt) fo.title = ft; }
+  sendExp(); { const fo = $('#fold'), any = opened.size > 0; fo.classList.toggle('un', !any); const ft = any ? 'Collapse all chats' : 'Expand the chats you had open'; setTitle(fo, ft); }
   const L = $('#list');
   for (const [id, cd] of cards) { if (dead(id)) { cd.el.remove(); cards.delete(id); delete goneAt[id]; hideNow.delete(id); } else cd.el.style.display = have.has(id) ? '' : 'none'; }
   // layout: sections (yours + the main one), manual order, sort per section - kept by the tray in state.json
@@ -431,7 +475,7 @@ function render(){
   let layCh = layCh0;
   if (LAY.ord.length > 400) { LAY.ord = LAY.ord.slice(0, 400); layCh = true; }
   if (layCh) saveLay();
-  const P = $('#pins'); P.style.maxHeight = Math.round((S.maxH || 430) * 0.6) + 'px';
+  const P = $('#pins'); P.style.maxHeight = S.fixedH && [...P.children].some(x => x.classList.contains('big')) ? 'none' : Math.round((S.maxH || 430) * 0.6) + 'px';     // fixed height: an open pinned chat may take the space (fitConv sizes it)
   const place = (box, list) => list.forEach((c, i) => { let cd = cards.get(c.id); if (!cd) cd = makeCard(c.id);
     if (box.children[i] !== cd.el) { const ae = document.activeElement, keep = ae && cd.el.contains(ae) ? ae : null, st = cd.conv.scrollTop, lst = box.scrollTop; box.insertBefore(cd.el, box.children[i] || null); cd.conv.scrollTop = st; box.scrollTop = lst; if (keep) keep.focus({ preventScroll: true }); }
     updateCard(cd, c); });
@@ -445,17 +489,18 @@ function render(){
     const list = viewOf(sc.id, groups[sc.id], sc.sort);
     const hh = '<span class="car">' + (sc.col ? '▸' : '▾') + '</span><span class="sn" title="Double-click to rename">' + esc(sc.name) + '</span><span class="sc">' + list.length + '</span><span class="sp"></span>' +
       '<button class="ss" data-a="secsort" title="Sort: click for last used / name / project (dragging a chat makes it custom)">' + SORTN[sc.sort || 'manual'] + '</button><button class="ib sm" data-a="secmenu" title="Section menu">' + I.more + '</button>';
-    const hd = e.firstElementChild; if (hd.dataset.h !== hh && !hd.querySelector('[contenteditable=true]')) { hd.dataset.h = hh; hd.innerHTML = hh; }
+    const hd = e.firstElementChild; if (hd.dataset.h !== hh && !hd.querySelector('[contenteditable=true]') && !busy(hd)) { hd.dataset.h = hh; hd.innerHTML = hh; }
     hd.style.display = multi ? '' : 'none'; e.classList.toggle('col', !!sc.col);
     const body = e.lastElementChild; place(body, list);
-    let ph = body.querySelector('.secempty'); if (!list.length && !ph) { ph = document.createElement('div'); ph.className = 'secempty'; ph.textContent = sc.id === 'main' ? (S.hiddenAll ? 'All chats hidden - they come back when Claude writes to them.' : 'No chat yet. Type /tray in a Claude chat.') : 'Drag chats here'; body.appendChild(ph); } else if (list.length && ph) ph.remove();
+    let ph = body.querySelector('.secempty'); if (!list.length && !ph) { ph = document.createElement('div'); ph.className = 'secempty'; body.appendChild(ph); } else if (list.length && ph) ph.remove();
+    if (ph) { const tx = sc.id !== 'main' ? 'Drag chats here' : S.hiddenAll || (S.chats || []).length ? '' : 'No chat yet. Type /tray in a Claude chat.'; if (ph.textContent !== tx) ph.textContent = tx; ph.style.display = tx ? '' : 'none'; }     // all chats hidden: no line, BROWSE brings them back
   });
   renderBrowse(L);
-  const nf = $('#newf'), bw = $('#brw'), ref = bw && bw.parentElement === L ? bw : null;     // New chat form: at the bottom, above Browse
+  const nf = $('#newf'), bw = $('#brw'), ref = bw && bw.parentElement === L ? bw : null;     // New chat form: at the end of the list
   if (nf.parentElement !== L || nf.nextElementSibling !== ref) L.insertBefore(nf, ref);
   if (!S.shown) dirtyView = true; else dirtyView = false;
   { const hd = $('#hid'); if (hd) hd.remove(); }     // the "N hidden" line is gone: Browse brings hidden chats back
-  sizeReport();
+  fitConv(); sizeReport();
 }
 function renderHidden(L){                       // chats you hid: one muted line at the end, click to list them and bring one back
   const hs = S.hidden || []; let h = $('#hid');
@@ -464,7 +509,7 @@ function renderHidden(L){                       // chats you hid: one muted line
   if (L.lastElementChild !== h) L.appendChild(h);
   const html = '<div class="ht" data-a="hidt" title="Chats you hid - they come back by themselves when Claude writes again">' + hs.length + ' hidden ' + (hidOpen ? '▴' : '▾') + '</div>' +
     (hidOpen ? hs.map(x => '<div class="hr"><span title="' + esc(x.title) + '">' + esc(x.title) + '</span><span class="age" style="flex:none">' + esc(x.age) + '</span><button class="ib" data-a="unhide" data-id="' + esc(x.id) + '" title="Show it again">' + I.plus + '</button></div>').join('') : '');
-  if (h.dataset.h !== html) { h.dataset.h = html; h.innerHTML = html; }
+  if (h.dataset.h !== html && !busy(h)) { h.dataset.h = html; h.innerHTML = html; }
 }
 function renderNew(){
   const cat = S.catalog, sel = $('#nfProj');
@@ -478,7 +523,7 @@ function renderNew(){
     else if (nc.st === 'ok') { newSeen = nc.key; openCard(nc.id); $('#newf').classList.remove('on'); $('#nfMsg').value = ''; $('#nfName').value = ''; txt = ''; }
   }
   go.disabled = !!(nc && nc.st === 'working' && nc.key !== newSeen);
-  st.textContent = txt; st.classList.toggle('bad', bad); st.title = txt;
+  st.textContent = txt; st.classList.toggle('bad', bad); setTitle(st, txt);
 }
 function newChat(){
   const t = $('#nfMsg').value.trim(); if (!t) { $('#nfSt').textContent = 'write a first message'; $('#nfMsg').focus(); return; }
@@ -490,6 +535,7 @@ function makeCard(id){
     '<button class="ib mchip" data-a="model" title="Model and effort" style="display:none"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button><button class="trc" data-a="trc"></button><button class="pill" data-a="auto" title="Ask Claude to do these steps itself">auto</button></div></div></div>' +
     '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation"></span><div class="mfld"><input class="mi" spellcheck="false"><span class="mph"></span><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><span class="mfiles"></span><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="trc" data-a="trc"></button></div><span class="mt"></span></div>';
   el.querySelector('.head').draggable = true;
+  el.insertAdjacentHTML('beforeend', '<div class="cvz" title="Drag: more room for one conversation or the other - double-click: share evenly"></div>');     // splitter under this card, shown when another open conversation follows
   const cd = { id: id, el: el, head: el.querySelector('.head'), conv: el.querySelector('.conv'), msgs: el.querySelector('.msgs'), actw: el.querySelector('.actw'), ta: el.querySelector('textarea'), send: el.querySelector('.send'), stop: el.querySelector('.stop'), auto: el.querySelector('.pill'), headH: '', actH: '', items: [], stick: true, full: new Set(), edit: new Set(), obs: {}, files: [], mi: el.querySelector('.mi'), mdot: el.querySelector('.mdot'), mph: el.querySelector('.mph'), mphH: '', mfld: el.querySelector('.mfld'), mt: el.querySelector('.mt'), mdH: '', mtH: '', mfiles: el.querySelector('.mfiles'), mstop: el.querySelector('.mini .stop'), sit: el.querySelector('.sit'), sitH: '', jump: el.querySelector('.jump'), ask: el.querySelector('.askw'), askH: '', atts: el.querySelector('.atts'), fin: el.querySelector('input[type=file]') };
   cd.fin.addEventListener('change', () => { addFiles(id, cd.fin.files); cd.fin.value = ''; });
   el.addEventListener('dragover', e => { if (dragId) return; e.preventDefault(); el.classList.add('drop'); });
@@ -507,19 +553,19 @@ function updateCard(cd, c){
   const cmp = document.body.classList.contains('compact'), ak = asks(c), pv = ak ? 'Claude asks: ' + askTxt(c) : String(c.preview || '').replace(/\s+/g, ' ').trim();
   const ph = cmp ? ' ' : ak ? pv : c.suggest && !c.working ? 'Enter = send "' + c.suggest + '" (steps done)' : (c.preview || 'Reply…');
   const mtt = cmp ? c.title + (c.suggest && !c.working ? ' - Enter sends "' + c.suggest + '"' : '') : ph;
-  if (cd.mi.placeholder !== ph) cd.mi.placeholder = ph; if (cd.mi.title !== mtt) cd.mi.title = mtt;
+  if (cd.mi.placeholder !== ph) cd.mi.placeholder = ph; setTitle(cd.mi, mtt);
   cd.mi.classList.toggle('un', !!c.unread);
   const mph = cmp ? '<b>' + esc(c.title) + '</b>' + (pv ? '<i' + (ak ? ' class="ak"' : '') + '> · ' + esc(pv) + '</i>' : '') : ''; if (mph !== cd.mphH) { cd.mphH = mph; cd.mph.innerHTML = mph; } cd.mph.classList.toggle('un', !!c.unread);
   if (cmp && !open) {                                    // compact: one line - dot (opens it) · field (title) · bell · open in Claude · age
     const md = marker(c); if (md !== cd.mdH) { cd.mdH = md; cd.mdot.innerHTML = md; }
     const mt = '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button><button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button><span class="age" title="Last activity">' + esc(c.age) + '</span>';
-    if (mt !== cd.mtH) { cd.mtH = mt; cd.mt.innerHTML = mt; }
+    if (mt !== cd.mtH && !busy(cd.mt)) { cd.mtH = mt; cd.mt.innerHTML = mt; }
   }
   cd.mstop.style.display = c.working ? 'inline-flex' : 'none'; cd.mfld.classList.toggle('wk', !!c.working);
   const tcmd = c.trayCmd || '/tray', trT = 'Click: put ' + tcmd + ' at the start of your message (turns on one-click steps in this chat)';
   { const mc = cd.el.querySelector('.mchip'); if (mc) { const mh = c.model ? esc(mShort(c.model)) + effBars(c.effort) : ''; if (mc.innerHTML !== mh) mc.innerHTML = mh; mc.style.display = mh ? '' : 'none'; mc.title = 'Model: ' + (c.model || '?') + (c.effort ? ' - effort: ' + c.effort : '') + ' (click to change)'; } }
   { const isL = String(c.id || '').startsWith('local/'); for (const ab of cd.el.querySelectorAll('[data-a="attach"]')) { const t0 = isL ? 'Give Claude files or a folder (pick files, or open a folder and click Open with nothing selected)' : 'Attach files (or paste / drop them here)'; if (ab.title !== t0) ab.title = t0; } }
-  for (const tc of cd.el.querySelectorAll('.trc')) { tc.style.display = c.skill ? 'none' : ''; tc.classList.remove('on'); if (tc.title !== trT) { tc.title = trT; tc.textContent = '/tray'; } }
+  for (const tc of cd.el.querySelectorAll('.trc')) { tc.style.display = c.skill ? 'none' : ''; tc.classList.remove('on'); if ((tc.dataset.tt != null ? tc.dataset.tt : tc.title) !== trT) { setTitle(tc, trT); tc.textContent = '/tray'; } }
   const proj = LAY && c.proj && ((LAY.sec.find(s => s.id === secOf(c)) || {}).sort === 'project');
   // tools float over the end of the title, always in the same slots; the pin (when pinned) and a muted bell stay visible in their own slot
   const tools = '<div class="tools">' + '<button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button>' + (String(c.id || '').startsWith('local/') ? '' : '<button class="ib" data-a="web" title="Open on claude.ai">' + I.web + '</button>') + '' +
@@ -528,7 +574,7 @@ function updateCard(cd, c){
     '<button class="ib' + (c.pin ? ' pon keep' : '') + '" data-a="pinc" title="' + (c.pin ? 'Unpin (back to the list)' : 'Pin on top (always shown, stays in view while you scroll)') + '">' + I.pin + '</button></div>';
   const hh = marker(c) + '<div class="rt' + (c.pin || !c.bell ? ' rk' + ((c.pin ? 1 : 0) + (!c.bell ? 1 : 0)) : '') + '"><b>' + esc(c.title) + '</b>' + tools + '</div>' +
     (proj ? '<span class="mdl" title="Project">' + esc(c.proj) + '</span>' : '') + '<span class="age">' + esc(c.age) + '</span>';
-  if (hh !== cd.headH) { cd.headH = hh; cd.head.innerHTML = hh; }
+  if (hh !== cd.headH && !busy(cd.head)) { cd.headH = hh; cd.head.innerHTML = hh; }
   cd.head.classList.toggle('unread', !!c.unread);
   if (c.draftV && draftSeen[c.id] !== c.draftV) {          // a send that failed: text (and files) back in the box you used
     draftSeen[c.id] = c.draftV; const box0 = cd.sentFrom === 'mi' || !isBig ? cd.mi : cd.ta;
@@ -598,7 +644,8 @@ function convItems(c, cd){
   msgs.forEach((m, i) => { if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
   if (pend) it.push('<div class="m u sending"><div class="b">' + esc(pend) + '</div>' + rnd + '<span class="sst">' + (isLoc ? 'via Claude Desktop \u2013 if it is not there, paste it (Ctrl+V)' : 'sending…') + '</span></div>');
   const lastM = msgs[msgs.length - 1];
-  if (c.working) it.push('<div class="writing" title="Claude is working"><span class="dots"><i></i><i></i><i></i><i></i></span>' + (isLoc ? '' : '<button class="ib rf" data-a="reload" title="Stuck? Reload this chat\'s page (Claude keeps working)">' + I.retry + '</button>') + '</div>');
+  const actL = String(c.act || '').split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 160);     // what Claude is doing: one grey line next to the animation
+  if (c.working) it.push('<div class="writing" title="' + esc(actL || 'Claude is working') + '"><span class="dots"><i></i><i></i><i></i><i></i></span>' + (actL ? '<span class="wt">' + esc(actL) + '</span>' : '') + (isLoc ? '' : '<button class="ib rf" data-a="reload" title="Stuck? Reload this chat\'s page (Claude keeps working)">' + I.retry + '</button>') + '</div>');
   return it;
 }
 function qHtml(c){                                    // Claude Code's question card, one line per row: question · ‹ n/m › / choices / Other + Skip / Send answers
@@ -726,15 +773,21 @@ document.addEventListener('wheel', e => {
   const tgt = conv && canScroll(conv, dy) ? conv : [$('#list'), $('#pins')].find(x => x && canScroll(x, dy));
   if (tgt) { e.preventDefault(); tgt.scrollTop += dy; }
 }, { passive: false });
-function grow(ta){ ta.style.height = 'auto'; ta.style.height = Math.min(110, ta.scrollHeight) + 'px'; }
-function sizeReport(){
+function grow(ta){ const L = $('#list'), lt = L ? L.scrollTop : 0; ta.style.height = 'auto'; ta.style.height = Math.min(110, ta.scrollHeight) + 'px'; if (L && L.scrollTop !== lt) L.scrollTop = lt; }     // the brief 'auto' must not scroll the list
+let shrinkT = null, userAt = 0;     // userAt: last click or key - a change you caused resizes at once
+function sizeReport(now){
   if (!S) return;
   const L = $('#list'); let last = L.lastElementChild; while (last && !last.offsetHeight) last = last.previousElementSibling;     // hidden blocks (New chat form) don't count
   const P = $('#pins'), ph = P.children.length ? Math.min(P.scrollHeight, parseInt(P.style.maxHeight) || 9999) + 3 : 0;
-  const want = Math.ceil($('#top').offsetHeight + $('#newf').offsetHeight + ph + (last ? last.offsetTop + last.offsetHeight + 4 : (P.children.length ? 4 : 30)) + $('#tb').offsetHeight + $('#usage').offsetHeight + 2);
-  if (Math.abs(want - prevH) > 1) { prevH = want; post({ type: 'size', h: want }); }
+  let want = Math.ceil($('#top').offsetHeight + ph + (last ? last.offsetTop + last.offsetHeight + 4 : (P.children.length ? 4 : 30)) + $('#brwbox').offsetHeight + $('#tb').offsetHeight + $('#usage').offsetHeight + 2);
+  if (menuGrow) want = Math.max(want, menuGrow);
+  if (want > prevH + 1 || (want < prevH - 1 && (now || brDrag || Date.now() - userAt < 900))) { clearTimeout(shrinkT); shrinkT = null; prevH = want; post({ type: 'size', h: want }); }
+  else if (want < prevH - 1) { if (!shrinkT) shrinkT = setTimeout(() => { shrinkT = null; sizeReport(true); }, 700); }     // one pending shrink: later updates (a streaming reply) don't keep pushing it back
+  else { clearTimeout(shrinkT); shrinkT = null; }     // shrinking by itself (a "writing…" line went away): wait, so the top edge doesn't bounce
 }
 function openCard(id){ opened.add(id); big.add(id); }
+function afterFit(fn){ if (S && S.fixedH) { fn(); return; } let done = false; const go = () => { if (done) return; done = true; removeEventListener('resize', go); fn(); }; addEventListener('resize', go); setTimeout(go, 250); }     // run once the tray has resized the panel
+const reveal = el => afterFit(() => { if (el && el.isConnected) el.scrollIntoView({ block: 'nearest' }); });
 const mShort = m => { const s0 = String(m || '').replace(/^claude-/, '').replace(/-\d{8}$/, ''); const k = s0.match(/^(opus|sonnet|haiku|fable)-(\d+)-(\d+)/i); return k ? k[1][0].toUpperCase() + k[1].slice(1) + ' ' + k[2] + '.' + k[3] : s0; };
 const EFF = ['low', 'medium', 'high', 'xhigh', 'max'], effBars = e => { const n = EFF.indexOf(String(e || '').toLowerCase()) + 1; if (!n) return ''; return '<span class="eb" title="Effort: ' + esc(e) + '">' + [1, 2, 3, 4, 5].map(i => '<i class="' + (i <= n ? 'on' : '') + '" style="height:' + (2 + i * 1.4) + 'px"></i>').join('') + '</span>'; };
 let mmAt = null;     // where the model chip was clicked, waiting for Desktop's options
@@ -758,7 +811,7 @@ function foldAll(){                                       // toolbar button / cl
   if (lf && (back.length || lf.browse)) {
     for (const i of back) { opened.add(i); if ((lf.big || []).includes(i)) big.add(i); }
     if (lf.browse) { LAY.browse = true; post({ type: 'catalog' }); saveLay(); }
-    render(); setTimeout(() => { const l2 = $('#list'); if (l2) l2.scrollTop = lf.top || 0; }, 0);
+    render(); afterFit(() => { const l2 = $('#list'); if (l2) l2.scrollTop = lf.top || 0; });
     return;
   }
   back = (S.chats || []).filter(c => c.st === 'act' || c.unread || (c.prompts || []).length || c.q).map(c => c.id).slice(0, 4); if (!back.length) back = (S.chats || []).slice(0, 1).map(c => c.id); for (const i of back) openCard(i);
@@ -766,12 +819,12 @@ function foldAll(){                                       // toolbar button / cl
 }
 function cycle(id){                                       // the small view button: collapsed -> compact (gist + actions) -> full -> collapsed
   if (!opened.has(id)) opened.add(id); else if (!big.has(id)) big.add(id); else { opened.delete(id); big.delete(id); }
-  render(); const cd = cards.get(id); if (opened.has(id)) cd.el.scrollIntoView({ block: 'nearest' });
+  render(); const cd = cards.get(id); if (opened.has(id)) reveal(cd.el);
 }
 function toggle(id){                                      // title click: collapsed or compact -> full, full -> collapsed
   if (!opened.has(id) || !big.has(id)) openCard(id); else { opened.delete(id); big.delete(id); }
-  render(); const cd = cards.get(id); if (opened.has(id)) cd.el.scrollIntoView({ block: 'nearest' });
-  setTimeout(() => { if (big.has(id)) cd.ta.focus(); else if (!document.body.classList.contains('compact')) cd.mi.focus(); }, 0);     // compact: focusing the field would hide the title
+  render(); const cd = cards.get(id); if (opened.has(id)) reveal(cd.el);
+  setTimeout(() => { if (big.has(id)) cd.ta.focus({ preventScroll: true }); else if (!document.body.classList.contains('compact')) cd.mi.focus({ preventScroll: true }); }, 0);     // compact: focusing the field would hide the title
 }
 function wantMore(id){
   const c = chatOf(id), cd = cards.get(id); if (moreBusy[id] || !c || !c.web || !cd) return;
@@ -802,7 +855,7 @@ function slashFor(inp){                              // "/" at the start of a bo
   slp.items = items; slp.i = Math.min(slp.i, Math.max(0, items.length - 1));
   slp.el.innerHTML = items.length ? items.map((x, i) => '<div class="si' + (i === slp.i ? ' on' : '') + '" data-i="' + i + '" title="' + esc(x.d) + '"><b>' + esc(x.n) + '</b><span>' + esc(x.d) + '</span></div>').join('') : '<div class="sx">' + (!sl ? 'loading commands…' : sl.err ? 'commands: ' + esc(sl.err) : 'no command starts with ' + esc(v)) + '</div>';
   const r = inp.getBoundingClientRect(), w = Math.min(innerWidth - 8, Math.max(220, r.width)); slp.el.style.width = w + 'px'; slp.el.style.left = Math.max(4, Math.min(r.left, innerWidth - w - 4)) + 'px';
-  const h = slp.el.offsetHeight; slp.el.style.top = (r.top - h - 3 > 2 ? r.top - h - 3 : r.bottom + 3) + 'px';
+  const h = slp.el.offsetHeight; slp.el.style.top = Math.max(2, Math.min(r.top - h - 3 > 2 ? r.top - h - 3 : r.bottom + 3, innerHeight - h - 2)) + 'px';
 }
 function pickSlash(i){ if (!slp || !slp.items[i]) return; const inp = slp.inp; inp.value = slp.items[i].n + ' '; closeSlash(); inp.focus(); inp.dispatchEvent(new Event('input', { bubbles: true })); }
 function closeSlash(){ if (slp) { slp.el.remove(); slp = null; } }
@@ -813,10 +866,31 @@ function doSend(id, mini){
   cd.sentFrom = mini ? 'mi' : 'ta'; cd.sentFiles = cd.files.slice(); closeSlash();
   const fl = cd.files.map(f => ({ name: f.name, type: f.type, b64: f.b64 }));
   localSend[id] = { t: t || ('(' + cd.files.map(f => f.name).join(', ') + ')'), at: Date.now() }; const c0 = chatOf(id); post({ type: 'send', id: id, text: t, files: fl, tray: false });
-  if (!mini) { drafts[id] = ''; cd.conv.style.maxHeight = ''; } box.value = ''; cd.files = []; drawAtts(cd); cd.stick = true; render();
+  if (!mini) { drafts[id] = ''; cd.taxV = 0; cd.conv.style.setProperty('--tax', '0px'); cd.ta.style.height = ''; } box.value = ''; cd.files = []; drawAtts(cd); cd.stick = true; render();
 }
 // ---------- events
-let gripDown = null;
+const unstick = b => setTimeout(() => { if (b.isConnected) b.disabled = false; }, 4000);     // a click the tray didn't act on doesn't leave the button dead
+let downIn = null;     // element under a pressed mouse button: render leaves it alone until release, so the click lands
+const busy = el => !!(downIn && el && el.contains(downIn));
+document.addEventListener('mousedown', e => { downIn = e.target; userAt = Date.now(); }, true);
+document.addEventListener('mouseup', () => { if (downIn) { downIn = null; setTimeout(render, 0); } }, true);
+document.addEventListener('keydown', () => { userAt = Date.now(); }, true);
+let cvDrag = null;
+document.addEventListener('mousedown', e => { const z = e.target.closest && e.target.closest('.cvz'); if (!z || e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+  const card = z.closest('.card'), i = fitOC.findIndex(c => c.el === card), a = fitOC[i], b = fitOC[i + 1]; if (!a || !b) return;
+  cvDrag = { a: a, b: b, z: z, y: e.screenY, ha: a.conv.getBoundingClientRect().height, hb: b.conv.getBoundingClientRect().height, w: cvW(a) + cvW(b), raf: 0 }; z.classList.add('on'); document.body.classList.add('rsz'); }, true);
+document.addEventListener('mousemove', e => { if (!cvDrag) return; e.preventDefault(); cvDrag.ny = e.screenY; if (cvDrag.raf) return;
+  cvDrag.raf = requestAnimationFrame(() => { const d = cvDrag; if (!d) return; d.raf = 0; const tot = d.ha + d.hb, na = Math.max(60, Math.min(tot - 60, d.ha + (d.ny - d.y)));
+    LAY.cvw = LAY.cvw || {}; LAY.cvw[d.a.id] = Math.round(d.w * na / tot * 1000) / 1000; LAY.cvw[d.b.id] = Math.round((d.w - LAY.cvw[d.a.id]) * 1000) / 1000; fitConv(true); }); });
+document.addEventListener('mouseup', () => { if (cvDrag) { cancelAnimationFrame(cvDrag.raf); cvDrag.z.classList.remove('on'); cvDrag = null; document.body.classList.remove('rsz'); saveLay(); setTimeout(() => fitConv(), 0); } }, true);
+document.addEventListener('dblclick', e => { const z = e.target.closest && e.target.closest('.cvz'); if (!z || !LAY.cvw) return; const card = z.closest('.card'), i = fitOC.findIndex(c => c.el === card); for (const c of fitOC.slice(Math.max(0, i), i + 2)) delete LAY.cvw[c.id]; saveLay(); fitConv(); });
+let gripDown = null, brDrag = null;     // brDrag: resizing BROWSE by its bottom handle (height kept in the layout)
+document.addEventListener('mousedown', e => { const h0 = e.target.closest && e.target.closest('#brw .brz'); if (!h0 || e.button !== 0) return; e.preventDefault(); e.stopPropagation(); const bl = $('#brw .bl'); brDrag = { y: e.screenY, h: bl.getBoundingClientRect().height, raf: 0 }; document.body.classList.add('rsz'); }, true);
+document.addEventListener('mousemove', e => { if (!brDrag) return; e.preventDefault(); brDrag.ny = e.screenY; if (brDrag.raf) return;      // screen coordinates: the window grows upwards while you drag, client coordinates would move with it
+  brDrag.raf = requestAnimationFrame(() => { const d = brDrag; if (!d) return; d.raf = 0; const nh = Math.round(Math.max(60, Math.min(brMax(), d.h - (d.ny - d.y)))); if (nh === LAY.brh) return; LAY.brh = nh; const bl = $('#brw .bl'); if (bl) bl.style.height = nh + 'px'; fitConv(); sizeReport(); }); });
+addEventListener('resize', () => { if (S && LAY) { fitConv(); clearTimeout(fitT); fitT = setTimeout(() => fitConv(), 150); } });     // again once the resize has settled     // the panel was resized: share the new space     // drag the divider up = taller, one update per frame
+document.addEventListener('mouseup', () => { if (brDrag) { cancelAnimationFrame(brDrag.raf); brDrag = null; document.body.classList.remove('rsz'); saveLay(); } }, true);
+const brMax = () => Math.round((S && (S.fixedH || S.maxH) || innerHeight) * 0.7);     // BROWSE at most 70 % of the panel's possible height
 document.addEventListener('mousedown', e => { const rz = e.target.closest && e.target.closest('.rz'); if (rz && e.button === 0) { e.preventDefault(); post({ type: 'rsz', e: rz.dataset.e }); return; } post({ type: 'focus' }); if (e.button === 0 && e.target.closest('#top') && !e.target.closest('button')) { e.preventDefault(); if (e.target.closest('#gripz')) gripDown = { x: e.screenX, y: e.screenY }; post({ type: 'drag' }); } });
 document.addEventListener('mouseup', e => { const g = gripDown; gripDown = null; if (g && e.button === 0 && Math.abs(e.screenX - g.x) < 4 && Math.abs(e.screenY - g.y) < 4 && e.target.closest('#gripz')) foldAll(); });
 document.addEventListener('click', e => {
@@ -824,7 +898,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
   if (e.target.closest('#plus')) { const r = $('#plus').getBoundingClientRect(); plusMenu(r.left, r.top, true); return; }
   const shd = e.target.closest('.sh'); if (shd && !e.target.closest('[data-a]') && !e.target.closest('[contenteditable=true]')) { const sc = LAY.sec.find(s => s.id === shd.dataset.sec); if (sc) { sc.col = !sc.col; saveLay(); render(); } return; }
-  if (e.target.closest('.bh') && !e.target.closest('[data-a]')) { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); saveLay(); render(); if (LAY.browse) setTimeout(() => { const bw = $('#brw'); if (bw) bw.scrollIntoView({ block: 'nearest' }); }, 0); return; }
+  if (e.target.closest('.bh') && !e.target.closest('[data-a]')) { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); saveLay(); render(); return; }
   if (e.target.closest('#fold')) { foldAll(); return; }
   if (e.target.closest('#nfX')) { $('#newf').classList.remove('on'); sizeReport(); return; }
   if (e.target.closest('#nfGo')) { newChat(); return; }
@@ -842,7 +916,7 @@ document.addEventListener('click', e => {
         const isL = String(id).startsWith('local/'), gq = ((chatOf(id) || {}).q || {});
         if (isL && gq.gen && !(S.deskOnly || []).includes(b.dataset.label) && !(askArm[id] && askArm[id].l === b.dataset.label && Date.now() - askArm[id].at < 5000)) { askArm[id] = { l: b.dataset.label, at: Date.now() }; render(); setTimeout(render, 5100); break; }     // a Desktop request (permission...) needs a 2nd click on the same button
         delete askArm[id]; post({ type: 'qpick', id: id, i: +b.dataset.i, label: b.dataset.label }); b.classList.toggle('on'); if (isL) { askSent[id] = { l: b.dataset.label, at: Date.now() }; render(); setTimeout(render, 6100); } break; }
-    case 'qsub': { const ot = card.querySelector('.qoth'), tx = ot ? ot.value.trim() : ''; if (tx) post({ type: 'qother', id: id, text: tx, enter: false }); post({ type: 'qsub', id: id }); b.disabled = true; } break;
+    case 'qsub': { const ot = card.querySelector('.qoth'), tx = ot ? ot.value.trim() : ''; if (tx) post({ type: 'qother', id: id, text: tx, enter: false }); post({ type: 'qsub', id: id }); b.disabled = true; unstick(b); } break;
     case 'qnext': post({ type: 'qnext', id: id }); break;
     case 'addfolder': post({ type: 'addfolder', id: id }); break;
     case 'model': { const r0 = b.getBoundingClientRect(); if (String(id).startsWith('local/')) { post({ type: 'open', id: id, web: false }); break; } mmAt = { id: id, x: r0.left, y: r0.top, k: (S.modelMenu || {}).k }; post({ type: 'modelmenu', id: id }); break; }     // the tray reads Desktop's options, then shows them here
@@ -855,7 +929,7 @@ document.addEventListener('click', e => {
     case 'send': doSend(id); break;
     case 'msend': doSend(id, true); break;
     case 'pinc': post({ type: 'pinc', id: id }); break;
-    case 'choose': post({ type: 'answer', id: id, n: n, text: b.dataset.v }); b.disabled = true; break;
+    case 'choose': post({ type: 'answer', id: id, n: n, text: b.dataset.v }); b.disabled = true; unstick(b); break;
     case 'trc': { const cd0 = cards.get(id), c0 = chatOf(id) || {}, cmd = (c0.trayCmd || '/tray') + ' '; if (!cd0) break; const fld = document.body.classList.contains('compact') && cd0.mi && cd0.mi.offsetParent ? cd0.mi : cd0.ta; if (!/^\s*\/(?:[\w-]+:)?tray\b/.test(fld.value)) { fld.value = cmd + fld.value.replace(/^\s+/, ''); fld.dispatchEvent(new Event('input', { bubbles: true })); } fld.focus(); try { fld.setSelectionRange(fld.value.length, fld.value.length); } catch (e) { } break; }     // written in the field, sent as typed (was a hidden on/off prefix, and clicking it turned it OFF)
     case 'mv': { const r = b.getBoundingClientRect(); moveMenu(id, r.left - 120, r.bottom + 2); break; }
     case 'secsort': { const sc = LAY.sec.find(s => s.id === b.closest('.sh').dataset.sec); if (sc) { sc.sort = SORTS[(SORTS.indexOf(sc.sort) + 1) % SORTS.length]; if (sc.sort === 'project') post({ type: 'catalog' }); dirtyView = true; saveLay(); render(); } break; }
@@ -863,10 +937,10 @@ document.addEventListener('click', e => {
     case 'brref': brAsked.clear(); post({ type: 'catalog', force: true }); for (const pid of brOpen) if (!String(pid).startsWith('L:')) post({ type: 'catproj', pid: pid }); break;
     case 'brx': LAY.browse = false; saveLay(); render(); break;
     case 'brproj': { const pid = b.dataset.pid; if (brOpen.has(pid)) brOpen.delete(pid); else { brOpen.add(pid); const bp = ((S.catalog || {}).byProj || {})[pid]; if (!bp && !String(pid).startsWith('L:')) post({ type: 'catproj', pid: pid }); } renderBrowse($('#list')); sizeReport(); break; }
-    case 'brtrack': { const tid = b.dataset.id; openCard(tid); post({ type: 'track', id: tid, title: b.dataset.t }); b.disabled = true; break; }
+    case 'brtrack': { const tid = b.dataset.id; openCard(tid); post({ type: 'track', id: tid, title: b.dataset.t }); b.disabled = true; unstick(b); break; }
     case 'hidt': hidOpen = !hidOpen; renderHidden($('#list')); sizeReport(); break;
-    case 'unhide': post({ type: 'unhide', id: b.dataset.id }); b.disabled = true; break;
-    case 'reload': post({ type: 'reload', id: id }); b.disabled = true; break;
+    case 'unhide': post({ type: 'unhide', id: b.dataset.id }); b.disabled = true; unstick(b); break;
+    case 'reload': post({ type: 'reload', id: id }); b.disabled = true; unstick(b); break;
     case 'unattall': { const cd = cards.get(id); cd.files = []; drawAtts(cd); break; }
     case 'attach': if (String(id).startsWith('local/')) post({ type: 'addfolder', id: id }); else cards.get(id).fin.click(); break;     // local chats: files or a folder, given to the session by path
     case 'unatt': { const cd = cards.get(id); cd.files.splice(+b.dataset.i, 1); drawAtts(cd); break; }
@@ -924,7 +998,7 @@ document.addEventListener('input', e => {
   const t = e.target; if (t.classList && (t.classList.contains('mi') || (t.tagName === 'TEXTAREA' && !t.dataset.obs && t.closest('.cbox')))) slashFor(t);
   if (t.tagName !== 'TEXTAREA') return;
   if (t.dataset.obs) { t.style.height = 'auto'; t.style.height = Math.min(64, t.scrollHeight) + 'px'; const card0 = t.closest('.card'), cd0 = card0 && cards.get(card0.dataset.id); if (cd0) cd0.obs[t.dataset.obs] = t.value; }
-  else { const card = t.closest('.card'); if (card) { drafts[card.dataset.id] = t.value; grow(t); const cd1 = cards.get(card.dataset.id); if (cd1 && t === cd1.ta) { const ex = Math.max(0, t.offsetHeight - 17); cd1.conv.style.maxHeight = ex ? 'calc(var(--convh) - ' + ex + 'px)' : ''; } } }
+  else { const card = t.closest('.card'); if (card) { drafts[card.dataset.id] = t.value; grow(t); const cd1 = cards.get(card.dataset.id); if (cd1 && t === cd1.ta) { const b = cd1.conv, atB = b.scrollHeight - b.scrollTop - b.clientHeight < 8, ex = Math.max(0, t.offsetHeight - 17); if (cd1.taxV !== ex) { cd1.taxV = ex; cd1.conv.style.setProperty('--tax', ex + 'px'); if (atB) b.scrollTop = b.scrollHeight; } } } }
   sizeReport();
 });
 document.addEventListener('keydown', e => {
@@ -934,6 +1008,7 @@ document.addEventListener('keydown', e => {
     if (slp.items.length) { e.preventDefault(); pickSlash(slp.i); return; }
   }
   if (e.key === 'Escape' && e.target.classList && e.target.classList.contains('mi') && (e.target.value || document.body.classList.contains('compact'))) { e.preventDefault(); e.target.value = ''; e.target.blur(); return; }
+  if (e.key === 'Escape' && $('#pmenu')) { e.preventDefault(); closeMenu(); return; }
   if (e.key === 'Escape') { if (e.target.closest && e.target.closest('#newf')) { $('#newf').classList.remove('on'); sizeReport(); } else post({ type: 'esc' }); return; }
   const t = e.target; if (t.tagName !== 'TEXTAREA' && t.tagName !== 'INPUT' || e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
   if (t.closest('#newf')) { if (!e.shiftKey) { e.preventDefault(); newChat(); } return; }
@@ -971,8 +1046,10 @@ window.chrome.webview.addEventListener('message', e => {
 });
 // hover labels: drawn by the page (the panel never takes the focus, so Windows' own tooltips don't show)
 let tipEl = null, tipT = null;
+function setTitle(el, t){ if (!el) return; if (el.dataset.tt != null) { if (el.dataset.tt !== t) { el.dataset.tt = t; if (el === tipEl) $('#tip').textContent = t; } } else if (el.title !== t) el.title = t; }     // the label code moves title into data-tt while hovered
 const tipHide = () => { clearTimeout(tipT); const tp = $('#tip'); tp.classList.remove('on'); if (tipEl && tipEl.dataset.tt != null) { if (!tipEl.hasAttribute('title')) tipEl.setAttribute('title', tipEl.dataset.tt); delete tipEl.dataset.tt; } tipEl = null; };
 document.addEventListener('mouseover', e => {
+  if (e.buttons || document.body.classList.contains('rsz')) return;     // dragging: no labels
   const el = e.target.closest && e.target.closest('[title]:not(#top):not(.head):not(.card)'); if (el === tipEl) return;
   tipHide(); if (!el || !el.getAttribute('title') || e.target.closest('#pmenu, #slp')) return;
   tipEl = el; el.dataset.tt = el.getAttribute('title'); el.removeAttribute('title');

@@ -2,6 +2,31 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.1
+
+- Open chats use the whole panel once you have set its height (drag the top edge). The reply box sits at the
+  bottom, the latest message just above it, and earlier messages load by themselves to fill the space. Pinned chats
+  included.
+- With two or more chats open, drag the line between them to give one more room. Double-click it to share evenly.
+- BROWSE has its own pane above the toolbar: drag the line above it to make it taller or shorter.
+- Top edge: the whole top band resizes the panel, except the grip itself.
+- What Claude is doing ("Running a command", the spinner word) shows on one grey line next to the animation, and no
+  longer lands in the reply text.
+- Claude Desktop local chats no longer need a setting: they show in BROWSE when Desktop has some, and nothing runs
+  for them until you track one. Settings > Claude Desktop local chats appears only then.
+- Settings > Check for updates. Only when you click it: a git clone fetches the tags with your own git and moves to
+  the newest release (fast-forward only, never over your changes); a zip install downloads the release from GitHub
+  and keeps your settings, sign-in and logs. The tray then restarts.
+- The "All chats hidden" line is gone: BROWSE lists hidden chats.
+- Fixes from a UI review:
+  - Settings and + menus fit in a short panel (it grows while the menu is open); Esc closes the menu first.
+  - No jump when a chat opens, no empty gap under the New chat form, no bouncing top edge at the end of a reply.
+  - Typing several lines no longer scrolls the conversation away from the latest message.
+  - A click no longer gets lost when the panel refreshes at that moment; buttons never stay greyed out.
+  - Hover labels stay up to date and don't show during a drag. The list scrollbar can be grabbed.
+  - A click on an edge without dragging no longer fixes the panel height; zoom and moving the panel keep the
+    height right.
+
 ## 0.3.0
 
 A field test on another PC (Claude Enterprise, Windows 11, Claude Desktop with Cowork) produced 38 fixes and

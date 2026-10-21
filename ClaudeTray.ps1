@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.0'
+$Version = '0.3.1'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -838,6 +838,71 @@ function Restart-Tray([string]$from) {            # a fresh instance: it signals
     Log "restart (from the $from)"
     try { Start-Process $PsExe -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Script`" -Restart" -WorkingDirectory $Root -WindowStyle Hidden } catch { Log "restart: $($_.Exception.Message)" 'ERR' }
 }
+# ---- updates: only when you ask (Settings > Check for updates). A git clone fetches tags with your own git (works
+# for a private repo you can read); a zip install asks GitHub's release list (public repo only). Nothing else is sent.
+$UpdRepo = 'mapmodelers/ClaudeTray'
+$UpdScript = {
+    param([string]$rootDir, [string]$ver, [string]$repo, [string]$mode, [string]$want)
+    $r = @{ St = 'none'; New = ''; How = ''; Msg = '' }
+    $env:GIT_TERMINAL_PROMPT = '0'
+    $vOf = { param($tg) try { [version]([string]$tg -replace '^v', '') } catch { [version]'0.0.0' } }
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    try {
+        if ($git -and (Test-Path (Join-Path $rootDir '.git'))) {
+            $r.How = 'git'
+            if ($mode -eq 'check') {
+                $null = & git -C $rootDir fetch --tags --quiet origin 2>&1; if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'git fetch failed (signed in to GitHub?)'; return $r }
+                $best = @(& git -C $rootDir tag --list 'v*') | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } | Sort-Object { & $vOf $_ } | Select-Object -Last 1
+                if ($best -and (& $vOf $best) -gt [version]$ver) { $r.St = 'avail'; $r.New = $best.Substring(1) }
+                return $r
+            }
+            if (@(& git -C $rootDir status --porcelain --untracked-files=no).Count) { $r.St = 'err'; $r.Msg = 'files changed in the folder: update by hand'; return $r }
+            if ((& git -C $rootDir rev-parse --abbrev-ref HEAD) -ne 'main') { $r.St = 'err'; $r.Msg = 'not on main: update by hand'; return $r }
+            $null = & git -C $rootDir merge --ff-only --quiet "v$want" 2>&1; if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'local commits: update by hand'; return $r }
+            $r.St = 'done'; $r.New = $want; return $r
+        }
+        $r.How = 'zip'
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        if ($mode -eq 'check') {
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=10" -Headers @{ 'User-Agent' = 'ClaudeTray'; 'Accept' = 'application/vnd.github+json' } -TimeoutSec 15 -UseBasicParsing
+            $best = @($rel) | Where-Object { -not $_.draft -and $_.tag_name -match '^v\d+\.\d+\.\d+$' } | Sort-Object { & $vOf $_.tag_name } | Select-Object -Last 1
+            if ($best -and (& $vOf $best.tag_name) -gt [version]$ver) { $r.St = 'avail'; $r.New = $best.tag_name.Substring(1) }
+            return $r
+        }
+        $tmp = Join-Path $env:TEMP ('ClaudeTray-update-' + [guid]::NewGuid().ToString('N').Substring(0, 8)); New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+        $zipF = Join-Path $tmp 'u.zip'
+        Invoke-WebRequest -Uri "https://github.com/$repo/archive/refs/tags/v$want.zip" -OutFile $zipF -UseBasicParsing -TimeoutSec 60 -Headers @{ 'User-Agent' = 'ClaudeTray' }
+        Expand-Archive -Path $zipF -DestinationPath $tmp -Force
+        $top = Get-ChildItem -Path $tmp -Directory | Select-Object -First 1
+        if (-not $top -or -not (Test-Path (Join-Path $top.FullName 'ClaudeTray.ps1'))) { $r.St = 'err'; $r.Msg = 'the download looks wrong'; return $r }
+        Copy-Item -Path (Join-Path $top.FullName '*') -Destination $rootDir -Recurse -Force     # your config, state, sign-in and logs are not in the archive: kept
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $r.St = 'done'; $r.New = $want; return $r
+    } catch {
+        $r.St = 'err'; $m0 = $_.Exception.Message
+        $r.Msg = if ($m0 -match '404') { 'no public release list (private repository?)' } elseif ($m0 -match 'resolve|connect|timed out') { 'GitHub not reachable' } else { 'failed' }
+        return $r
+    }
+}
+function Start-Update([string]$mode) {                # check / apply in the background; Poll-Update picks up the result
+    if ($UI.UpdPs) { return }
+    if ($mode -eq 'apply' -and $UI.Upd.St -ne 'avail') { return }
+    $UI.Upd.St = $(if ($mode -eq 'apply') { 'applying' } else { 'checking' }); $UI.Upd.Mode = $mode
+    $ps = [powershell]::Create(); [void]$ps.AddScript($UpdScript).AddArgument($Root).AddArgument($Version).AddArgument($UpdRepo).AddArgument($mode).AddArgument([string]$UI.Upd.New)
+    $UI.UpdPs = $ps; $UI.UpdH = $ps.BeginInvoke(); $UI.UpdAt = Get-Date
+    Log "update: $mode"; Push-WebState
+}
+function Poll-Update {
+    $ps = $UI.UpdPs; if (-not $ps) { return }
+    if (-not $UI.UpdH.IsCompleted -and ((Get-Date) - $UI.UpdAt).TotalSeconds -lt 120) { return }
+    $r = $null; try { if ($UI.UpdH.IsCompleted) { $r = @($ps.EndInvoke($UI.UpdH))[-1] } } catch { }
+    try { $ps.Dispose() } catch { }; $UI.UpdPs = $null
+    if (-not $r) { $r = @{ St = 'err'; Msg = 'timed out'; How = ''; New = '' } }
+    $UI.Upd.St = [string]$r.St; $UI.Upd.How = [string]$r.How; $UI.Upd.Msg = [string]$r.Msg; if ($r.New) { $UI.Upd.New = [string]$r.New }
+    Log ("update: {0} -> {1} {2} {3}" -f $UI.Upd.Mode, $UI.Upd.St, $UI.Upd.New, $UI.Upd.Msg)
+    if ($UI.Upd.St -eq 'done') { try { $tray.ShowBalloonTip(3000, 'Tray for Claude', "Updated to $($UI.Upd.New). Restarting.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }; Restart-Tray 'update'; return }
+    Push-WebState
+}
 function New-BootLnk {                             # Windows-startup shortcut for the chosen mode: 'windows' (default), 'claude' (wakes when the app opens), 'manual' (none)
     $mode = [string]$Cfg.startWith; if (-not $mode) { $mode = 'windows' }
     if ($mode -eq 'manual') { if (Test-Path $LnkBoot) { Remove-Item $LnkBoot -Force }; return }
@@ -961,7 +1026,7 @@ if ($WaitClaude) {                                 # "start with the Claude app"
     Log 'Claude app opened - starting'
 }
 
-$UI = @{ Shown = $false; Pinned = $false; Docked = $false; Pending = $false; PendSince = (Get-Date); Anchor = [System.Drawing.Point]::Empty; IconHandle = [IntPtr]::Zero; LastPollAt = (Get-Date); ShownAt = (Get-Date); ShowWhy = ''; Phase = 0; Queue = @{}; QueuedAt = @{}; Drafts = @{}; FocusReply = $null; ProbeKey = ''; Fields = @(); Tick = 0; Live = @{}; ViewSig = ''; Bars = @(); Built = $false; PreBuild = $true; WebSig = ''; FocusTarget = $null; FocusTries = 0; WebSends = @{}; ShotAt = $null; ShotWhy = ''; WebWas = @{}; UsageAlerted = @{}; Chats = @{}; Sending = @{}; RenderAfterBuild = @(); ClockWarned = @{}; WorkSince = $null; IdleSince = $null; LastWorking = $false; Expanded = @{}; AnsOpen = @{}; Inputs = @(); Markers = @(); FocusAfter = $null; Rows = @(); Drag = $null; UsageOpen = $false }
+$UI = @{ Upd = @{ St = ''; New = ''; How = ''; Msg = ''; Mode = '' }; UpdPs = $null; Shown = $false; Pinned = $false; Docked = $false; Pending = $false; PendSince = (Get-Date); Anchor = [System.Drawing.Point]::Empty; IconHandle = [IntPtr]::Zero; LastPollAt = (Get-Date); ShownAt = (Get-Date); ShowWhy = ''; Phase = 0; Queue = @{}; QueuedAt = @{}; Drafts = @{}; FocusReply = $null; ProbeKey = ''; Fields = @(); Tick = 0; Live = @{}; ViewSig = ''; Bars = @(); Built = $false; PreBuild = $true; WebSig = ''; FocusTarget = $null; FocusTries = 0; WebSends = @{}; ShotAt = $null; ShotWhy = ''; WebWas = @{}; UsageAlerted = @{}; Chats = @{}; Sending = @{}; RenderAfterBuild = @(); ClockWarned = @{}; WorkSince = $null; IdleSince = $null; LastWorking = $false; Expanded = @{}; AnsOpen = @{}; Inputs = @(); Markers = @(); FocusAfter = $null; Rows = @(); Drag = $null; UsageOpen = $false }
 $tol = px 10
 # theme: config 'theme' = auto (follow Windows app mode) | light | dark. Claude-like palette.
 $T = @{}
@@ -1004,7 +1069,7 @@ function Get-Iso($dt) { return ([datetime]$dt).ToString('yyyy-MM-ddTHH:mm:ssK') 
 function Parse-Iso($txt) { try { if (-not $txt) { return $null }; if ($txt -is [datetime]) { return $txt }; return ([DateTimeOffset]::Parse([string]$txt, $EN)).LocalDateTime } catch { return $null } }
 function Get-SentText([string]$txt0) { $txt0 = ($txt0 -replace '\s+', ' ').Trim(); if ($txt0.Length -gt 120) { $txt0 = $txt0.Substring(0, 120) + "…" }; return $txt0 }   # Claude has the full text in the chat: the results file only needs to recognise it
 # capabilities that proved unreliable on this setup (Claude Enterprise + Claude Desktop MSIX, Cowork local sessions); code kept, switched off. Author: enable per setup once verified.
-$Caps = @{ Local = [bool]$Cfg.localChats; Park = [bool]$Cfg.localChats; Ghost = [bool]$Cfg.localChats }     # Claude Desktop local chats (experimental, Settings, off by default); parking / hiding Desktop only exist with them
+$Caps = @{ Local = $true; Park = $true; Ghost = $true }     # Claude Desktop local chats: on by themselves when Desktop has some (nothing runs for them until one is tracked); parking / hiding Desktop are settings that only show then
 function Get-HideAfterMin { if ($null -ne $Cfg.hideAfterMin -and "$($Cfg.hideAfterMin)" -ne '') { return [double]$Cfg.hideAfterMin }; return 10 }     # minutes; 0 = never
 function Get-LastActivity($q) {     # latest of quest write, your send, your read, re-show, the chat's own activity (claude.ai tab / local transcript)
     $id = [string]$q.id; $last = $q.Upd
@@ -1293,7 +1358,9 @@ $webScript = {
   const lastRep = after[after.length - 1];
   let act = '';
   const ts = lastRep && (lastRep.querySelector('[class~="group/status"]') || lastRep.querySelector('[data-testid*="TurnStatus" i]'));
-  if (ts) { const tw = document.createTreeWalker(ts, NodeFilter.SHOW_TEXT); let tt = '', nd; while ((nd = tw.nextNode())) { const pe = nd.parentElement; if (pe && !pe.closest('button, .sr-only')) tt += nd.textContent; } act = tt.replace(/\s+/g, ' ').trim(); }
+  let tsh = ts; for (let k = 0; tsh && k < 3 && !(tsh.textContent || '').trim() && tsh.parentElement && tsh.parentElement !== lastRep; k++) tsh = tsh.parentElement;     // the mark is empty: its row holds the words
+  if (tsh && !ts.contains(tsh)) { const tw = document.createTreeWalker(tsh, NodeFilter.SHOW_TEXT); let tt = '', nd; while ((nd = tw.nextNode())) { const pe = nd.parentElement; if (pe && !pe.closest('button, .sr-only')) tt += nd.textContent; } act = tt.replace(/\s+/g, ' ').trim(); }
+  else if (ts) { const tw = document.createTreeWalker(ts, NodeFilter.SHOW_TEXT); let tt = '', nd; while ((nd = tw.nextNode())) { const pe = nd.parentElement; if (pe && !pe.closest('button, .sr-only')) tt += nd.textContent; } act = tt.replace(/\s+/g, ' ').trim(); }
   if (!act && lastRep) { const rows = Array.from(lastRep.querySelectorAll('[role="button"], [aria-expanded], summary')).filter(vis); const r0 = rows[rows.length - 1]; if (r0) act = (r0.innerText || '').split('\n').map(x => x.trim()).filter(Boolean).pop() || ''; }
   // buttons the page wants you to press (permission prompts, continue...): dialogs + around the last reply
   const PR = /^(allow|always allow|allow once|allow for this chat|autoriser|toujours autoriser|autoriser une fois|deny|don.t allow|refuser|ne pas autoriser|decline|approve|approuver|reject|rejeter|continue|continuer|yes|oui|no|non|accept|accepter|cancel|annuler|send now|envoyer maintenant)\b/i;
@@ -1454,8 +1521,9 @@ $webScript = {
 ((n) => {
   const KEEP = new Set(['P','BR','UL','OL','LI','PRE','CODE','STRONG','B','EM','I','H1','H2','H3','H4','H5','H6','TABLE','THEAD','TBODY','TR','TH','TD','BLOCKQUOTE','HR','DEL','S']);
   const DROP = new Set(['BUTTON','SVG','IMG','INPUT','TEXTAREA','SELECT','STYLE','SCRIPT','NOSCRIPT','TIME','IFRAME','VIDEO','AUDIO','CANVAS','FORM','LABEL','PICTURE','OBJECT']);
-  const junk = /^(il y a .*|à l.instant|just now|.* ago|\d+\s*(s|sec|min|h|j|d)\b.*|modifié|edited|copié|copied|copy|copier|claude réfléchit.*|claude is thinking.*|thinking…?|réflexion…?|compétence chargée|skill loaded|commande exécutée.*|command (ran|executed).*|ran a command.*|(utilisé|used) (computer|l.ordinateur).*|fichier (lu|modifié|créé).*|(read|edited|created) a file.*|tray-quest)$/i;
+  const junk = /^(il y a .*|à l.instant|just now|.* ago|\d+\s*(s|sec|min|h|j|d)\b.*|modifié|edited|copié|copied|copy|copier|claude réfléchit.*|claude is thinking.*|thinking…?|réflexion…?|en cours d.exécution…?|exécution en cours…?|exécutant (une|des|la) commandes?…?|running( a| the)? commands?…?|running…?|compétence chargée|skill loaded|commande exécutée.*|command (ran|executed).*|ran a command.*|(utilisé|used) (computer|l.ordinateur).*|fichier (lu|modifié|créé).*|(read|edited|created) a file.*|tray-quest)$/i;
   const escT = t => t.replace(/[&<>]/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[x]));
+  const SPIN = /^[\p{L}'’-]{3,24}(…|\.\.\.)$/u;     // Claude Code's spinner word ('Déchiffrage…', 'Pondering…'): status, not text
   const STEPS = /^(utilisé|used|lu|read|exécuté|ran|run|modifié|edited|recherché|searched|créé|created|écrit|wrote|consulté|viewed|fetched|récupéré)(?=[\s,:])[^.!?]*?(?:^|[\s,])(\d+|un|une|a|an)\s+(étapes?|steps?|commandes?|commands?|fichiers?|files?|recherches?|searches?|outils?|tools?)\b[^.!?]*$/i;
   const ser = el => {
     let o = '';
@@ -1468,6 +1536,8 @@ $webScript = {
       if (t === 'PRE' && /"v"\s*:\s*1/.test(c.textContent || '') && /"steps"\s*:/.test(c.textContent || '')) continue;      // bridge-mode quest block: the tray turns it into steps
       if (!c.firstElementChild && /^tray-quest$/i.test((c.textContent || '').trim())) continue;
       if (/(^|\s)group\/status(\s|$)/.test(c.getAttribute('class') || '')) continue;      // claude.ai turn heading ('Designing ...'): shown as the activity line instead
+      if (c.querySelector('[data-testid*="TurnStatus" i]') && (c.textContent || '').trim().length < 120) continue;     // the turn status row around its animated mark
+      if (!c.firstElementChild && SPIN.test((c.textContent || '').trim())) continue;
       if (/TurnStatus/i.test(c.getAttribute('data-testid') || '') || (STEPS.test((c.textContent || '').trim()) && (c.textContent || '').length < 200)) continue;    // Claude Code: turn heading / 'ran 8 commands, 3 more steps'
       const inner = ser(c);
       if (t === 'A' && /^https?:\/\//i.test(c.getAttribute('href') || '')) { o += '<a data-href="' + escT(c.href).replace(/"/g, '&quot;') + '">' + inner + '</a>'; continue; }
@@ -1478,7 +1548,7 @@ $webScript = {
     }
     return o;
   };
-  const clean = t => (t || '').replace(/^\s*(Claude a répondu|Claude replied|Vous avez dit|You said)\s*:\s*/i, '').split('\n').filter(l => { const x = l.trim(); return !junk.test(x) && !STEPS.test(x) && !(x.length <= 2 && !/[\p{L}\p{N}]/u.test(x)); }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  const clean = t => (t || '').replace(/^\s*(Claude a répondu|Claude replied|Vous avez dit|You said)\s*:\s*/i, '').split('\n').filter(l => { const x = l.trim(); return !junk.test(x) && !STEPS.test(x) && !SPIN.test(x) && !(x.length <= 2 && !/[\p{L}\p{N}]/u.test(x)); }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
   const els = Array.from(document.querySelectorAll('[data-testid="user-message"], [data-testid="assistant-message"], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e)));
   const base = Math.max(0, els.length - n);
   const out = els.slice(-n).map((e, j) => {
@@ -3694,10 +3764,10 @@ function Push-WebState([bool]$force = $false) {
         $UI.WebMsgIdx = @()
         $state = [ordered]@{ type = 'state'; theme = $thm; nc = [bool]$UI.WebNc; docked = [bool]$UI.Docked; maxH = [int]($wa.Height * 0.62 / ($k * $UI.Zoom)); shown = [bool]($UI.Shown -or $UI.Docked); expanded = @($UI.WebOpen); big = @($UI.WebBig)
                              mainW = (Get-PanelW); sides = $(Get-WebSidesState $wa)
-                             err = $werr; usage = $us; catalog = $UI.Catalog; desklocal = @(try { Get-DesktopLocal } catch { }); deskOnly = @($QS.DeskOnly.Keys); seen = $(try { $sm = @{}; foreach ($sq in @($QS.List)) { $sl = Get-LastActivity $sq; $sr = $(if ($QS.Read[[string]$sq.id]) { $QS.Read[[string]$sq.id].At } else { $null }); $sv = $(if ($sr -is [datetime]) { $sr } elseif ($sq.LastSent -is [datetime]) { $sq.LastSent } else { $sq.Upd }); if ($sv) { $sm[[string]$sq.id] = ([datetime]$sv).ToUniversalTime().ToString('o') } }; $sm } catch { @{} }); newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)     # seen = when you last saw each tracked chat (Browse dot)
+                             err = $werr; usage = $us; catalog = $UI.Catalog; desklocal = @(if (($QS.Layout -and $QS.Layout.browse) -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count) { try { Get-DesktopLocal } catch { } }); deskSeen = [bool](@($script:DeskLocalCache).Count -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count); deskOnly = @($QS.DeskOnly.Keys); seen = $(try { $sm = @{}; foreach ($sq in @($QS.List)) { $sl = Get-LastActivity $sq; $sr = $(if ($QS.Read[[string]$sq.id]) { $QS.Read[[string]$sq.id].At } else { $null }); $sv = $(if ($sr -is [datetime]) { $sr } elseif ($sq.LastSent -is [datetime]) { $sq.LastSent } else { $sq.Upd }); if ($sv) { $sm[[string]$sq.id] = ([datetime]$sv).ToUniversalTime().ToString('o') } }; $sm } catch { @{} }); newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)     # seen = when you last saw each tracked chat (Browse dot)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible -and -not ([string]$_.id).StartsWith('local/') -or (-not $_.Visible -and $Caps.Local) } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd); at = ([datetime]$qh.Upd).ToUniversalTime().ToString('o') } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             modelMenu = $UI.ModelMenu; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; local = [bool]$Caps.Local; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ local = [bool]$Cfg.localChats; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             modelMenu = $UI.ModelMenu; update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -3709,7 +3779,7 @@ function Push-WebState([bool]$force = $false) {
 function Fit-WebPop {                                # page height (CSS px) -> panel height; bottom edge fixed (attached or pinned), only the top moves, never off-screen
     if (-not $UI.WebH) { return }
     $wa = [System.Windows.Forms.Screen]::FromControl($pop).WorkingArea
-    if ($UI.Rsz) { return }                                     # you're resizing it
+    if ($UI.Rsz -or $UI.Drag -or $UI.MoveFrom) { return }      # you're resizing or moving it (re-fitted on release)
     $nh = if ([int]$Cfg.panelHeight -gt 0 -and @($UI.WebOpen).Count) { [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px 60), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }
     if ($nh -eq $pop.Height -and $pop.Bottom -le $wa.Bottom -and $pop.Top -ge $wa.Top) { return }
     if ($UI.Docked -and $null -eq $QS.DockB) { $QS.DockB = $pop.Bottom }      # old state.json had no bottom
@@ -3804,7 +3874,7 @@ function Set-WebZoom([int]$d) {                       # Ctrl+wheel over the pane
     $z = [Math]::Round([Math]::Min(1.4, [Math]::Max(0.6, $UI.Zoom + 0.05 * $d)), 2); if ($z -eq $UI.Zoom) { return }
     $UI.Zoom = $z; Save-CfgKey 'panelZoom' $z
     try { $UI.WebUi.ZoomFactor = $z } catch { }; foreach ($sd in @($UI.Sides.Values)) { try { $sd.Wv.ZoomFactor = $z } catch { } }
-    $nw = px ((Get-PanelW) * $z); $pop.SetBounds($pop.Right - $nw, $pop.Top, $nw, $pop.Height)
+    $nw = px ((Get-PanelW) * $z); $pop.SetBounds($pop.Right - $nw, $pop.Top, $nw, $pop.Height); Fit-WebPop     # the height follows the zoom too
     $UI.WebJson = ''; Push-WebState; Place-SideWins
     Log ("webui: zoom {0:P0}" -f $z) 'DEBUG'
 }
@@ -3843,7 +3913,6 @@ function On-WebMsg($m) {
                 'terse' { Save-CfgKey 'terse' (-not [bool]$Cfg.terse); $miTerse.Checked = [bool]$Cfg.terse; foreach ($qt in @($QS.List)) { Save-Results $qt (Get-Results $qt) } }
                 'debug' { Save-CfgKey 'debugLog' (-not [bool]$Cfg.debugLog); Log ("debug logs {0}" -f $(if ($Cfg.debugLog) { 'ON' } else { 'off' })) 'WARN'; if ($Cfg.debugLog) { Write-DebugSnapshot 'debug on' } }
                 'start' { Save-CfgKey 'startWith' ([string]$m.v); New-BootLnk; foreach ($o in $miBoot.DropDownItems) { $o.Checked = ($o.Tag -eq [string]$m.v) } }
-                'local' { Save-CfgKey 'localChats' (-not [bool]$Cfg.localChats); $Caps.Local = [bool]$Cfg.localChats; $Caps.Park = $Caps.Local; $Caps.Ghost = $Caps.Local; if (-not $Caps.Local) { try { if ($script:Park) { Undo-DesktopPark $false } } catch { } }; $script:DeskLocalCache = $null; Log ("Menu: Claude Desktop local chats {0}" -f $Caps.Local); Refresh-Quests $true }
                 'park' { Save-CfgKey 'parkDesktop' (-not [bool]$Cfg.parkDesktop); if (-not $Cfg.parkDesktop) { Undo-DesktopPark $false }; Log ("Menu: park Claude Desktop off-screen when minimized {0}" -f $(if ($Cfg.parkDesktop) { 'ON' } else { 'off' })) }
                 'ghost' { Save-CfgKey 'ghostDesktop' (-not [bool]$Cfg.ghostDesktop); Log ("Menu: hide Claude Desktop while the tray works {0}" -f $(if ($Cfg.ghostDesktop) { 'ON' } else { 'off' })) }
                 'hideafter' { Save-CfgKey 'hideAfterMin' ([double]$m.v); Log ("Menu: hide idle chats after {0} min" -f $m.v); Refresh-Quests $true }
@@ -3853,6 +3922,7 @@ function On-WebMsg($m) {
                 'logs' { Start-Process explorer.exe $LogDir }
                 'quests' { $d = $QuestRoots[0]; if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path (Join-Path $d 'quests') -Force | Out-Null }; Start-Process explorer.exe $d }
                 'restart' { Restart-Tray 'panel menu' }
+                'update' { Start-Update $(if ([string]$m.v -eq 'apply') { 'apply' } else { 'check' }) }
                 'exit' { Exit-Tray 'panel menu exit' }
             }
             Log "menu: $($m.k) $($m.v)"
@@ -3954,10 +4024,11 @@ $rszTimer.add_Tick({
         if ($rzEdge -match 'b') { $bt = [Math]::Max($t0 + $minH, [Math]::Min($wa.Bottom, $b.Bottom + $dy)) }
         if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) {
             $UI.Rsz = $null; $rszTimer.Stop(); $UI.LeftAt = $null
+            if ($pop.Bounds -eq $b) { Fit-WebPop; return }     # a click on an edge without moving: nothing to save (and the height stays automatic)
             $zk = $k * $UI.Zoom; Save-CfgKey 'panelWidth' ([int][Math]::Round($pop.Width / $zk)); if ($rzEdge -match '[tb]') { Save-CfgKey 'panelHeight' ([int][Math]::Round($pop.Height / $zk)) }
             if ($UI.Docked) { Set-DockMemo; Save-State }; Log ("panel resized to {0}x{1} ({2}), docked {3}" -f $pop.Width, $pop.Height, $rzEdge, $UI.Docked) 'DEBUG'; Push-WebState $true; return
         }
-        $pop.SetBounds($l, $t0, $r - $l, $bt - $t0)
+        if ($l -ne $pop.Left -or $t0 -ne $pop.Top -or ($r - $l) -ne $pop.Width -or ($bt - $t0) -ne $pop.Height) { $pop.SetBounds($l, $t0, $r - $l, $bt - $t0) }     # only when the cursor moved
     } catch { $UI.Rsz = $null; $rszTimer.Stop() }
 })
 # a double-click on the drag band can maximize a borderless window (it did): always back to normal
@@ -3966,7 +4037,7 @@ $dragTimer = New-Object System.Windows.Forms.Timer; $dragTimer.Interval = 15
 $dragTimer.add_Tick({
     try {
         if (-not $UI.Drag) { $dragTimer.Stop(); return }
-        if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) { $UI.Drag = $null; $dragTimer.Stop(); if ($UI.DragMoved) { Set-DockHere }; return }
+        if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) { $UI.Drag = $null; $dragTimer.Stop(); if ($UI.DragMoved) { Set-DockHere }; Fit-WebPop; return }
         $cp = [System.Windows.Forms.Cursor]::Position
         if ($UI.DragMoved -or (Dist $cp $UI.Drag.Start) -gt 3) { $UI.DragMoved = $true; $pop.Location = New-Object System.Drawing.Point ($UI.Drag.Origin.X + $cp.X - $UI.Drag.Start.X), ($UI.Drag.Origin.Y + $cp.Y - $UI.Drag.Start.Y) }
     } catch { $UI.Drag = $null; $dragTimer.Stop() }
@@ -3974,7 +4045,7 @@ $dragTimer.add_Tick({
 # native drag (CSS app-region): Windows runs the move loop -> ResizeBegin/ResizeEnd
 $pop.add_ResizeBegin({ $UI.MoveFrom = $pop.Location })
 $pop.add_LocationChanged({ if ($UI.Sides.Count) { Place-SideWins } }); $pop.add_SizeChanged({ if ($UI.Sides.Count) { Place-SideWins } })
-$pop.add_ResizeEnd({ if ($UI.MoveFrom -and $pop.Location -ne $UI.MoveFrom) { $UI.MoveFrom = $null; Set-DockHere } })
+$pop.add_ResizeEnd({ $mf = $UI.MoveFrom; $UI.MoveFrom = $null; if ($mf -and $pop.Location -ne $mf) { Set-DockHere }; Fit-WebPop })
 
 # context menu
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
@@ -4135,6 +4206,7 @@ $questTimer.add_Tick({
                 try { $tray.ShowBalloonTip(4000, 'Check the chat', "Couldn't confirm your message arrived in '$($ws0.Q.title)'. Your text is back in the box.", [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }
             }
         }
+        if ($UI.UpdPs) { Poll-Update }
         if ($webEnabled -and $UI.WebReady) { Poll-Downloads; Poll-NewChat; Poll-ModelMenu }
         if ($webEnabled -and $Web.Usage -and $Web.Usage.At -ne $UI.UsageSeen) { $UI.UsageSeen = $Web.Usage.At; Update-Usage; Test-UsageAlerts; Update-TrayIcon }     # fresh usage from claude.ai: show it now
         if ($Cfg.debugLog -and (-not $UI.SnapAt -or ((Get-Date) - $UI.SnapAt).TotalSeconds -gt 60)) { $UI.SnapAt = Get-Date; Write-DebugSnapshot }
