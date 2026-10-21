@@ -52,6 +52,7 @@ Claude plan. No installer and no admin rights.
 | Keep it on top | Pin button, bottom left |
 | Resize, zoom | Drag an edge, Ctrl + mouse wheel |
 | More room for one of two open chats | Drag the line between them (double-click: even) |
+| Browse your chats and projects | Folder button on the toolbar, next to + |
 | BROWSE taller or shorter | Drag the line above it |
 | Send, new line | Enter, Shift + Enter |
 | Slash commands | Type `/` in a reply box |

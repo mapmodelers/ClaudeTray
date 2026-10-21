@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.3
+
+- BROWSE has no header row any more: a folder button on the toolbar, next to +, opens and closes it, and the
+  refresh button sits next to its search field. The pin button is now first on the toolbar.
+- Fix: in a long chat the conversation could show old replies right above your latest message. claude.ai keeps only
+  part of a long chat on the page; the tray now places each message by claude.ai's own row number and shows only the
+  unbroken run that ends with the newest one. Scrolling up loads the messages just above, a page at a time.
+- Fix: Claude Code's tool rows ("Read b1.png", "Saving files…, running a command…") no longer show as white lines in
+  the conversation. What Claude is doing stays on the one grey line next to the animation.
+- The conversation no longer loads earlier messages by itself to fill the space.
+
 ## 0.3.2
 
 - Fix: Check for updates failed in a git clone ("git fetch failed") when a tag had been made again on GitHub. It now

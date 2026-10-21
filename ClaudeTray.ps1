@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.2'
+$Version = '0.3.3'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1518,6 +1518,18 @@ $webScript = {
 }
 '@
     # messages for an open chat view: user text + Claude's reply as whitelisted HTML (tags only, no attributes, no links/images)
+    $mdiagJs = @'
+(() => {     // STRUCTURE ONLY (privacy): how the page holds the messages (attribute names, numbers) and where tool rows sit (tags, classes, text length) - no text
+  const els = Array.from(document.querySelectorAll('[data-testid="user-message"], [data-testid="assistant-message"], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e)));
+  const sig = e => { const o = []; for (let p = e, k = 0; p && p !== document.body && k < 6; p = p.parentElement, k++) { const at = [...p.attributes].filter(a => /^data-|^aria-(posinset|setsize)$/.test(a.name) && a.name !== 'data-testid').map(a => a.name + (/^\d+$/.test(a.value) ? '=' + a.value : '')); if (at.length) o.push(p.tagName.toLowerCase() + '[' + at.join(',') + ']'); } return o.join('<'); };
+  const rk = e => { const ki = e.closest('[data-index]'); return ki ? ki.getAttribute('data-index') + '/' + els.filter(o => ki.contains(o)).length : '-'; };
+  const msgs = els.slice(-24).map(e => (e.matches('[data-testid="user-message"]') ? 'U' : 'A') + rk(e));
+  const RE = /^(lu|read|enregistr|exécut|ran|running|saving|écrit|wrote|modifi|edited|recherch|searched|créé|created|consult|viewed)/i;
+  const path = n => { const o = []; for (let p = n, k = 0; p && k < 9 && !(p.matches && p.matches('[data-testid="assistant-message"], .font-claude-response')); p = p.parentElement, k++) o.push(p.tagName.toLowerCase() + (p.getAttribute('data-testid') ? '#' + p.getAttribute('data-testid') : '') + (p.getAttribute('role') ? '[' + p.getAttribute('role') + ']' : '') + (p.hasAttribute('aria-expanded') ? '{ae}' : '') + '.' + String(p.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 5).join('.')); return o.join(' < '); };
+  const rows = []; for (const e of els.slice(-4)) for (const n of e.querySelectorAll('*')) { const t = (n.textContent || '').trim(); if (t.length < 200 && RE.test(t) && ![...n.children].some(c => RE.test((c.textContent || '').trim()))) rows.push('len' + t.length + ' ' + path(n)); }
+  return 'MDIAG msgs ' + els.length + ' :: ' + msgs.join(' | ') + ' || ROWS ' + rows.slice(-6).join(' | ');
+})()
+'@
     $msgJs = @'
 ((n) => {
   const KEEP = new Set(['P','BR','UL','OL','LI','PRE','CODE','STRONG','B','EM','I','H1','H2','H3','H4','H5','H6','TABLE','THEAD','TBODY','TR','TH','TD','BLOCKQUOTE','HR','DEL','S']);
@@ -1555,12 +1567,14 @@ $webScript = {
   const out = els.slice(-n).map((e, j) => {
     const u = e.matches('[data-testid="user-message"]');
     const m = { r: u ? 'u' : 'a', t: clean(e.innerText).slice(0, 12000), x: base + j };
+    { const ki = e.closest('[data-index]'); if (ki && /^\d+$/.test(ki.getAttribute('data-index')) && els.filter(o => ki.contains(o)).length === 1) m.k = +ki.getAttribute('data-index'); }     // claude.ai's row number (only if that row holds just this message): the list keeps only some rows, this says where each one sits
     { let tm = e.querySelector('time[datetime]'); for (let p = e.parentElement, k = 0; !tm && p && k < 4; p = p.parentElement, k++) { const all = p.querySelectorAll('time[datetime]'); const own = [...all].filter(t => !t.closest('[data-testid="user-message"], [data-testid="assistant-message"]') || t.closest('[data-testid="user-message"], [data-testid="assistant-message"]') === e); if (own.length === 1 && p.querySelectorAll('[data-testid="user-message"], [data-testid="assistant-message"], .font-claude-response').length <= 1) tm = own[0]; }
       const at = tm ? Date.parse(tm.getAttribute('datetime')) : NaN; if (at) m.at = at; }
     const fl = __FILES__(e); if (fl.length) m.f = fl.map(f => f.name);
-    if (!u) { try { m.h = ser(e).replace(/(<div>\s*<\/div>)+/g, '').slice(0, 60000); const d = new DOMParser().parseFromString(m.h.replace(/<\/(p|li|h\d|pre|div|tr|blockquote)>|<br>/g, '\n$&'), 'text/html'); const tx = clean(d.body.textContent || ''); if (tx) m.t = tx.slice(0, 12000); else m.t = m.t.replace(/(tray-quest\s*)?\{\s*"v"\s*:\s*1[\s\S]*$/, '').trim(); } catch (x) { } }
+    if (!u) { try { m.h = ser(e).replace(/(<div>\s*<\/div>)+/g, '').slice(0, 60000); const d = new DOMParser().parseFromString(m.h.replace(/<\/(p|li|h\d|pre|div|tr|blockquote)>|<br>/g, '\n$&'), 'text/html'); const tx = clean(d.body.textContent || ''); if (tx) m.t = tx.slice(0, 12000); else if (e.querySelector('[class~="group/status"], [data-testid*="TurnStatus" i]')) m.t = ''; else m.t = m.t.replace(/(tray-quest\s*)?\{\s*"v"\s*:\s*1[\s\S]*$/, '').trim(); } catch (x) { } }
     return m;
   });
+  if (out.some(m => m.k != null)) { for (let i = 0; i < out.length; i++) if (out[i].k == null) { const p = out[i - 1], nx = out.slice(i + 1).find(m => m.k != null); if (p && p.k != null && (!nx || nx.k > p.k + 1)) out[i].k = p.k + 1; else if (nx && (!p || p.k == null)) out[i].k = nx.k - (out.slice(i + 1).indexOf(nx) + 1); } }     // a row without its number (user messages sit deeper): from its neighbours
   // size budget (PS 5.1 parses the reply with ConvertFrom-Json, ~2 MB max): newest messages keep their HTML, older ones fall back to text
   let budget = 700000;
   for (let i = out.length - 1; i >= 0; i--) { const m = out[i]; const sz = (m.t || '').length + (m.h || '').length; if (sz > budget && m.h) { delete m.h; } if ((m.t || '').length > budget) m.t = m.t.slice(0, Math.max(200, budget)); budget = Math.max(0, budget - (m.t || '').length - (m.h || '').length); }
@@ -1750,7 +1764,7 @@ $webScript = {
                             }
                         } elseif ($cmd.Kind -eq 'more') {
                             # scroll the transcript to the top so claude.ai loads older messages
-                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const l = document.querySelector('[data-testid=""transcript-list""]') || document.querySelector('[data-testid=""user-message""]'); let n = l; while (n && !(n.scrollHeight > n.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(n).overflowY))) n = n.parentElement; if (!n) return 'no-scroller'; n.scrollTop = 0; return 'scrolled'; })()"; returnByValue = $true }).result.result.value
+                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const l = document.querySelector('[data-testid=""transcript-list""]') || document.querySelector('[data-testid=""user-message""]'); let n = l; while (n && !(n.scrollHeight > n.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(n).overflowY))) n = n.parentElement; if (!n) return 'no-scroller'; n.scrollTop = Math.max(0, n.scrollTop - n.clientHeight * 1.5); return 'scrolled'; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'press') {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const b = (window.__ctPrompts || [])[$([int]$cmd.I)]; if (!b) return 'gone'; const tx = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]; if (tx !== $(ConvertTo-Json ([string]$cmd.Label))) return 'changed:' + tx; b.click(); return 'pressed:' + tx; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'model') {
@@ -1806,6 +1820,8 @@ $webScript = {
                             }
                         } elseif ($cmd.Kind -eq 'diag' -and $Web.Chats[$id] -and $Web.Chats[$id].DiagAt -and ((Get-Date) - $Web.Chats[$id].DiagAt).TotalSeconds -lt 30 -and [string]$cmd.Key -notlike 'diagq-*') {
                             $res = 'skip'                     # one structure dump per chat per 30 s (expanding / folding chats queued one each time)
+                        } elseif ($cmd.Kind -eq 'mdiag') {
+                            $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = $mdiagJs; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'diag') {
                             if ($Web.Chats[$id]) { $Web.Chats[$id].DiagAt = Get-Date }
                             # STRUCTURE ONLY (privacy): tags, data-testids, link/download flags of the last messages - no text
@@ -1835,7 +1851,20 @@ $webScript = {
                             $arr = [string]$mr.result.result.value | ConvertFrom-Json; $nw = @($arr | ForEach-Object { $_ })
                             # claude.ai unloads older messages (after a send): keep the ones we already had in front of the overlap
                             $old = @($cc0.Msgs); $mg = $nw; if (-not $nw.Count -and $old.Count) { $mg = $old }     # page reloading / empty for a moment: keep what we had
-                            if ($nw.Count -and $old.Count) {
+                            $nk = @($nw | Where-Object { $null -ne $_.k }); $byK = $null
+                            if ($nw.Count -and $nk.Count -eq $nw.Count) {
+                                # claude.ai keeps only some rows of a long chat on the page (the newest ones + where it is scrolled): keep each row by its number,
+                                # show the unbroken run that ends at the newest one (a gap = rows we never saw: never show older rows after it)
+                                $byK = $cc0.ByK; $mxN = ($nk | Measure-Object -Property k -Maximum).Maximum
+                                if (-not $byK -or $mxN -lt [int]$cc0.ByKMax) { $byK = @{} }     # first read, or another / reloaded page: start over
+                                foreach ($mm in $nk) { $byK[[int]$mm.k] = $mm }
+                                $cc0.ByK = $byK; $cc0.ByKMax = [int]$mxN
+                                $run = New-Object System.Collections.ArrayList; $miss = 0
+                                $here = @{}; foreach ($mm in $nk) { $here[[int]$mm.k] = $true }
+                                for ($kk = [int]$mxN; $kk -ge 0 -and $run.Count -lt 200; $kk--) { if ($byK.ContainsKey($kk)) { $e0 = $byK[$kk]; if (-not $here[$kk]) { $e0 = $e0.PSObject.Copy(); $e0.x = -1 }; [void]$run.Insert(0, $e0); $miss = 0 } else { $miss++; if ($miss -gt 2) { break } } }     # x = -1: not on the page now (its files can't be fetched from here)
+                                $mg = @($run)
+                            }
+                            elseif ($nw.Count -and $old.Count) {
                                 # overlap = the first point where the rest of the old list equals the start of the new one (repeated 'check's included)
                                 $j = -1; for ($oi = 0; $oi -lt $old.Count; $oi++) { $okm = $true; for ($pp = 0; $oi + $pp -lt $old.Count -and $pp -lt $nw.Count; $pp++) { if ($old[$oi + $pp].r -ne $nw[$pp].r -or [string]$old[$oi + $pp].t -ne [string]$nw[$pp].t) { $okm = $false; break } }; if ($okm) { $j = $oi; break } }
                                 if ($j -gt 0) { $pre = @($old[0..($j - 1)] | ForEach-Object { $cp = $_.PSObject.Copy(); $cp.x = -1; $cp }); $mg = @($pre + $nw); if ($mg.Count -gt 200) { $mg = @($mg[($mg.Count - 200)..($mg.Count - 1)]) } }
@@ -4273,6 +4302,7 @@ $animTimer.add_Tick({
 })
 function Write-DebugSnapshot([string]$why = 'snapshot') {
     try {
+        if ($webEnabled) { foreach ($oid in @($UI.WebOpen | Where-Object { -not ([string]$_).StartsWith('local/') })) { [void]$Web.Cmds.Add(@{ Id = [string]$oid; Kind = 'mdiag'; Key = 'diag-m' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }     # debug: how the page holds this chat's messages (structure only)
         $chs = @(foreach ($q in @($QS.List)) { $wc0 = $Web.Chats[[string]$q.id]
             '{0}[{1}{2}{3}{4}{5}]' -f $q.id, $q.St, $(if (-not $q.Visible) { ',hidden' }), $(if ($wc0) { ',' + $(if ($wc0.Ok) { 'ok' } else { 'noPage' }) + $(if ($wc0.Working) { ',working' }) + ',' + [int]((Get-Date) - $wc0.At).TotalSeconds + 's' } else { ',noTab' }), $(if ($UI.WebOpen -contains [string]$q.id) { ',open' }), $(if (Test-Unread $q) { ',unread' }) })
         $secs = if ($QS.Layout -and $QS.Layout.sec) { (@($QS.Layout.sec) | ForEach-Object { "$($_.id):$($_.sort)$(if ($_.col) { '(col)' })" }) -join ' ' } else { '-' }
