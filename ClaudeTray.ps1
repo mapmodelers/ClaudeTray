@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.1'
+$Version = '0.3.2'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -851,14 +851,15 @@ $UpdScript = {
         if ($git -and (Test-Path (Join-Path $rootDir '.git'))) {
             $r.How = 'git'
             if ($mode -eq 'check') {
-                $null = & git -C $rootDir fetch --tags --quiet origin 2>&1; if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'git fetch failed (signed in to GitHub?)'; return $r }
-                $best = @(& git -C $rootDir tag --list 'v*') | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } | Sort-Object { & $vOf $_ } | Select-Object -Last 1
+                $lr = @(& git -C $rootDir ls-remote --tags --refs origin 'v*' 2>$null); if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'git could not reach GitHub (signed in?)'; return $r }     # asks GitHub, changes nothing here (a fetch of all tags fails on a tag that was re-made)
+                $best = $lr | ForEach-Object { ($_ -split '\s+')[-1] -replace '^refs/tags/', '' } | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } | Sort-Object { & $vOf $_ } | Select-Object -Last 1
                 if ($best -and (& $vOf $best) -gt [version]$ver) { $r.St = 'avail'; $r.New = $best.Substring(1) }
                 return $r
             }
             if (@(& git -C $rootDir status --porcelain --untracked-files=no).Count) { $r.St = 'err'; $r.Msg = 'files changed in the folder: update by hand'; return $r }
             if ((& git -C $rootDir rev-parse --abbrev-ref HEAD) -ne 'main') { $r.St = 'err'; $r.Msg = 'not on main: update by hand'; return $r }
-            $null = & git -C $rootDir merge --ff-only --quiet "v$want" 2>&1; if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'local commits: update by hand'; return $r }
+            $null = & git -C $rootDir fetch --quiet --no-tags origin "refs/tags/v$want" 2>&1; if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'git could not download it'; return $r }
+            $null = & git -C $rootDir merge --ff-only --quiet FETCH_HEAD 2>&1; if ($LASTEXITCODE) { $r.St = 'err'; $r.Msg = 'local commits: update by hand'; return $r }
             $r.St = 'done'; $r.New = $want; return $r
         }
         $r.How = 'zip'

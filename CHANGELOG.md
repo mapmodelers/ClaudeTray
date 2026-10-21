@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.2
+
+- Fix: Check for updates failed in a git clone ("git fetch failed") when a tag had been made again on GitHub. It now
+  asks GitHub for the release tags without changing your local tags, and an update downloads only the release it
+  moves to.
+
 ## 0.3.1
 
 - Open chats use the whole panel once you have set its height (drag the top edge). The reply box sits at the
