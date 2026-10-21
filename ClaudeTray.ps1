@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.3'
+$Version = '0.3.4'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1027,7 +1027,7 @@ if ($WaitClaude) {                                 # "start with the Claude app"
     Log 'Claude app opened - starting'
 }
 
-$UI = @{ Upd = @{ St = ''; New = ''; How = ''; Msg = ''; Mode = '' }; UpdPs = $null; Shown = $false; Pinned = $false; Docked = $false; Pending = $false; PendSince = (Get-Date); Anchor = [System.Drawing.Point]::Empty; IconHandle = [IntPtr]::Zero; LastPollAt = (Get-Date); ShownAt = (Get-Date); ShowWhy = ''; Phase = 0; Queue = @{}; QueuedAt = @{}; Drafts = @{}; FocusReply = $null; ProbeKey = ''; Fields = @(); Tick = 0; Live = @{}; ViewSig = ''; Bars = @(); Built = $false; PreBuild = $true; WebSig = ''; FocusTarget = $null; FocusTries = 0; WebSends = @{}; ShotAt = $null; ShotWhy = ''; WebWas = @{}; UsageAlerted = @{}; Chats = @{}; Sending = @{}; RenderAfterBuild = @(); ClockWarned = @{}; WorkSince = $null; IdleSince = $null; LastWorking = $false; Expanded = @{}; AnsOpen = @{}; Inputs = @(); Markers = @(); FocusAfter = $null; Rows = @(); Drag = $null; UsageOpen = $false }
+$UI = @{ FoldAll = $true; Upd = @{ St = ''; New = ''; How = ''; Msg = ''; Mode = '' }; UpdPs = $null; Shown = $false; Pinned = $false; Docked = $false; Pending = $false; PendSince = (Get-Date); Anchor = [System.Drawing.Point]::Empty; IconHandle = [IntPtr]::Zero; LastPollAt = (Get-Date); ShownAt = (Get-Date); ShowWhy = ''; Phase = 0; Queue = @{}; QueuedAt = @{}; Drafts = @{}; FocusReply = $null; ProbeKey = ''; Fields = @(); Tick = 0; Live = @{}; ViewSig = ''; Bars = @(); Built = $false; PreBuild = $true; WebSig = ''; FocusTarget = $null; FocusTries = 0; WebSends = @{}; ShotAt = $null; ShotWhy = ''; WebWas = @{}; UsageAlerted = @{}; Chats = @{}; Sending = @{}; RenderAfterBuild = @(); ClockWarned = @{}; WorkSince = $null; IdleSince = $null; LastWorking = $false; Expanded = @{}; AnsOpen = @{}; Inputs = @(); Markers = @(); FocusAfter = $null; Rows = @(); Drag = $null; UsageOpen = $false }
 $tol = px 10
 # theme: config 'theme' = auto (follow Windows app mode) | light | dark. Claude-like palette.
 $T = @{}
@@ -3760,7 +3760,7 @@ function Get-StepsBefore($q, $msgs, $raw) {          # where this round's steps 
     if (-not $an.L -and $lu) { $an.L = $lu; Save-State }
     if ($um.Count -and $an.T) {
         $last = -1; for ($ki = $um.Count - 1; $ki -ge 0; $ki--) { if ((& $norm $msgs[$um[$ki]].t) -eq $an.T) { $last = $ki; break } }
-        if ($last -ge 0 -and $last + 1 -lt $um.Count) { return @{ Sb = $um[$last + 1]; Ans = $true } }
+        if ($last -ge 0 -and $last + 1 -lt $um.Count) { for ($ni = $last + 1; $ni -lt $um.Count; $ni++) { $uix = $um[$ni]; if (-not $msgs[$uix].at -or [long]$msgs[$uix].at -gt $qms + 5000) { return @{ Sb = $uix; Ans = $true } } }; return @{ Sb = -1; Ans = $false } }     # a message whose time says it was sent before the steps is never the answer to them
         if ($last -ge 0) { return @{ Sb = -1; Ans = $false } }
     }
     return @{ Sb = -1; Ans = [bool]($lu -and $an.L -and $lu -ne $an.L) }
@@ -3810,7 +3810,8 @@ function Fit-WebPop {                                # page height (CSS px) -> p
     if (-not $UI.WebH) { return }
     $wa = [System.Windows.Forms.Screen]::FromControl($pop).WorkingArea
     if ($UI.Rsz -or $UI.Drag -or $UI.MoveFrom) { return }      # you're resizing or moving it (re-fitted on release)
-    $nh = if ([int]$Cfg.panelHeight -gt 0 -and @($UI.WebOpen).Count) { [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px 60), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }
+    $nh = if ([int]$Cfg.panelHeight -gt 0 -and (@($UI.WebOpen).Count -or -not $UI.FoldAll)) {     # the height you set stays when you close a chat; only 'collapse all' shrinks the panel
+        [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px 60), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }
     if ($nh -eq $pop.Height -and $pop.Bottom -le $wa.Bottom -and $pop.Top -ge $wa.Top) { return }
     if ($UI.Docked -and $null -eq $QS.DockB) { $QS.DockB = $pop.Bottom }      # old state.json had no bottom
     $bot = if ($UI.Docked) { [int]$QS.DockB } else { $pop.Bottom }           # pinned: the remembered bottom, so a clamp below never drifts it
@@ -3966,7 +3967,7 @@ function On-WebMsg($m) {
         'pin' { if ($UI.Docked) { $UI.Docked = $false; Save-State } else { $UI.Docked = $true; Pin-Pop; Set-DockMemo; Save-State } }
         'copy' { if ($m.text) { Set-Clipboard -Value ([string]$m.text) } }
         'log' { Log ("webui page: {0}" -f $m.text) 'WARN' }
-        'expand' { $wasOpen = @($UI.WebOpen).Count; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in @($newIds | Where-Object { -not ([string]$_).StartsWith('local/') })) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0)) { Fit-WebPop } }
+        'expand' { $wasOpen = @($UI.WebOpen).Count; $faWas = [bool]$UI.FoldAll; $UI.FoldAll = [bool]$m.all; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in @($newIds | Where-Object { -not ([string]$_).StartsWith('local/') })) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0) -or $faWas -ne $UI.FoldAll) { Fit-WebPop } }
         'more' { if ($q) { $Web.MsgN[[string]$q.id] = [int]$(if ($Web.MsgN.ContainsKey([string]$q.id)) { $Web.MsgN[[string]$q.id] } else { 20 }) + 15; [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'more'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("chat[{0}]: load earlier (now {1} messages)" -f $q.id, $Web.MsgN[[string]$q.id]) 'DEBUG' } }
         'open' { if ($q) { Open-Chat $q ([bool]$m.web) } }
         'bell' { if ($q) { $kb = [string]$q.id; $QS.Bells[$kb] = ($QS.Bells.ContainsKey($kb) -and -not $QS.Bells[$kb]); Save-State } }

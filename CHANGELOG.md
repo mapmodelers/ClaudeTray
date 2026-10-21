@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.4
+
+- The panel keeps the height you gave it when you close a chat. Only collapse all (grip or toolbar) brings it back
+  to its small size.
+- Fix: fresh steps could show above the message you had sent before them, greyed out, instead of under Claude's
+  reply. A message whose time says it came before the steps no longer counts as your answer to them.
+
 ## 0.3.3
 
 - BROWSE has no header row any more: a folder button on the toolbar, next to +, opens and closes it, and the
