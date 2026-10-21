@@ -2,6 +2,41 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.0
+
+A field test on another PC (Claude Enterprise, Windows 11, Claude Desktop with Cowork) produced 38 fixes and
+features. Nothing in the tray broke because of Enterprise. This version takes them in, with the merge fixes below.
+Field notes: [docs/FIELD-NOTES-2026-10-21.md](docs/FIELD-NOTES-2026-10-21.md).
+
+- Usage keeps updating when no claude.ai chat is open in the tray. It used to stop until a chat tab existed.
+- When claude.ai answers the tray's browser with a Cloudflare check (HTTP 403), the panel says so.
+  Settings > Open claude.ai in the tray browser clears it, and that entry is now always there.
+- Panel:
+  - the bottom edge stays put when the panel grows or shrinks;
+  - the top edge resizes again, and the resize zones are wider;
+  - the grip restores exactly what was open before you collapsed;
+  - clicking the tray icon hides or shows a pinned panel.
+- Chats:
+  - idle chats leave the tray after 10 minutes (Settings, 0 = never) and stay in BROWSE, where + brings them back;
+  - titles are never bold (unread = brighter text);
+  - new status marks.
+- BROWSE: recent chats and projects in one list. Search covers every project. Hidden chats, Claude Code sessions
+  included, are listed there with a +.
+- Steps are numbered. After you answer a question or a request, the card says right away what happened.
+- Model chip in the reply bar. On claude.ai chats and Claude Code sessions, a click lists the chat's models and
+  effort levels and changes them in the chat (new).
+- The `/tray` chip writes `/tray` in the box instead of acting as a hidden switch.
+- Bridge mode: the `[tray]` line also carries the last output line of steps that succeeded.
+- Skill: the field of each step kind is named (`cmd`, `path`, `url`).
+- Claude Desktop local (Cowork) chats, experimental and off by default (Settings > Claude Desktop local chats):
+  - they show in BROWSE and can be tracked;
+  - their state and questions are read from Desktop's own files;
+  - send / stop / answer work in the background;
+  - permissions need two clicks, and Allow stays in Desktop (it ignores clicks from outside).
+  - With it on, two more options: keep Desktop off-screen when minimized, and hide Desktop while the tray works in it.
+- Merge fixes: the new-chat progress no longer gets lost (a comment had swallowed it), and 27 variables that reused
+  global names were renamed. The field test's model change for Desktop local chats is dropped: it didn't work.
+
 ## 0.2.10
 
 - Fix: fresh steps could be filed under an older message and not show at the end of the chat. A message you had

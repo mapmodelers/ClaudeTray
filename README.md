@@ -4,7 +4,7 @@ A Windows tray panel for your Claude chats and plan usage.
 
 ![The panel open above the Windows clock](docs/hero.png)
 
-Preview release (0.2.x). It works, but things still change between versions. Bug reports are welcome.
+Preview release (0.3.x). It works, but things still change between versions. Bug reports are welcome.
 
 ## Features
 
@@ -14,7 +14,9 @@ Preview release (0.2.x). It works, but things still change between versions. Bug
   You run them in one click, and the output goes back to Claude when you send "check".
 - Permission prompts and Claude Code questions can be answered from the panel. The chat and the tray icon show
   a "?" while Claude is waiting for you.
+- The model and effort of a chat are shown in its reply bar, and you can change them from there.
 - Session and weekly usage, with a notification at 80 % and 95 %.
+- Claude Desktop local chats, experimental and off by default (Settings > Claude Desktop local chats).
 
 <p>
   <img src="docs/question.png" width="340" alt="A question from Claude answered in the panel">
@@ -84,6 +86,7 @@ To remove everything: run `-Uninstall`, then delete the folder and `%LOCALAPPDAT
 ## Troubleshooting
 
 - No chats, or a dash in the icon: Settings > Sign in to claude.ai.
+- "claude.ai wants a browser check": Settings > Open claude.ai in the tray browser, then close it.
 - "Running scripts is disabled": use the full command shown above. `-ExecutionPolicy Bypass` only applies to that
   run.
 - Anything else: turn on Settings > Debug logs, reproduce the problem and attach `logs\claudetray.log` to an issue.

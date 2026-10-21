@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.2.10'
+$Version = '0.3.0'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -142,6 +142,7 @@ namespace ClaudeTray {
         [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int i);
         [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h, int i, int v);
         [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
+        [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
         [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
         [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int val, int size);
         [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
@@ -481,7 +482,7 @@ function Update-Usage {
             Log "usage via claude.ai: no limits in the reply ($(Short $wu.Body 300))" 'WARN'
         }
         $cp = Get-CredPath
-        if (-not (Test-Path $cp) -and $webEnabled) { $S.Source = 'claude.ai'; if (-not @($S.Limits).Count) { $S.Error = 'usage: waiting for claude.ai' }; return }      # the browser brings it on its next pass
+        if (-not (Test-Path $cp) -and $webEnabled) { $S.Source = 'claude.ai'; if (-not @($S.Limits).Count) { $S.Error = $(if ($wu -and [int]$wu.Code -eq 403) { 'usage: claude.ai wants a browser check - Settings > Open claude.ai in the tray browser' } else { 'usage: waiting for claude.ai' }) }; return }     # say why (Cloudflare check)      # the browser brings it on its next pass
         if (-not (Test-Path $cp)) { $S.Source = 'not logged in'; throw 'Not logged in - run -Login' }
         $S.Source = 'OAuth'
         $r = Get-UsageOAuth
@@ -992,16 +993,35 @@ $tray = New-Object System.Windows.Forms.NotifyIcon
 $tray.Text = 'Tray for Claude'
 $QuitEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::ManualReset, 'Local\ClaudeTray.Quit')
 [void]$QuitEvent.Reset()
-function Exit-Tray([string]$why) { Write-Heartbeat 'exit'; Log "Exit: $why"; if ($why -notmatch 'restart') { Stop-OurBrowser }; try { $Probe.Stop = $true } catch { }; try { $uiTimer.Stop(); $pollTimer.Stop(); $questTimer.Stop(); $animTimer.Stop() } catch { }; try { $pop.Hide() } catch { }; $tray.Visible = $false; $tray.Dispose(); [System.Windows.Forms.Application]::Exit() }
+function Exit-Tray([string]$why) { Write-Heartbeat 'exit'; Log "Exit: $why"; try { if ($script:Park) { Undo-DesktopPark $false } } catch { }; if ($why -notmatch 'restart') { Stop-OurBrowser }; try { $Probe.Stop = $true } catch { }; try { $uiTimer.Stop(); $pollTimer.Stop(); $questTimer.Stop(); $animTimer.Stop() } catch { }; try { $pop.Hide() } catch { }; $tray.Visible = $false; $tray.Dispose(); [System.Windows.Forms.Application]::Exit() }
 
 # ---------------------------------------------------------------- quests: read / state / results
-$QS = @{ List = @(); Prev = @{}; Running = @{}; Hidden = @{}; Pins = [ordered]@{}; Layout = $null; Proj = @{}; Anchor = @{}; Bells = @{}; Dock = $null; Alerts = @{}; Read = @{} }
-if (Test-Path $StateFile) { try { $stj = [IO.File]::ReadAllText($StateFile) | ConvertFrom-Json; if ($stj.hidden) { $stj.hidden.PSObject.Properties | ForEach-Object { $QS.Hidden[$_.Name] = [string]$_.Value } }; if ($stj.bells) { $stj.bells.PSObject.Properties | ForEach-Object { $QS.Bells[$_.Name] = [bool]$_.Value } }; if ($stj.pins) { foreach ($pk in @($stj.pins)) { $QS.Pins[[string]$pk] = $true } }; if ($stj.layout) { $QS.Layout = $stj.layout }; if ($stj.alias) { $QS.AliasIn = @{}; $stj.alias.PSObject.Properties | ForEach-Object { $QS.AliasIn[$_.Name] = [string]$_.Value } }; if ($stj.anchor) { $stj.anchor.PSObject.Properties | ForEach-Object { $QS.Anchor[$_.Name] = @{ U = [string]$_.Value.U; T = [string]$_.Value.T; L = [string]$_.Value.L } } }; if ($stj.proj) { $stj.proj.PSObject.Properties | ForEach-Object { $QS.Proj[$_.Name] = [string]$_.Value } }; if ($stj.alerts) { foreach ($ak in @($stj.alerts)) { $QS.Alerts[[string]$ak] = $true } }; if ($stj.read) { $stj.read.PSObject.Properties | ForEach-Object { $QS.Read[$_.Name] = @{ K = [string]$_.Value.k; At = $(try { [DateTimeOffset]::Parse([string]$_.Value.at, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime } catch { $null }) } } }; if ($stj.docked) { $UI.RestoreDock = $true }; if ($stj.dock -and @($stj.dock).Count -eq 2) { $QS.Dock = @([int]$stj.dock[0], [int]$stj.dock[1]); $UI.DockPos = New-Object System.Drawing.Point $QS.Dock[0], $QS.Dock[1] } } catch { } }
+$QS = @{ List = @(); Prev = @{}; Running = @{}; Hidden = @{}; Pins = [ordered]@{}; Layout = $null; Proj = @{}; Anchor = @{}; Bells = @{}; Dock = $null; DockB = $null; Titles = @{}; DeskOnly = @{}; Alerts = @{}; Read = @{} }
+if (Test-Path $StateFile) { try { $stj = [IO.File]::ReadAllText($StateFile) | ConvertFrom-Json; if ($stj.hidden) { $stj.hidden.PSObject.Properties | ForEach-Object { $QS.Hidden[$_.Name] = [string]$_.Value } }; if ($stj.bells) { $stj.bells.PSObject.Properties | ForEach-Object { $QS.Bells[$_.Name] = [bool]$_.Value } }; if ($stj.pins) { foreach ($pk in @($stj.pins)) { $QS.Pins[[string]$pk] = $true } }; if ($stj.layout) { $QS.Layout = $stj.layout }; if ($stj.alias) { $QS.AliasIn = @{}; $stj.alias.PSObject.Properties | ForEach-Object { $QS.AliasIn[$_.Name] = [string]$_.Value } }; if ($stj.anchor) { $stj.anchor.PSObject.Properties | ForEach-Object { $QS.Anchor[$_.Name] = @{ U = [string]$_.Value.U; T = [string]$_.Value.T; L = [string]$_.Value.L } } }; if ($stj.proj) { $stj.proj.PSObject.Properties | ForEach-Object { $QS.Proj[$_.Name] = [string]$_.Value } }; if ($stj.alerts) { foreach ($ak in @($stj.alerts)) { $QS.Alerts[[string]$ak] = $true } }; if ($stj.read) { $stj.read.PSObject.Properties | ForEach-Object { $QS.Read[$_.Name] = @{ K = [string]$_.Value.k; At = $(try { [DateTimeOffset]::Parse([string]$_.Value.at, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime } catch { $null }) } } }; if ($stj.docked) { $UI.RestoreDock = $true }; if ($stj.deskonly) { $stj.deskonly.PSObject.Properties | ForEach-Object { $QS.DeskOnly[$_.Name] = $true } }; if ($stj.titles) { $stj.titles.PSObject.Properties | ForEach-Object { $QS.Titles[$_.Name] = [string]$_.Value } }; if ($stj.dock -and @($stj.dock).Count -eq 2) { $QS.Dock = @([int]$stj.dock[0], [int]$stj.dock[1]); $UI.DockPos = New-Object System.Drawing.Point $QS.Dock[0], $QS.Dock[1] }; if ($null -ne $stj.dockb) { $QS.DockB = [int]$stj.dockb } } catch { } }
 function Get-ReadForSave { $o = @{}; foreach ($rk in @($QS.Read.Keys)) { $o[$rk] = @{ k = $QS.Read[$rk].K; at = $(if ($QS.Read[$rk].At) { Get-Iso $QS.Read[$rk].At } else { '' }) } }; return $o }
-function Save-State { try { [IO.File]::WriteAllText($StateFile, (@{ hidden = $QS.Hidden; pins = @($QS.Pins.Keys); layout = $QS.Layout; proj = $QS.Proj; anchor = $QS.Anchor; alias = $(if ($Web -and $Web.Alias) { $Web.Alias } else { @{} }); bells = $QS.Bells; dock = $QS.Dock; docked = [bool]($UI.Docked -or $UI.RestoreDock); alerts = @($QS.Alerts.Keys | Select-Object -Last 40); read = $(Get-ReadForSave) } | ConvertTo-Json -Compress -Depth 8), (New-Object Text.UTF8Encoding $false)) } catch { Log "state save: $($_.Exception.Message)" 'WARN' } }
+function Save-State { try { [IO.File]::WriteAllText($StateFile, (@{ hidden = $QS.Hidden; pins = @($QS.Pins.Keys); layout = $QS.Layout; proj = $QS.Proj; anchor = $QS.Anchor; alias = $(if ($Web -and $Web.Alias) { $Web.Alias } else { @{} }); bells = $QS.Bells; dock = $QS.Dock; dockb = $QS.DockB; titles = $QS.Titles; deskonly = $QS.DeskOnly; docked = [bool]($UI.Docked -or $UI.RestoreDock); alerts = @($QS.Alerts.Keys | Select-Object -Last 40); read = $(Get-ReadForSave) } | ConvertTo-Json -Compress -Depth 8), (New-Object Text.UTF8Encoding $false)) } catch { Log "state save: $($_.Exception.Message)" 'WARN' } }
 function Get-Iso($dt) { return ([datetime]$dt).ToString('yyyy-MM-ddTHH:mm:ssK') }
 function Parse-Iso($txt) { try { if (-not $txt) { return $null }; if ($txt -is [datetime]) { return $txt }; return ([DateTimeOffset]::Parse([string]$txt, $EN)).LocalDateTime } catch { return $null } }
 function Get-SentText([string]$txt0) { $txt0 = ($txt0 -replace '\s+', ' ').Trim(); if ($txt0.Length -gt 120) { $txt0 = $txt0.Substring(0, 120) + "…" }; return $txt0 }   # Claude has the full text in the chat: the results file only needs to recognise it
+# capabilities that proved unreliable on this setup (Claude Enterprise + Claude Desktop MSIX, Cowork local sessions); code kept, switched off. Author: enable per setup once verified.
+$Caps = @{ Local = [bool]$Cfg.localChats; Park = [bool]$Cfg.localChats; Ghost = [bool]$Cfg.localChats }     # Claude Desktop local chats (experimental, Settings, off by default); parking / hiding Desktop only exist with them
+function Get-HideAfterMin { if ($null -ne $Cfg.hideAfterMin -and "$($Cfg.hideAfterMin)" -ne '') { return [double]$Cfg.hideAfterMin }; return 10 }     # minutes; 0 = never
+function Get-LastActivity($q) {     # latest of quest write, your send, your read, re-show, the chat's own activity (claude.ai tab / local transcript)
+    $id = [string]$q.id; $last = $q.Upd
+    foreach ($tx in @($q.LastSent, $(if ($QS.Read[$id]) { $QS.Read[$id].At } else { $null }), $(if ($script:CoolTouch) { $script:CoolTouch[$id] } else { $null }))) { if ($tx -is [datetime] -and (-not $last -or $tx -gt $last)) { $last = $tx } }
+    $wc = $Web.Chats[$id]; if ($wc -and $wc.EndAt -is [datetime] -and $wc.EndAt -gt [datetime]::MinValue -and (-not $last -or $wc.EndAt -gt $last)) { $last = $wc.EndAt }
+    if ($id.StartsWith('local/')) { try { $ls = Get-LocalState $q; if ($ls -and $ls.Mt) { $lm = ([datetime]$ls.Mt).ToLocalTime(); if (-not $last -or $lm -gt $last) { $last = $lm } } } catch { } }
+    return $last
+}
+function Test-Cooled($q) {     # an idle chat (not pinned, nothing for you, not working, card closed) leaves the tray after the cooldown; Browse still lists it
+    $mn = Get-HideAfterMin; if ($mn -le 0) { return $false }
+    $id = [string]$q.id
+    if ($QS.Pins.Contains($id) -or [string]$q.St -in 'act', 'working' -or (@($UI.WebOpen) -contains $id)) { return $false }
+    try { if ((Test-ChatWorking $q) -or (Test-ChatAsks $q)) { return $false } } catch { }
+    $last = Get-LastActivity $q; if (-not $last) { return $false }
+    return (((Get-Date) - $last).TotalMinutes -ge $mn)
+}
+function Get-QVisible($q) { $id = [string]$q.id; if ($id.StartsWith('local/') -and -not $Caps.Local) { return $false }; if ($QS.Pins.Contains($id)) { return $true }; if ($QS.Hidden.ContainsKey($id) -and $QS.Hidden[$id] -eq [string]$q.updated) { return $false }; return -not (Test-Cooled $q) }
 function Get-FileId([string]$id) { return ($id -replace '[\\/]', '__') }
 function Read-Results($q) {
     $f = Join-Path $q.Root ('results\' + (Get-FileId $q.id) + '.json')
@@ -1051,7 +1071,7 @@ function Read-Quests {
                 $st = if ($lastSent -and $lastSent -gt $upd) { 'working' } elseif ([string]$q.state -eq 'act' -and @($q.steps).Count -gt 0) { 'act' } else { 'done' }
                 $q | Add-Member -NotePropertyName St -NotePropertyValue $st -Force
                 $q | Add-Member -NotePropertyName LastSent -NotePropertyValue $lastSent -Force
-                $q | Add-Member -NotePropertyName Visible -NotePropertyValue ($QS.Pins.Contains([string]$q.id) -or -not ($QS.Hidden.ContainsKey([string]$q.id) -and $QS.Hidden[[string]$q.id] -eq [string]$q.updated)) -Force     # pinned = always shown
+                $q | Add-Member -NotePropertyName Visible -NotePropertyValue (Get-QVisible $q) -Force     # pinned = always shown; idle chats leave the tray after the cooldown
                 $out += $q
             } catch {
                 # caught mid-write (Claude rewriting it): keep the last good version for this file, don't drop the chat for a pass
@@ -1072,7 +1092,7 @@ function Get-IconFlags {
     $unread = [bool]($v | Where-Object { Test-Unread $_ })
     return @{ Ask = $ask; Needs = $needs; Working = $working; Unread = $unread }
 }
-function Test-ChatAsks($q) { $wc = $Web.Chats[[string]$q.id]; return [bool]($wc -and (@($wc.Prompts).Count -or $wc.Q)) }
+function Test-ChatAsks($q) { if (Get-LocalAsk $q) { return $true }; $wc = $Web.Chats[[string]$q.id]; return [bool]($wc -and (@($wc.Prompts).Count -or $wc.Q)) }
 function Get-Badge { $fl = Get-IconFlags; if ($fl.Ask) { return 'ask' }; if ($fl.Needs) { return 'act' }; if ($fl.Working) { return 'working' }; if ($fl.Unread) { return 'done' }; return '' }
 function Format-Age($dt) { if (-not $dt) { return '' }; $sp = (Get-Date) - $dt; if ($sp.TotalMinutes -lt 1) { return 'now' }; if ($sp.TotalHours -lt 1) { return ('{0}m' -f [int]$sp.TotalMinutes) }; if ($sp.TotalDays -lt 1) { return ('{0}h' -f [int]$sp.TotalHours) }; return ('{0}d' -f [int]$sp.TotalDays) }
 
@@ -1093,18 +1113,19 @@ $probeScript = {
         $t0 = [Diagnostics.Stopwatch]::StartNew()
         try {
             $w = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match '^claude' -and $_.MainWindowHandle -ne 0 })[0]
-            if (-not $w) { $Probe.Page = ''; $Probe.Working = $false; $Probe.At = Get-Date }
+            if (-not $w) { $Probe.Page = ''; $Probe.Working = $false; $Probe.Ask = $null; $Probe.At = Get-Date }
             else {
                 $r = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$w.MainWindowHandle)
                 $page = ''
                 foreach ($d in @($r.FindAll([System.Windows.Automation.TreeScope]::Descendants, $docC))) { $nm = [string]$d.Current.Name; if ($nm -and $nm -ne 'Claude') { $page = $nm; break } }
-                $names = @(); $work = $false; $stopName = ''; $seenN = 0; $lastUser = ''; $appQueued = $false
+                $names = @(); $work = $false; $stopName = ''; $seenN = 0; $lastUser = ''; $appQueued = $false; $qOpt = @()     # qOpt = Cowork question-card rows
                 $snip = [string]$Probe.VerifySnip
                 $diag = ((Get-Date) - $Probe.ExpectAt).TotalSeconds -lt 30; $allBtn = @()
                 foreach ($b in @($r.FindAll([System.Windows.Automation.TreeScope]::Descendants, $btnC))) {
                     $nm = [string]$b.Current.Name
                     if ($diag -and $nm -match '(?i)^(arr|stop|envoy|send|annul|cancel|interr|pause|reprend|resume|joindre|attach|ajouter)') { $allBtn += ('{0}{1}' -f $nm.Substring(0, [Math]::Min(30, $nm.Length)), $(if ($b.Current.IsEnabled) { '' } else { '(off)' })) }   # composer controls only - never sidebar / chat names
                     if ($nm -match $stopRx) { $work = $true; $stopName = $nm }
+                    if ([string]$b.Current.ClassName -like 'group/row *') { $qOpt += $b }     # question choices (class, not text: any language)
                     if ($nm -match '(?i)^(envoyer maintenant|send now)') { $appQueued = $true }
                     if ($snip -and ($nm -replace '\s+', ' ').Contains($snip)) { $seenN++ }
                     if ($nm -match '(?i)(vous avez dit|you said)\s*:\s*(.*)$') { $lastUser = ($Matches[2] -replace '\s+', ' ').Trim() }
@@ -1117,6 +1138,61 @@ $probeScript = {
                     elseif ((Get-Date) -gt $Probe.VerifyUntil) { $Probe.VerifyResult = 'not seen'; $Probe.VerifySnip = '' }
                 }
                 $Probe.LastUser = $lastUser; $Probe.AppQueued = $appQueued
+                # Cowork question card (AskUserQuestion) = rounded-composer + cds-question group holding 'group/row' choice buttons, an 'other' Edit and a skip button
+                $ask = $null
+                if ($qOpt.Count) {
+                    $tw = [System.Windows.Automation.TreeWalker]::ControlViewWalker; $card = $null
+                    foreach ($qo in $qOpt) { $cd0 = $tw.GetParent($qo); for ($kq = 0; $kq -lt 4 -and $cd0 -and -not ([string]$cd0.Current.ClassName -match 'rounded-composer.*cds-question'); $kq++) { $cd0 = $tw.GetParent($cd0) }; if ($cd0 -and [string]$cd0.Current.ClassName -match 'rounded-composer.*cds-question') { $card = $cd0; break } }     # other 'group/row' buttons (sidebar) ignored
+                    if ($card) {
+                        $cball = @($card.FindAll([System.Windows.Automation.TreeScope]::Descendants, $btnC)); $cb = @($cball | Where-Object { -not ([string]$_.Current.ClassName -like 'group/row *') })
+                        $ask = @{ T = [string]$card.Current.Name; O = @($cball | Where-Object { [string]$_.Current.ClassName -like 'group/row *' } | ForEach-Object { [string]$_.Current.Name }); Skip = $(if ($cb.Count -gt 1) { [string]$cb[-1].Current.Name } else { '' }); Page = $page }
+                    }
+                }
+                $wantCards = (Get-Date) -lt $Probe.CardsUntil     # request-card scans only while a local chat's tool call waits
+                if (-not $ask -and $wantCards) {     # any other card above the composer (permission / approval / connector requests...): its text + all its buttons, whatever the language
+                    $grpC = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Group)
+                    foreach ($g in @($r.FindAll([System.Windows.Automation.TreeScope]::Descendants, $grpC))) {
+                        if (-not ([string]$g.Current.ClassName -match 'rounded-composer')) { continue }
+                        $gEd = @($g.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ClassNameProperty, 'tiptap ProseMirror'))))
+                        if ($gEd.Count) { continue }                                   # the normal message box, not a request
+                        $gb = @(@($g.FindAll([System.Windows.Automation.TreeScope]::Descendants, $btnC)) | Where-Object { $_.Current.IsEnabled -and ([string]$_.Current.Name).Trim() } | ForEach-Object { ([string]$_.Current.Name).Trim() })
+                        if (-not $gb.Count -or @($gb | Where-Object { $_ -match '(?i)^(mod.le|model)\b|microphone|dicter|dictate|joindre|attach' }).Count) { continue }     # composer chrome, not a request
+                        $gt = ([string]$g.Current.Name).Trim()
+                        if (-not $gt) { $gt = (@(@($g.FindAll([System.Windows.Automation.TreeScope]::Descendants, $txtC)) | ForEach-Object { [string]$_.Current.Name } | Where-Object { $_ }) -join ' ') -replace '\s+', ' ' }
+                        if ($gt.Length -gt 600) { $gt = $gt.Substring(0, 600) + '...' }
+                        $ask = @{ T = $(if ($gt) { $gt } else { 'Claude Desktop asks' }); O = @($gb | Select-Object -Unique); Skip = ''; Page = $page; Gen = $true }; break
+                    }
+                }
+                if (-not $ask -and $wantCards) {     # inline request card (permission, folder access...): Text + Button children of the conversation scroller, after the message list
+                    $grpC2 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Group)
+                    $tw2 = [System.Windows.Automation.TreeWalker]::ControlViewWalker; $fbRx = '(?i)comment se passe|how.s this|session going|feedback|commentaires'
+                    foreach ($sc in @($r.FindAll([System.Windows.Automation.TreeScope]::Descendants, $grpC2))) {
+                        if (-not ([string]$sc.Current.ClassName).StartsWith('overflow-y-auto')) { continue }
+                        $kids = @(); $ch = $tw2.GetFirstChild($sc); while ($ch) { $kids += $ch; $ch = $tw2.GetNextSibling($ch) }
+                        $start = 0; for ($ki = 0; $ki -lt $kids.Count; $ki++) { if ($kids[$ki].Current.ControlType -eq [System.Windows.Automation.ControlType]::Group -and ([string]$kids[$ki].Current.Name).Trim()) { $start = $ki + 1; break } }
+                        $blocks = @(); $bt = @(); $bb = @()
+                        for ($ki = $start; $ki -lt $kids.Count; $ki++) {
+                            $kq = $kids[$ki]; $kct = $kq.Current.ControlType; $kcl = [string]$kq.Current.ClassName
+                            $kb = @(); $kt = ''
+                            if ($kct -eq [System.Windows.Automation.ControlType]::Button) { $kb = @(([string]$kq.Current.Name).Trim()) }
+                            elseif ($kct -eq [System.Windows.Automation.ControlType]::Text) { $kt = [string]$kq.Current.Name }
+                            elseif ($kct -eq [System.Windows.Automation.ControlType]::Group) {
+                                if ($kcl -eq 'contents') { $kb = @(@($kq.FindAll([System.Windows.Automation.TreeScope]::Descendants, $btnC)) | ForEach-Object { ([string]$_.Current.Name).Trim() }) }
+                                else { $kt = (@(@($kq.FindAll([System.Windows.Automation.TreeScope]::Descendants, $txtC)) | ForEach-Object { [string]$_.Current.Name }) -join ' ') }
+                            }
+                            if ($kt -and $bb.Count) { $blocks += ,@{ T = ($bt -join ' '); B = $bb }; $bt = @(); $bb = @() }
+                            if ($kt) { $bt += $kt }; if ($kb.Count) { $bb += @($kb | Where-Object { $_ }) }
+                        }
+                        if ($bb.Count) { $blocks += ,@{ T = ($bt -join ' '); B = $bb } }
+                        foreach ($bk in $blocks) {
+                            $bkt = (([string]$bk.T) -replace '\s+', ' ').Trim(); if ($bkt -match $fbRx) { continue }
+                            if ($bkt.Length -gt 600) { $bkt = $bkt.Substring(0, 600) + '...' }
+                            $ask = @{ T = $(if ($bkt) { $bkt } else { 'Claude Desktop asks' }); O = @($bk.B | Select-Object -Unique); Skip = ''; Page = $page; Gen = $true; Inline = $true }; break
+                        }
+                        if ($ask) { break }
+                    }
+                }
+                $Probe.Ask = $ask
                 # live answer: text nodes after the last user message (only while working / shortly after, it's the heavier walk)
                 if (-not $Probe.NoLive -and ($work -or ((Get-Date) - $Probe.LiveAt).TotalSeconds -lt 8)) {     # live reply text: only the classic panel uses it
                     if ($work) { $Probe.LiveAt = Get-Date }
@@ -1151,7 +1227,7 @@ $probeScript = {
             }
         } catch { $Probe.Err = $_.Exception.Message }
         $Probe.Ms = $t0.ElapsedMilliseconds
-        $ms = if ($Probe.VerifySnip -or ($Probe.Fast -and $Probe.Working)) { 450 } elseif ($Probe.Fast) { 800 } else { 1500 }
+        $ms = if ($Probe.VerifySnip -or ($Probe.Fast -and $Probe.Working)) { 450 } elseif ($Probe.Fast -or (Get-Date) -lt $Probe.FastUntil) { 800 } else { 1500 }
         Start-Sleep -Milliseconds $ms
     }
 }
@@ -1303,6 +1379,31 @@ $webScript = {
   }
   return JSON.stringify({ pid: pid, rows: rows || [], err: rows ? '' : err });
 })
+'@
+    # model / effort of an open chat: read the page's model menu, or pick in it (labels only - UI text, no chat content)
+    $modelJs = @'
+(async (mode, kind, name) => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms)), vis = e => !!(e && e.offsetParent !== null);
+  const lines = e => (e && e.innerText || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const btn = document.querySelector('[data-testid="model-selector-dropdown"]') || Array.from(document.querySelectorAll('button[aria-haspopup]')).find(b => /opus|sonnet|haiku|fable|mythos|claude/i.test(b.innerText || ''));
+  if (!btn) return JSON.stringify({ err: 'no-selector' });
+  const IT = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]';
+  const items = () => Array.from(document.querySelectorAll(IT)).filter(vis);
+  const esc = async () => { for (const tg of [document.activeElement, document.body]) if (tg) tg.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true })); await sleep(220); };
+  const MR = /^(claude\s+)?(opus|sonnet|haiku|fable|mythos)\b/i;
+  if (mode === 'sub') { const base = window.__ctMMbase || []; const se = items().filter(i => !base.includes(i)); window.__ctMMsub = se; return JSON.stringify({ efforts: se.map(i => lines(i)[0]).filter(Boolean) }); }
+  if (mode === 'subpick') { const it = (window.__ctMMsub || []).find(i => lines(i)[0] === name); if (!it) { await esc(); await esc(); return JSON.stringify({ err: 'no-effort' }); } it.click(); await sleep(350); await esc(); return JSON.stringify({ ok: true, cur: lines(btn)[0] || '' }); }
+  if (mode === 'close') { await esc(); await esc(); return JSON.stringify({ ok: true, cur: lines(btn)[0] || '' }); }
+  if (!items().length) { btn.click(); await sleep(450); }
+  const its = items(); window.__ctMMbase = its;
+  const models = its.filter(i => MR.test(lines(i)[0] || '')).map(i => lines(i)[0]);
+  const sub = its.find(i => !MR.test(lines(i)[0] || '') && (i.getAttribute('aria-haspopup') === 'menu' || i.getAttribute('aria-haspopup') === 'true' || i.hasAttribute('aria-expanded')) && !/more models|plus de mod/i.test(lines(i)[0] || ''));
+  const struct = its.map(i => (i.getAttribute('role') || '') + (i.getAttribute('aria-haspopup') ? '^' : '') + (i.getAttribute('aria-checked') === 'true' ? '*' : '') + ':' + (lines(i)[0] || '').slice(0, 30)).join(' | ');
+  let rect = null; if (sub) { const r0 = sub.getBoundingClientRect(); rect = { x: Math.round(r0.left + r0.width / 2), y: Math.round(r0.top + r0.height / 2) }; }
+  if (mode === 'read' || kind === 'effort') return JSON.stringify({ cur: lines(btn)[0] || '', models: models, sub: sub ? lines(sub)[0] : '', rect: rect, struct: struct.slice(0, 900) });     // the menu stays open: 'sub' / 'close' next
+  const it = its.find(i => lines(i)[0] === name); if (!it) { await esc(); return JSON.stringify({ err: 'no-item' }); }
+  it.click(); await sleep(350); await esc(); return JSON.stringify({ ok: true, cur: lines(btn)[0] || '' });
+})(__MODE__, __KIND__, __NAME__)
 '@
     $pickJs = @'
 (async (want, think) => {
@@ -1469,6 +1570,7 @@ $webScript = {
                         if ($cmd.Kind -eq 'catalog') { $res = 'catalog:' + [string](Cdp $nws 'Runtime.evaluate' @{ expression = $catJs; returnByValue = $true; awaitPromise = $true }).result.result.value }
                         elseif ($cmd.Kind -eq 'catproj') { $res = 'catproj:' + [string](Cdp $nws 'Runtime.evaluate' @{ expression = "($catProjJs)('$($cmd.Org -replace '[^\w-]', '')', '$($cmd.Pid -replace '[^\w-]', '')')"; returnByValue = $true; awaitPromise = $true }).result.result.value }
                         elseif ($cmd.Kind -eq 'rename') { $res = [string](Cdp $nws 'Runtime.evaluate' @{ expression = "fetch('/api/organizations/$($cmd.Org)/chat_conversations/$($cmd.Uuid)', { method: 'PUT', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: $(ConvertTo-Json ([string]$cmd.Name)) }) }).then(r => 'rename ' + r.status).catch(e => 'rename ' + e)"; returnByValue = $true; awaitPromise = $true }).result.result.value }
+                        elseif ($cmd.Kind -eq 'usage') { $Web.UsageAt = Get-Date; try { $ur = [string](Cdp $nws 'Runtime.evaluate' @{ expression = "(async () => { const ck = decodeURIComponent((document.cookie.match(/lastActiveOrg=([^;]+)/) || [])[1] || ''); let org = ck; if (!org) { const o = await (await fetch('/api/organizations', { credentials: 'include' })).json(); const x = o.find(y => (y.capabilities || []).includes('chat')) || o[0]; org = x && x.uuid; } if (!org) return JSON.stringify({ code: -1 }); const r = await fetch('/api/organizations/' + org + '/usage', { credentials: 'include' }); return JSON.stringify({ code: r.status, body: r.ok ? await r.text() : '', err: r.ok ? '' : (await r.text()).slice(0, 300), page: location.pathname.replace(/[0-9a-f-]{36}/g, '<id>') }); })()"; returnByValue = $true; awaitPromise = $true }).result.result.value; $uo = $ur | ConvertFrom-Json; $Web.Usage = @{ At = (Get-Date); Code = [int]$uo.code; Body = [string]$uo.body }; if ([int]$uo.code -ne 200) { WL ("usage via claude.ai: HTTP {0} on page {1}: {2}" -f $uo.code, $uo.page, (([string]$uo.err) -replace "[0-9a-f]{8}-[0-9a-f-]{27}", "<id>")) } } catch { WL "usage via claude.ai: $($_.Exception.Message)" }; $res = 'usage' }     # plan usage when no claude.ai chat tab is open (only Desktop local chats in the tray)
                     }
                 } catch { $res = "error: $($_.Exception.Message)" }
                 if ($nws) { try { $nws.Dispose() } catch { } }
@@ -1580,6 +1682,17 @@ $webScript = {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const l = document.querySelector('[data-testid=""transcript-list""]') || document.querySelector('[data-testid=""user-message""]'); let n = l; while (n && !(n.scrollHeight > n.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(n).overflowY))) n = n.parentElement; if (!n) return 'no-scroller'; n.scrollTop = 0; return 'scrolled'; })()"; returnByValue = $true }).result.result.value
                         } elseif ($cmd.Kind -eq 'press') {
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const b = (window.__ctPrompts || [])[$([int]$cmd.I)]; if (!b) return 'gone'; const tx = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\n')[0]; if (tx !== $(ConvertTo-Json ([string]$cmd.Label))) return 'changed:' + tx; b.click(); return 'pressed:' + tx; })()"; returnByValue = $true }).result.result.value
+                        } elseif ($cmd.Kind -eq 'model') {
+                            # read the model menu (and its effort sub-menu: it opens on hover, so a real mouse move) / pick a model or an effort
+                            $mj = { param($mo, $kd, $nm) [string](Cdp $ws 'Runtime.evaluate' @{ expression = $modelJs.Replace('__MODE__', (ConvertTo-Json $mo)).Replace('__KIND__', (ConvertTo-Json $kd)).Replace('__NAME__', (ConvertTo-Json $nm)); returnByValue = $true; awaitPromise = $true }).result.result.value }
+                            $mk0 = [string]$cmd.Mode; $o1 = (& $mj $(if ($mk0 -eq 'pick') { 'pick' } else { 'read' }) ([string]$cmd.KindM) ([string]$cmd.Name)) | ConvertFrom-Json
+                            if (($mk0 -eq 'read' -or $cmd.KindM -eq 'effort') -and $o1.rect) {
+                                [void](Cdp $ws 'Input.dispatchMouseEvent' @{ type = 'mouseMoved'; x = [int]$o1.rect.x; y = [int]$o1.rect.y }); Start-Sleep -Milliseconds 450
+                                $o2 = (& $mj 'sub' '' '') | ConvertFrom-Json; $o1 | Add-Member -NotePropertyName efforts -NotePropertyValue @($o2.efforts) -Force
+                                if ($mk0 -eq 'pick' -and $cmd.KindM -eq 'effort') { $o3 = (& $mj 'subpick' '' ([string]$cmd.Name)) | ConvertFrom-Json; $o1 | Add-Member -NotePropertyName ok -NotePropertyValue ([bool]$o3.ok) -Force; $o1 | Add-Member -NotePropertyName err -NotePropertyValue ([string]$o3.err) -Force }
+                                else { [void](& $mj 'close' '' '') }
+                            } elseif ($mk0 -eq 'read') { [void](& $mj 'close' '' '') }
+                            $res = 'model:' + ($o1 | ConvertTo-Json -Compress -Depth 4)
                         } elseif ($cmd.Kind -eq 'qother') {
                             # the card's own "Other" box (one more answer, next to the picks): replace its text, Enter only for a one-answer step
                             $f1 = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const g = document.querySelector('[data-cds=""AskUserQuestion""]') || document.querySelector('[data-testid=""hub-ask-user-question-card""]'); const i = g && g.querySelector('form input[type=""text""], form textarea'); if (!i) return 'no-input'; i.focus(); if (i.select) i.select(); return 'ok'; })()"; returnByValue = $true }).result.result.value
@@ -1725,7 +1838,139 @@ function Get-PageLabel([string]$pg) {         # page title for the log: tracked 
     return '<other chat>'
 }
 function Get-ProbeQuest { if (-not $Probe.Page) { return $null }; foreach ($q in $QS.List) { if ($q.title -and $Probe.Page.StartsWith([string]$q.title)) { return $q } }; return $null }
-function Test-ChatWorking($q) { $wc = Get-WebChat $q; if ($wc) { return ([bool]$wc.Working -or ($wc.Expect -and ((Get-Date) - $wc.Expect).TotalSeconds -lt 8 -and -not $wc.SawWork)) }; return ($Probe.Working -and $Probe.Page -and $q.title -and $Probe.Page.StartsWith([string]$q.title) -and ((Get-Date) - $Probe.At).TotalSeconds -lt 5) }
+function Get-LocalTitle($q) {     # a local chat's title as Claude Desktop shows it (the quest title may be stale after a rename)
+    $sid = ([string]$q.id) -replace '^local/', ''
+    $e = @(@(try { Get-DesktopLocal } catch { }) | Where-Object { [string]$_.id -eq $sid })[0]
+    if ($e -and ([string]$e.name).Trim()) { return ([string]$e.name).Trim() }
+    if ($QS.Titles[[string]$q.id]) { return [string]$QS.Titles[[string]$q.id] }
+    return [string]$q.title
+}
+function Test-PageIsChat([string]$page, $q) { $tx = $(if (([string]$q.id).StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }).Trim(); if (-not $tx -or -not $page) { return $false }; return ($page -ceq "$tx - Claude" -or $page -ceq $tx) }     # exact page name (no prefix match: 'Foo' must not match 'Foo bar')
+function Test-LocalSafe($q) {     # automation on a local chat only when its title is unique among the Desktop local sessions (Desktop is driven by title)
+    $tx = (Get-LocalTitle $q).Trim(); if (-not $tx) { return $false }
+    $n = @(@(Get-DesktopLocal) | Where-Object { ([string]$_.name).Trim() -ceq $tx }).Count
+    if ($n -gt 1) { Log "local[$($q.id)]: $n Desktop sessions share this title - automation disabled for it" 'WARN'; try { $tray.ShowBalloonTip(4000, 'Do it in Claude Desktop', 'Several Desktop chats have this title: rename one so the tray can tell them apart.', [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }; return $false }
+    return $true
+}
+function Get-LocalState($q) {      # state of a Desktop local (Cowork) chat from its transcript on disk (works with Desktop minimized). Read-only; content never logged.
+    # <org>\<session folder>\.claude\projects\*\<cliSessionId>.jsonl (Claude Code format). Only the tail is read; fields used: type, isSidechain, message.role/stop_reason/content (text, tool_use id/name, AskUserQuestion questions/labels).
+    $id = [string]$q.id; if (-not $id.StartsWith('local/')) { return $null }
+    if ($null -eq $script:LocalSt) { $script:LocalSt = @{}; $script:LocalJf = @{}; $script:LocalJfAt = @{}; $script:LocalJfWarn = @{} }
+    $c = $script:LocalSt[$id]; if ($c -and ((Get-Date) - $c.At).TotalSeconds -lt 2) { return $c }
+    try {
+        $sid = $id.Substring(6); $jf = $script:LocalJf[$sid]
+        if (-not $script:LocalJfAt.ContainsKey($sid) -or ((Get-Date) - $script:LocalJfAt[$sid]).TotalSeconds -gt 60 -or ($jf -and -not (Test-Path -LiteralPath $jf))) {     # also a negative cache: no rescan on every call
+            $null = Get-DesktopLocal; $od = $(if ($script:DeskLocalDir) { $script:DeskLocalDir[$sid] } else { $null }); $cli = $(if ($script:DeskLocalCli) { [string]$script:DeskLocalCli[$sid] } else { '' }); $jf = $null
+            if ($od) {
+                $short = ($sid -replace '^local_', ''); if ($short.Length -gt 8) { $short = $short.Substring(0, 8) }
+                $cands = @()
+                if ($cli) { $cands = @(Get-ChildItem (Join-Path $od "$short\.claude\projects\*\$cli.jsonl") -File -Force -ErrorAction SilentlyContinue); if (-not $cands.Count) { $cands = @(Get-ChildItem (Join-Path $od "*\.claude\projects\*\$cli.jsonl") -File -Force -ErrorAction SilentlyContinue) } }
+                if (-not $cands.Count) { $cands = @(Get-ChildItem (Join-Path $od "$short\.claude\projects\*\*.jsonl") -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike 'agent-*' }) }
+                $jx = @($cands | Sort-Object LastWriteTime -Descending)[0]; if ($jx) { $jf = $jx.FullName }
+            }
+            $script:LocalJf[$sid] = $jf; $script:LocalJfAt[$sid] = Get-Date
+        }
+        if (-not $jf) { if (-not $script:LocalJfWarn[$id]) { $script:LocalJfWarn[$id] = $true; Log ("local[{0}]: transcript not found (org folder known: {1})" -f $id, [bool]$(if ($script:DeskLocalDir) { $script:DeskLocalDir[$sid] })) 'WARN' }; return $null }
+        $fi = Get-Item -LiteralPath $jf -Force
+        if ($c -and $c.Len -eq $fi.Length -and $c.Mt -eq $fi.LastWriteTimeUtc) {
+            $c.At = Get-Date; $age0 = ((Get-Date).ToUniversalTime() - $c.Mt).TotalSeconds
+            if ($c.St -eq 'working' -and $c.TextOnly -and $age0 -gt 8) { $c.St = 'done' }       # streamed reply without stop_reason: quiet = finished
+            if ($c.St -eq 'working' -and $age0 -gt 900) { $c.St = 'idle' }                       # app closed / interrupted without a trace
+            return $c
+        }
+        $ents = New-Object System.Collections.ArrayList
+        foreach ($win in 393216, 4194304) {     # a single huge line (image, big tool input) can fill the first window: retry larger once
+            $fs = [IO.File]::Open($jf, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]'ReadWrite, Delete')
+            try { $n = [int][Math]::Min($fs.Length, $win); [void]$fs.Seek(-$n, [IO.SeekOrigin]::End); $buf = New-Object byte[] $n; $rd = 0; while ($rd -lt $n) { $kx = $fs.Read($buf, $rd, $n - $rd); if ($kx -le 0) { break }; $rd += $kx } } finally { $fs.Dispose() }
+            $lines = @(([Text.Encoding]::UTF8.GetString($buf, 0, $rd)) -split "`n"); if ($n -lt $fi.Length -and $lines.Count) { $lines = @($lines | Select-Object -Skip 1) }
+            $ents.Clear()
+            foreach ($ln in $lines) { if (($ln.StartsWith('{"parentUuid"') -or $ln.StartsWith('{"type":"user"') -or $ln.StartsWith('{"type":"assistant"')) -and -not $ln.Contains('"isSidechain":true')) { try { $o = $ln | ConvertFrom-Json; if ($o.type -eq 'user' -or $o.type -eq 'assistant') { [void]$ents.Add($o) } } catch { } } }
+            if ($ents.Count -or $n -ge $fi.Length) { break }
+        }
+        $st = 'idle'; $ask = $null; $pend = $null; $textOnly = $false; $msgs = New-Object System.Collections.ArrayList
+        if ($ents.Count) {
+            $last = $ents[$ents.Count - 1]; $m = $last.message; $bl = @(if ($m.content -is [string]) { } else { $m.content })
+            if ($last.type -eq 'assistant') {
+                $tus = @($bl | Where-Object { $_.type -eq 'tool_use' })
+                $aq = @($tus | Where-Object { $_.name -eq 'AskUserQuestion' })[0]
+                if ([string]$m.stop_reason -eq 'end_turn') { $st = 'done' }
+                elseif ($aq -and $aq.input -and @($aq.input.questions).Count) { $q0 = @($aq.input.questions)[0]; $st = 'ask'; $pend = @{ Id = [string]$aq.id; Name = 'AskUserQuestion' }; $ask = @{ T = [string]$q0.question; O = @(@($q0.options) | ForEach-Object { [string]$_.label }); Multi = [bool]$q0.multiSelect; N = @($aq.input.questions).Count; Skip = ''; Page = ''; File = $true } }
+                elseif ($tus.Count) { $st = 'working'; $pend = @{ Id = [string]$tus[-1].id; Name = [string]$tus[-1].name } }
+                else { $textOnly = $true; $st = $(if (((Get-Date).ToUniversalTime() - $fi.LastWriteTimeUtc).TotalSeconds -gt 8) { 'done' } else { 'working' }) }
+            } else {
+                $ut = if ($m.content -is [string]) { [string]$m.content } else { (@($bl | ForEach-Object { if ($_.type -eq 'text') { [string]$_.text } elseif ($_.type -eq 'tool_result') { if ($_.content -is [string]) { [string]$_.content } else { (@($_.content) | Where-Object { $_.type -eq 'text' } | ForEach-Object { [string]$_.text }) -join ' ' } } }) -join ' ') }
+                $st = if ($ut -match '(?i)\[Request interrupted|interrupted by user|doesn.t want to (proceed|take this action)|tool use was rejected') { 'done' } else { 'working' }     # cancelled / rejected = the turn is over
+            }
+            if ($st -eq 'working' -and ((Get-Date).ToUniversalTime() - $fi.LastWriteTimeUtc).TotalSeconds -gt 900) { $st = 'idle' }
+            $xi = 0
+            foreach ($e in $ents) {
+                $em = $e.message; $tx = ''
+                if ($em.content -is [string]) { $tx = [string]$em.content } else { $tx = (@(@($em.content) | Where-Object { $_.type -eq 'text' } | ForEach-Object { [string]$_.text }) -join "`n") }
+                if ($tx -match '<command-name>\s*(/[^<\s]+)\s*</command-name>') { $cn = $Matches[1]; $ca = $(if ($tx -match '(?s)<command-args>(.*?)</command-args>') { $Matches[1].Trim() } else { '' }); $tx = ($cn + ' ' + $ca).Trim() }     # a slash command (skill) the user ran
+                $tx = ($tx -replace '(?s)<(system-reminder|command-[a-z-]+|local-command-[a-z-]+)>.*?</\1>', '').Trim()
+                if (-not $tx) { continue }
+                $xi++; [void]$msgs.Add([pscustomobject]@{ r = $(if ($e.type -eq 'user') { 'u' } else { 'a' }); t = $tx; x = $xi })
+            }
+        }
+        $lae = @($ents | Where-Object { $_.type -eq 'assistant' })[-1]; $mdl = $(if ($lae) { [string]$(if ($lae.requestedModel) { $lae.requestedModel } else { $lae.message.model }) } else { '' }); $eff = $(if ($lae) { [string]$(if ($lae.perTurnEffort) { $lae.perTurnEffort } else { $lae.effort }) } else { '' })     # model + effort in use
+        $c2 = @{ Model = $mdl; Effort = $eff; St = $st; Ask = $ask; TextOnly = $textOnly; PendId = $(if ($pend) { $pend.Id } else { '' }); PendName = $(if ($pend) { $pend.Name } else { '' }); Msgs = @($msgs | Select-Object -Last 12); Len = $fi.Length; Mt = $fi.LastWriteTimeUtc; At = (Get-Date) }
+        if (-not $c -or $c.St -ne $st -or $c.PendId -ne $c2.PendId) { Log ("local[{0}]: state {1}{2} (transcript {3} B, {4} entries)" -f $id, $st, $(if ($c) { " (was $($c.St))" } else { '' }), $fi.Length, $ents.Count) }     # sizes/states only, never content
+        $script:LocalSt[$id] = $c2; return $c2
+    } catch { Log "local[$id]: transcript read: $($_.Exception.Message)" 'WARN'; return $null }
+}
+function Invoke-LocalWake($q, $ls) {      # a tool call waiting with no transcript write may be a request card that a minimized Desktop doesn't draw: restore it behind (no focus) so the tray can read it; minimize again once resolved. Per chat. Config localWake=false disables.
+    try {
+        if ($null -eq $script:Woke) { $script:Woke = @{} }
+        $id = [string]$q.id; $wk = $script:Woke[$id]
+        if ($ls.St -eq 'ask' -or ($ls.St -eq 'working' -and $ls.PendId)) { $Probe.CardsUntil = (Get-Date).AddSeconds(6) }     # the watcher looks for request cards only while something waits
+        if ($wk -and $wk.Pid -ne $ls.PendId) {
+            $script:Woke.Remove($id)
+            $others = @($script:Woke.Keys | Where-Object { $script:Woke[$_].Hwnd -eq $wk.Hwnd }).Count
+            if ($wk.Hwnd -ne [IntPtr]::Zero -and -not $others -and [ClaudeTray.Native]::GetForegroundWindow() -ne $wk.Hwnd) { [void][ClaudeTray.Native]::ShowWindow($wk.Hwnd, 7); Log "local[$id]: request resolved - Claude Desktop minimized again" }
+            $wk = $null
+        }
+        if ($Cfg.localWake -eq $false) { return }
+        if ($ls.St -eq 'working' -and $ls.PendId -and -not $wk) {
+            $age = ((Get-Date).ToUniversalTime() - $ls.Mt).TotalSeconds
+            $susp = [string]$ls.PendName -match '(?i)allow|request|permission|approv|connect|install|delete|chrome|computer|browser|navigate'
+            $quiet = [string]$ls.PendName -match '^(mcp__workspace__bash|mcp__workspace__web_fetch|Agent|Task\w*|WebSearch|WebFetch|Read|Write|Edit|Grep|Glob|ToolSearch|Skill)$'
+            if (($susp -and $age -ge 3) -or (-not $quiet -and $age -ge 12) -or $age -ge 45) {
+                $h = [IntPtr]::Zero; $w = Get-ClaudeWindow
+                if ($w -and [ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) {
+                    [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 4); [void][ClaudeTray.Native]::SetWindowPos($w.MainWindowHandle, [IntPtr]1, 0, 0, 0, 0, 0x0013); $h = $w.MainWindowHandle
+                    $Probe.FastUntil = (Get-Date).AddSeconds(20)
+                    Log ("local[{0}]: tool call waiting {1:0}s - Claude Desktop restored behind (no focus) to read a possible request" -f $id, $age)
+                }
+                $script:Woke[$id] = @{ Pid = [string]$ls.PendId; Hwnd = $h }
+            }
+        }
+    } catch { }
+}
+function Test-LocalIdleSeen($q, $ls) {     # the transcript looks unfinished but Claude Desktop shows no running turn (cancelled in the app, crash...): idle until the transcript changes
+    $id = [string]$q.id; if ($null -eq $script:LocalIdle) { $script:LocalIdle = @{} }
+    if ($script:LocalIdle.ContainsKey($id)) { if ([long]$script:LocalIdle[$id] -eq [long]$ls.Len) { return $true }; $script:LocalIdle.Remove($id) }
+    $age = ((Get-Date).ToUniversalTime() - $ls.Mt).TotalSeconds
+    if ($age -ge 8 -and $Probe.Page -and (Test-PageIsChat ([string]$Probe.Page) $q) -and ((Get-Date) - $Probe.At).TotalSeconds -lt 5 -and -not $Probe.Working -and -not $Probe.Ask) { $script:LocalIdle[$id] = [long]$ls.Len; Log "local[$id]: transcript unfinished but Desktop shows no running turn - idle"; return $true }
+    return $false
+}
+function Get-LocalAsk($q) {      # the question / request this Desktop local chat shows now (watcher card on the exact page, else the transcript's pending question)
+    if (-not ([string]$q.id).StartsWith('local/')) { return $null }
+    $id = [string]$q.id; $ls = Get-LocalState $q; $a = $Probe.Ask
+    $mu = $(if ($script:AskMute) { $script:AskMute[$id] } else { $null }); $muted = [bool]($mu -and (Get-Date) -lt $mu.Until)
+    if ($a -and -not $muted -and ((Get-Date) - $Probe.At).TotalSeconds -lt 5 -and (Test-PageIsChat ([string]$a.Page) $q)) {
+        if (-not $a.Gen) { return $a }
+        if ($ls -and $ls.St -eq 'working' -and $ls.PendId) { return $a }                     # a request card counts only while a tool call waits (no false cards)
+    }
+    if ($ls -and $ls.St -eq 'ask' -and -not ($muted -and $mu.Pid -eq $ls.PendId)) { return $ls.Ask }
+    return $null
+}
+function Get-LocalQ($q) {      # the card for the panel (multi-choice / several questions: shown, answered in Desktop)
+    $la = Get-LocalAsk $q; if (-not $la) { return $null }
+    $ls = Get-LocalState $q
+    if ($ls -and $ls.St -eq 'ask' -and $ls.Ask -and ($ls.Ask.Multi -or [int]$ls.Ask.N -gt 1)) { return [ordered]@{ t = 'Answer in Claude Desktop (multi-choice or several questions): ' + [string]$la.T; o = @(); skip = ''; card = $true; gen = $true } }
+    return [ordered]@{ t = [string]$la.T; o = @($la.O | ForEach-Object { @{ l = [string]$_ } }); skip = [string]$la.Skip; card = $true; gen = [bool]$la.Gen }
+}
+function Test-ChatWorking($q) { if (([string]$q.id).StartsWith('local/')) { $ls = Get-LocalState $q; if ($ls) { Invoke-LocalWake $q $ls; if (Get-LocalAsk $q) { return $false }; if ($ls.St -eq 'working' -and (Test-LocalIdleSeen $q $ls)) { return $false }; return ($ls.St -eq 'working') } }; if (Get-LocalAsk $q) { return $false }; $wc = Get-WebChat $q; if ($wc) { return ([bool]$wc.Working -or ($wc.Expect -and ((Get-Date) - $wc.Expect).TotalSeconds -lt 8 -and -not $wc.SawWork)) }; return ($Probe.Working -and $Probe.Page -and $q.title -and $Probe.Page.StartsWith([string]$q.title) -and ((Get-Date) - $Probe.At).TotalSeconds -lt 5) }
 function Get-ClaudeWindow { return @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match '^claude' -and $_.MainWindowHandle -ne 0 })[0] }
 function Get-ChatPageName {               # name of the web document inside the app window ("<chat title> - Claude"); needs the a11y wake + a short settle
     try {
@@ -1744,17 +1989,207 @@ function Get-ChatPageName {               # name of the web document inside the 
 function Test-ChatInFront($q) {
     $want = [string]$q.title; if (-not $want) { return $false }
     $w = Get-ClaudeWindow; if (-not $w) { return $false }
+    if (([string]$q.id).StartsWith('local/')) { if (Test-PageIsChat ([string]$w.MainWindowTitle) $q) { return $true }; $pn = Get-ChatPageName; $UI.LastPage = $pn; return (Test-PageIsChat $pn $q) }     # exact title for local chats
     if (([string]$w.MainWindowTitle).StartsWith($want)) { return $true }      # plain prefix: titles like [X] are not wildcards
     $pn = Get-ChatPageName; $UI.LastPage = $pn
     return ($pn -and $pn.StartsWith($want))
 }
+function Update-DesktopPark {     # setting 'parkDesktop', experimental: a minimized Claude Desktop is kept restored but parked off-screen (no focus), so the tray can work in it without anything showing; when you bring it up (taskbar, Alt+Tab, tray 'open') it comes back where it was
+    try {
+        $w = Get-ClaudeWindow; if (-not $w) { $script:Park = $null; return }; $h = $w.MainWindowHandle
+        $psig = "{0}|{1}|{2}" -f [ClaudeTray.Native]::IsIconic($h), [bool]$script:Park, ([ClaudeTray.Native]::GetForegroundWindow() -eq $h); if ($psig -ne $script:ParkSig) { $script:ParkSig = $psig; Log "park: state minimized|parked|foreground = $psig" }     # diag
+        if (-not ('ClaudeTray.Place' -as [type])) { Set-DesktopGhost $h $false }     # loads the placement API
+        if ($script:Park -and $script:Park.H -ne $h) { $script:Park = $null }
+        if (-not ($Cfg.parkDesktop -and $Caps.Park)) { if ($script:Park) { Undo-DesktopPark $false }; return }
+        if ($script:Park) {
+            if ($script:ParkHold -and (Get-Date) -lt $script:ParkHold) { return }     # the tray itself is giving it focus for a moment (Enter for a rename / typed answer)
+            $fg = [ClaudeTray.Native]::GetForegroundWindow() -eq $h
+            if ($fg -or [ClaudeTray.Native]::IsIconic($h)) { Undo-DesktopPark $fg }     # you brought it up (or something minimized it): back on screen / minimized
+            return
+        }
+        if (-not [ClaudeTray.Native]::IsIconic($h)) { return }
+        $wp = New-Object ClaudeTray.Place+WP; $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp); if (-not [ClaudeTray.Place]::GetWindowPlacement($h, [ref]$wp)) { return }
+        $g = New-Object ClaudeTray.Place+WP; $g.length = $wp.length; [void][ClaudeTray.Place]::GetWindowPlacement($h, [ref]$g)
+        $rc = $g.rc; $wdt = $rc.R - $rc.L; $hgt = $rc.B - $rc.T; $rc.L = -32000; $rc.T = -32000; $rc.R = -32000 + $wdt; $rc.B = -32000 + $hgt; $g.rc = $rc; $g.flags = $g.flags -band (-bnot 2); $g.showCmd = 4     # SW_SHOWNOACTIVATE, off-screen
+        $script:Park = @{ H = $h; Wp = $wp }
+        [void][ClaudeTray.Place]::SetWindowPlacement($h, [ref]$g)
+        Log 'park: Claude Desktop parked off-screen (you minimized it)'
+    } catch { Log "park: $($_.Exception.Message)" 'WARN'; $script:Park = $null }
+}
+function Undo-DesktopPark([bool]$show) {     # back where it was (shown if you brought it up, else minimized)
+    try {
+        $p = $script:Park; if (-not $p) { return }; $script:Park = $null
+        $wp = $p.Wp; $wp.showCmd = $(if ($show) { if (($wp.flags -band 2) -ne 0) { 3 } else { 1 } } else { 2 })
+        [void][ClaudeTray.Place]::SetWindowPlacement($p.H, [ref]$wp)
+        if ($show) { [void][ClaudeTray.Native]::SetForegroundWindow($p.H) }
+        Log ("park: Claude Desktop back {0}" -f $(if ($show) { 'on screen' } else { 'minimized' }))
+    } catch { Log "park: $($_.Exception.Message)" 'WARN' }
+}
 function Open-ClaudeApp {                           # bring the Claude app forward, or start it
+    if ($script:Park) { Undo-DesktopPark $true }
     $w = Get-ClaudeWindow
     if ($w) { if ([ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 9) }; [void][ClaudeTray.Native]::SetForegroundWindow($w.MainWindowHandle); Log 'open app: brought to front'; return }
     $exe = @("$env:LOCALAPPDATA\AnthropicClaude\claude.exe", "$env:LOCALAPPDATA\Programs\Claude\Claude.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
     try { if ($exe) { Start-Process $exe } else { Start-Process 'claude://' }; Log 'open app: started' } catch { Log "open app: $($_.Exception.Message)" 'WARN' }
 }
+function Set-DesktopGhost($hwnd, [bool]$on) {     # experimental, setting 'ghostDesktop': while the tray works in a minimized Claude Desktop, its restore position is moved off-screen, so the window is restored where nobody sees it (transparency does not work on Chromium windows); placement put back afterwards (and by a 20 s safety net)
+    try {
+        if ($hwnd -eq $null -or $hwnd -eq [IntPtr]::Zero) { return }
+        if (-not ('ClaudeTray.Place' -as [type])) {
+            Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices;
+namespace ClaudeTray { public static class Place {
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
+  [StructLayout(LayoutKind.Sequential)] public struct WP { public int length, flags, showCmd; public POINT ptMin, ptMax; public RECT rc; }
+  [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr h, ref WP p);
+  [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr h, ref WP p);
+} }
+"@
+        }
+        if ($on) {
+            if (-not ($Cfg.ghostDesktop -and $Caps.Ghost) -or $script:Ghost -or -not [ClaudeTray.Native]::IsIconic($hwnd)) { return }
+            $wp = New-Object ClaudeTray.Place+WP; $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
+            if (-not [ClaudeTray.Place]::GetWindowPlacement($hwnd, [ref]$wp)) { return }
+            $script:Ghost = @{ H = $hwnd; Wp = $wp; At = (Get-Date) }
+            $g = New-Object ClaudeTray.Place+WP; $g.length = $wp.length; [void][ClaudeTray.Place]::GetWindowPlacement($hwnd, [ref]$g)     # a separate copy (PS struct pitfalls: nested fields must be set through a copy)
+            $rc = $g.rc; $wdt = $rc.R - $rc.L; $hgt = $rc.B - $rc.T; $rc.L = -32000; $rc.T = -32000; $rc.R = -32000 + $wdt; $rc.B = -32000 + $hgt; $g.rc = $rc; $g.flags = $g.flags -band (-bnot 2)     # no 'restore to maximized'
+            [void][ClaudeTray.Place]::SetWindowPlacement($hwnd, [ref]$g)
+        } elseif ($script:Ghost -and $script:Ghost.H -eq $hwnd) {
+            $wp = $script:Ghost.Wp; $script:Ghost = $null
+            if (-not [ClaudeTray.Native]::IsIconic($hwnd)) { $wp.showCmd = $(if (($wp.flags -band 2) -ne 0) { 3 } else { 4 }) }     # left open (handed to you / safety net): back on screen, as it was
+            [void][ClaudeTray.Place]::SetWindowPlacement($hwnd, [ref]$wp)
+        }
+    } catch { Log "ghost: $($_.Exception.Message)" 'WARN'; $script:Ghost = $null }
+}
+function Find-SidebarEntry($uiRoot, [string]$ttl) {     # the Desktop sidebar entry of a chat. Chats in a Local project: ListItem named exactly the title (its button is clickable); top-level chats: button '<status> <title>' (status prefix varies: unread / read / idle / waiting..., any language). Unique match only.
+    $AE = [System.Windows.Automation.AutomationElement]; $TS = [System.Windows.Automation.TreeScope]
+    $btnC = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+    $sb = $uiRoot.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ClassNameProperty, 'dframe-sidebar font-normal font-control'))); $scope = $(if ($sb) { $sb } else { $uiRoot })
+    $c = @()
+    foreach ($li in @($scope.FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))))) {
+        if (([string]$li.Current.Name).Trim() -ceq $ttl) { $b0 = @(@($li.FindAll($TS::Descendants, $btnC)) | Where-Object { [string]$_.Current.ClassName -like 'w-full shrink-0*' })[0]; if ($b0) { $c += $b0 } }
+    }
+    if (-not $c.Count) {
+        foreach ($bt in @($scope.FindAll($TS::Descendants, $btnC))) {
+            if (-not ([string]$bt.Current.ClassName -like 'w-full shrink-0*')) { continue }
+            $nm = ([string]$bt.Current.Name).Trim()
+            if ($nm -ceq $ttl -or ($nm.EndsWith(' ' + $ttl) -and ($nm.Length - $ttl.Length) -le 40)) { $c += $bt }
+        }
+    }
+    if ($c.Count -eq 1) { return $c[0] }
+    if ($c.Count -gt 1) { Log "sidebar: $($c.Count) entries match this title - not choosing" 'WARN' }
+    return $null
+}
+function Enter-LocalChat($q) {     # make this local chat the one open in Claude Desktop (no focus). Returns @{ Ok; Prev = title of the chat that was open; Hwnd; WasMin; Moved; SbBtn }
+    $r = @{ Ok = $false; Prev = ''; Hwnd = [IntPtr]::Zero; WasMin = $false; Moved = $false; SbBtn = $null }
+    try {
+        $w = Get-ClaudeWindow; if (-not $w) { return $r }; $r.Hwnd = $w.MainWindowHandle
+        if ([ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) { $r.WasMin = $true; Set-DesktopGhost $w.MainWindowHandle $true; [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 4); [void][ClaudeTray.Native]::SetWindowPos($w.MainWindowHandle, [IntPtr]1, 0, 0, 0, 0, 0x0013); Start-Sleep -Milliseconds 400 }
+        if (Test-ChatInFront $q) { $r.Ok = $true; return $r }
+        if (-not (Test-LocalSafe $q)) { return $r }
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $AE = [System.Windows.Automation.AutomationElement]; $TS = [System.Windows.Automation.TreeScope]
+        $uiRoot = $AE::FromHandle([IntPtr]$w.MainWindowHandle); $ttl = (Get-LocalTitle $q).Trim()
+        $pn0 = Get-ChatPageName; if ($pn0) { $r.Prev = ($pn0 -replace ' - Claude$', '') }
+        $hit = $null; for ($i = 0; $i -lt 4 -and -not $hit; $i++) { $hit = Find-SidebarEntry $uiRoot $ttl; if (-not $hit) { Start-Sleep -Milliseconds 200 } }
+        if (-not $hit) {     # sidebar hidden: show it (a toggle control), search again; hidden again on exit
+            $sbg = $uiRoot.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ClassNameProperty, 'dframe-sidebar font-normal font-control')))
+            $btnC = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+            $vis = [bool]($sbg -and @($sbg.FindAll($TS::Descendants, $btnC)).Count)
+            if (-not $vis) {
+                $tg = @(@($uiRoot.FindAll($TS::Descendants, $btnC)) | Where-Object { [string]$_.Current.Name -match '(?i)sidebar|barre lat|seitenleiste|barra lateral|zijbalk|boczny' -and -not ([string]$_.Current.Name -match '(?i)redimension|resize') })[0]
+                if ($tg -and (Invoke-UiaAny $tg)) { $r.SbBtn = $tg; Start-Sleep -Milliseconds 300; for ($i = 0; $i -lt 6 -and -not $hit; $i++) { $hit = Find-SidebarEntry $uiRoot $ttl; if (-not $hit) { Start-Sleep -Milliseconds 200 } } }
+            }
+        }
+        if (-not $hit) {     # inside a collapsed Local project: expand it (toggle whose name ends with the project name)
+            $sid0 = ([string]$q.id) -replace '^local/', ''; $de = @(@(try { Get-DesktopLocal } catch { }) | Where-Object { [string]$_.id -eq $sid0 })[0]; $pj = $(if ($de) { ([string]$de.pn).Trim() } else { '' })
+            if ($pj) {
+                $btnC = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+                $ex = @(@($uiRoot.FindAll($TS::Descendants, $btnC)) | Where-Object { $nm = ([string]$_.Current.Name).Trim(); $nm -cne $pj -and $nm.EndsWith(' ' + $pj) -and $_.Current.ClassName -like 'hide-focus-ring*' })[0]
+                if ($ex -and (Invoke-UiaAny $ex)) { Start-Sleep -Milliseconds 300; for ($i = 0; $i -lt 6 -and -not $hit; $i++) { $hit = Find-SidebarEntry $uiRoot $ttl; if (-not $hit) { Start-Sleep -Milliseconds 200 } } }
+            }
+        }
+        if (-not $hit) { Log "nav[$($q.id)]: chat not found in the Desktop sidebar" 'WARN'; return $r }
+        if (-not (Invoke-UiaAny $hit)) { Log "nav[$($q.id)]: sidebar entry not clickable" 'WARN'; return $r }
+        $r.Moved = $true
+        for ($i = 0; $i -lt 15 -and -not $r.Ok; $i++) { Start-Sleep -Milliseconds 200; $r.Ok = Test-ChatInFront $q }
+        Log ("nav[{0}]: switched Claude Desktop to this chat - {1}" -f $q.id, $(if ($r.Ok) { 'ok' } else { 'NOT confirmed by the page title' })) $(if ($r.Ok) { 'INFO' } else { 'WARN' })
+    } catch { Log "nav[$($q.id)]: $($_.Exception.Message)" 'WARN' }
+    return $r
+}
+function Exit-LocalChat($nav, [bool]$back = $true) {     # after acting in the background: back to the chat that was open, sidebar as it was, minimized again if it was
+    try {
+        if (-not $nav -or $nav.Hwnd -eq [IntPtr]::Zero) { return }
+        $uiRoot = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$nav.Hwnd)
+        if ($back -and $nav.Moved -and $nav.Prev) { Start-Sleep -Milliseconds 300; $pv = Find-SidebarEntry $uiRoot ([string]$nav.Prev); if ($pv) { [void](Invoke-UiaAny $pv); Log 'nav: back to the chat that was open' } }
+        if ($nav.SbBtn) { Start-Sleep -Milliseconds 200; try { [void](Invoke-UiaAny $nav.SbBtn) } catch { } }
+        if ($nav.WasMin -and [ClaudeTray.Native]::GetForegroundWindow() -ne $nav.Hwnd) { Start-Sleep -Milliseconds 250; [void][ClaudeTray.Native]::ShowWindow($nav.Hwnd, 7) }
+    } catch { }
+    finally { if ($nav -and $nav.Hwnd) { Start-Sleep -Milliseconds 150; Set-DesktopGhost $nav.Hwnd $false } }
+}
+function Rename-LocalChat($q, [string]$name) {     # rename a Desktop local chat through its title button (UIA); brief focus on Desktop to confirm with Enter
+    try {
+        if (-not (Test-LocalSafe $q)) { return $false }
+        $nav = Enter-LocalChat $q     # switch Desktop to it first (any open chat)
+        if (-not $nav.Ok) { Log "rename[$($q.id)]: could not open it in Claude Desktop" 'WARN'; return $false }
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $AE = [System.Windows.Automation.AutomationElement]; $TS = [System.Windows.Automation.TreeScope]
+        $w = Get-ClaudeWindow; $uiRoot = $AE::FromHandle([IntPtr]$w.MainWindowHandle)
+        $slot = $uiRoot.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::AutomationIdProperty, 'cowork-title-slot')))
+        if (-not $slot) { Log "rename[$($q.id)]: title area not found" 'WARN'; return $false }
+        $tb = $slot.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+        if (-not $tb) { Log "rename[$($q.id)]: title button not found" 'WARN'; return $false }
+        $ctx = @{ PrevFg = [ClaudeTray.Native]::GetForegroundWindow(); WasMin = $false; WasFront = $false; Hwnd = $w.MainWindowHandle }
+        if ([ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 9) }
+        [void][ClaudeTray.Native]::SetForegroundWindow($w.MainWindowHandle)
+        $tb.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $edx = $null; $edC = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
+        for ($i = 0; $i -lt 10 -and -not $edx; $i++) { Start-Sleep -Milliseconds 150; $edx = $slot.FindFirst($TS::Descendants, $edC); if (-not $edx) { try { $fe = $AE::FocusedElement; if ($fe -and $fe.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -and -not ([string]$fe.Current.ClassName -like 'tiptap*')) { $edx = $fe } } catch { } } }
+        if (-not $edx) { Restore-Focus $ctx; Log "rename[$($q.id)]: no name field after clicking the title" 'WARN'; return $false }
+        $edx.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($name); $edx.SetFocus(); Start-Sleep -Milliseconds 150
+        $ok = $false; try { $ok = ([ClaudeTray.Native]::GetForegroundWindow() -eq $w.MainWindowHandle) -and [System.Windows.Automation.Automation]::Compare($AE::FocusedElement, $edx) } catch { }
+        if (-not $ok) { Restore-Focus $ctx; Log "rename[$($q.id)]: name field not focused - Enter not sent" 'WARN'; return $false }     # SAFETY: never press Enter elsewhere
+        $script:ParkHold = (Get-Date).AddSeconds(4); Set-DesktopGhost $w.MainWindowHandle $false; [System.Windows.Forms.SendKeys]::SendWait('{ENTER}'); Start-Sleep -Milliseconds 600; Restore-Focus $ctx
+        $script:DeskLocalAt = [datetime]::MinValue
+        $done = $false; for ($i = 0; $i -lt 10 -and -not $done; $i++) { $pn = Get-ChatPageName; if ($pn -ceq "$name - Claude" -or $pn -ceq $name) { $done = $true } else { Start-Sleep -Milliseconds 300 } }
+        Log ("rename[{0}]: {1}" -f $q.id, $(if ($done) { 'renamed in Claude Desktop' } else { 'sent, not confirmed by the page title' })) $(if ($done) { 'INFO' } else { 'WARN' })
+        Exit-LocalChat $nav     # back to the chat that was open, minimized again if it was
+        return $done
+    } catch { Log "rename[$($q.id)]: $($_.Exception.Message)" 'WARN'; return $false }
+}
+function Add-LocalFolder($q) {     # pick files (several) or a folder (Open with nothing selected = the folder you are in); the Cowork session is asked to request access (approval card in the tray) and use them. Paths not logged.
+    $dlg = New-Object System.Windows.Forms.OpenFileDialog; $dlg.Title = 'Files for Claude - or open a folder and click Open with nothing selected to give the whole folder'
+    $dlg.Multiselect = $true; $dlg.CheckFileExists = $false; $dlg.ValidateNames = $false; $dlg.FileName = 'Select this folder'; $dlg.Filter = 'All files (*.*)|*.*'
+    $own = New-Object System.Windows.Forms.Form; $own.TopMost = $true; $own.ShowInTaskbar = $false; $own.StartPosition = 'Manual'; $own.Location = New-Object System.Drawing.Point -32000, -32000; $own.Size = New-Object System.Drawing.Size 1, 1
+    try { $own.Show(); $r = $dlg.ShowDialog($own) } finally { $own.Close(); $own.Dispose() }
+    if ($r -ne [System.Windows.Forms.DialogResult]::OK) { return }
+    $picked = @($dlg.FileNames | Where-Object { $_ })
+    $files = @($picked | Where-Object { (Split-Path $_ -Leaf) -ne 'Select this folder' -and (Test-Path -LiteralPath $_ -PathType Leaf) })
+    $dirs0 = @($picked | Where-Object { Test-Path -LiteralPath $_ -PathType Container })
+    if (-not $files.Count -and -not $dirs0.Count) { $dirs0 = @(Split-Path $picked[0] -Parent) }     # 'Select this folder' (nothing chosen) = the folder shown in the dialog
+    if ($files.Count) {
+        $dirs = @($files | ForEach-Object { Split-Path $_ -Parent } | Sort-Object -Unique)
+        $msg = "Please request access to $(if ($dirs.Count -gt 1) { 'these folders' } else { 'this folder' }) for this session (use your folder-access tool): $($dirs -join '; ') - then use these files: $($files -join '; ')"
+    } else { $msg = "Please request access to this folder for this session (use your folder-access tool): $($dirs0[0])" }
+    if (Send-ToChat $q $msg 'addfolder') { Log ("addfolder[{0}]: asked the session for {1} (paths not logged)" -f $q.id, $(if ($files.Count) { "$($files.Count) file(s)" } else { 'a folder' })) }
+}
+function Invoke-UiaAny($el) {     # press a control whatever pattern it exposes (Invoke, Toggle, ExpandCollapse)
+    foreach ($pt in [System.Windows.Automation.InvokePattern]::Pattern, [System.Windows.Automation.TogglePattern]::Pattern, [System.Windows.Automation.ExpandCollapsePattern]::Pattern) {
+        $o = $null; if ($el.TryGetCurrentPattern($pt, [ref]$o) -and $o) {
+            if ($o -is [System.Windows.Automation.InvokePattern]) { $o.Invoke() } elseif ($o -is [System.Windows.Automation.TogglePattern]) { $o.Toggle() } else { if ($o.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Expanded) { $o.Collapse() } else { $o.Expand() } }
+            return $true
+        }
+    }
+    return $false
+}
 function Open-Chat($q, [bool]$inBrowser) {
+    if (([string]$q.id).StartsWith('local/')) {     # no deep link for Desktop local chats: bring Desktop forward and switch to the chat through its sidebar
+        Open-ClaudeApp
+        $nav = Enter-LocalChat $q
+        if (-not $nav.Ok) { try { $tray.ShowBalloonTip(4000, 'Open it in Claude Desktop', "Couldn't switch Claude Desktop to this chat.", [System.Windows.Forms.ToolTipIcon]::None) } catch { } }
+        return
+    }
     if (-not $inBrowser -and (Test-ChatInFront $q)) {          # already on it: just bring the app forward, no deep link round trip
         $w = Get-ClaudeWindow; if ([ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 9) }; [void][ClaudeTray.Native]::SetForegroundWindow($w.MainWindowHandle); Log "open app: already on $($q.id), brought to front"; return
     }
@@ -1774,6 +2209,17 @@ function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $
     if (-not $text -and -not @($Files).Count) { return $false }
     if ($UI.LastSend -and ((Get-Date) - $UI.LastSend.At).TotalSeconds -lt 5 -and $UI.LastSend.Text -eq $text -and $UI.LastSend.Id -eq [string]$q.id -and -not @($Files).Count) { Log "send: ignored duplicate within 5 s ($via)" 'DEBUG'; return $true }
     $UI.LastSend = @{ At = (Get-Date); Text = $text; Id = [string]$q.id }
+    if (([string]$q.id).StartsWith('local/')) {          # a Desktop local chat can't be typed into from here: clipboard + bring Claude Desktop forward, the user pastes
+        if (@($Files).Count -or -not $text) { Log "send[$($q.id)]: local chat - attachments not supported" 'WARN'; try { $tray.ShowBalloonTip(4000, 'Not sent', 'Files can''t be sent to a Claude Desktop local chat from the tray.', [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }; return $false }
+        $nav = Enter-LocalChat $q     # switch Desktop to this chat (background), send, back to the open one. Never pastes elsewhere, never sends twice.
+        if (-not $nav.Ok) { Exit-LocalChat $nav $false; Log "send[$($q.id)]: could not switch Claude Desktop to this chat - not sent" 'WARN'; try { $tray.ShowBalloonTip(5000, 'Not sent', "Couldn't open this chat in Claude Desktop. Your text is kept in the tray.", [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }; return $false }
+        $rs = Send-LocalNoFocus $q $text
+        Exit-LocalChat $nav
+        if ($rs -eq 'sent') { $r = Get-Results $q; $r.sent = @(@(@($r.sent) + [pscustomobject][ordered]@{ at = (Get-Iso (Get-Date)); text = (Get-SentText $text) }) | Select-Object -Last 2); Save-Results $q $r; $Probe.ExpectAt = Get-Date; $Probe.ExpectPage = $Probe.Page; $Probe.SawStop = $false; return $true }
+        $why = switch ($rs) { 'busy' { 'This chat has unsent text in Claude Desktop (send or clear it there).' } 'refused' { 'Claude Desktop did not take the message (a command it does not know?).' } default { 'Claude Desktop could not be typed into.' } }
+        try { $tray.ShowBalloonTip(5000, 'Not sent - your text is kept', $why, [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }
+        return $false
+    }
     $sw = [Diagnostics.Stopwatch]::StartNew(); $ph = [ordered]@{}
     $ctx = @{ PrevFg = [ClaudeTray.Native]::GetForegroundWindow(); WasMin = $false; WasFront = $false; Hwnd = [IntPtr]::Zero }
     $short = if ($text.Length -gt 60) { $text.Substring(0, 60) + '...' } else { $text }
@@ -1802,6 +2248,7 @@ function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $
             Log "send[$($q.id)] held: Claude is working (sending now would interrupt). Will send when idle, or 'send now'."; return $true
         }
         $onIt = Test-ChatInFront $q; $ph.detect = $sw.ElapsedMilliseconds
+        if (-not $onIt -and ([string]$q.id).StartsWith('local/')) { Restore-Focus $ctx; try { [System.Windows.Forms.Clipboard]::SetText($text) } catch { }; Log "send[$($q.id)]: local chat no longer in front - text copied, nothing pasted" 'WARN'; try { $tray.ShowBalloonTip(4000, 'Copied - paste it in Claude Desktop', 'The chat was no longer the one open in Claude Desktop.', [System.Windows.Forms.ToolTipIcon]::None) } catch { }; return $false }     # no deep link for local chats
         if (-not $onIt) {
             Start-Process "claude://claude.ai/$($q.id)"
             $deadline = (Get-Date).AddSeconds(6)
@@ -1862,14 +2309,162 @@ function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $
         return $true
     } catch {
         Log ("send[{0}] FAILED after {1} ms: {2} | phases {3}" -f $q.id, $sw.ElapsedMilliseconds, $_.Exception.Message, (($ph.Keys | ForEach-Object { "$_=$($ph[$_])" }) -join ' ')) 'ERR'
-        try { $tray.ShowBalloonTip(4000, 'Not sent', $_.Exception.Message, [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }
+        $nsMsg = $_.Exception.Message; if (([string]$q.id).StartsWith('local/')) { try { [System.Windows.Forms.Clipboard]::SetText($text); $nsMsg += ' - text copied, paste it in Claude Desktop' } catch { } }
+        try { $tray.ShowBalloonTip(4000, 'Not sent', $nsMsg, [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }
         return $false
     }
+}
+function Send-LocalNoFocus($q, [string]$text) {      # set the composer's value + invoke ITS send button by UI Automation, no window focus. $false = nothing typed, use the paste path. Never falls back once Send was pressed (no double send).
+    $w = $null; $wasMin = $false
+    try {
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $AE = [System.Windows.Automation.AutomationElement]; $TS = [System.Windows.Automation.TreeScope]
+        $w = Get-ClaudeWindow; if (-not $w) { return 'fail' }
+        $wasMin = [ClaudeTray.Native]::IsIconic($w.MainWindowHandle)
+        if ($wasMin) { Set-DesktopGhost $w.MainWindowHandle $true; [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 4); [void][ClaudeTray.Native]::SetWindowPos($w.MainWindowHandle, [IntPtr]1, 0, 0, 0, 0, 0x0013); Start-Sleep -Milliseconds 350 }     # a minimized Desktop doesn't update its UI tree: restore it BEHIND your windows (no focus), minimized again below
+        $uiRoot = $AE::FromHandle([IntPtr]$w.MainWindowHandle)
+        $edx = $uiRoot.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ClassNameProperty, 'tiptap ProseMirror')))
+        if (-not $edx) { Log "send[$($q.id)] nofocus: composer not found" 'INFO'; return 'fail' }
+        $tw = [System.Windows.Automation.TreeWalker]::ControlViewWalker; $box = $tw.GetParent($edx)     # the composer container: its own send button only
+        for ($kx = 0; $kx -lt 8 -and $box -and -not ([string]$box.Current.ClassName -match 'rounded-composer'); $kx++) { $box = $tw.GetParent($box) }
+        if (-not $box) { Log "send[$($q.id)] nofocus: composer container not found" 'INFO'; return 'fail' }
+        $vp = $edx.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+        if (([string]$vp.Current.Value).Trim([char]0x200B, ' ', "`r", "`n", "`t").Length) { Log "send[$($q.id)] nofocus: the app's box has unsent text - not merging" 'WARN'; return 'busy' }
+        $vp.SetValue($text); Start-Sleep -Milliseconds 250
+        $k0 = (($text -replace '\s+', ' ').Trim()); if ($k0.Length -gt 20) { $k0 = $k0.Substring(0, 20) }
+        if (-not ((([string]$vp.Current.Value) -replace '\s+', ' ').Contains($k0))) { try { $vp.SetValue('') } catch { }; Log "send[$($q.id)] nofocus: value not taken by the composer" 'INFO'; return 'fail' }
+        $send = $null; foreach ($bt in @($box.FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))))) { $bn = [string]$bt.Current.Name; if ($bn -match '(?i)^(envoyer|send|enviar|senden|invia|verzenden|wy.lij)' -and $bn -notmatch '(?i)maintenant|now|ahora|jetzt|ora' -and $bt.Current.IsEnabled) { $send = $bt } }
+        if (-not $send) { try { $vp.SetValue('') } catch { }; Log "send[$($q.id)] nofocus: no enabled send button in the composer" 'INFO'; return 'fail' }
+        $ls0 = Get-LocalState $q; $len0 = $(if ($ls0) { [long]$ls0.Len } else { -1 })
+        $send.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $got = $false; $left = ''     # taken = the transcript grew; still in the box after 3 s = refused (box cleared, nothing resent)
+        for ($vi = 0; $vi -lt 12 -and -not $got; $vi++) { Start-Sleep -Milliseconds 250; if ($script:LocalSt -and $script:LocalSt[[string]$q.id]) { $script:LocalSt[[string]$q.id].At = [datetime]::MinValue }; $lsv = Get-LocalState $q; if ($lsv -and $len0 -ge 0 -and [long]$lsv.Len -gt $len0) { $got = $true } }
+        try { $left = ([string]$vp.Current.Value).Trim([char]0x200B, ' ', "`r", "`n", "`t") } catch { }
+        if (-not $got -and $left.Length) { try { $vp.SetValue('') } catch { }; Log "send[$($q.id)] nofocus: Claude Desktop kept the text in the box (refused) - cleared, not resent" 'WARN'; return 'refused' }
+        Log "send[$($q.id)] nofocus: sent (no focus change$(if ($wasMin) { ', Desktop kept minimized' }))$(if (-not $got) { ', not yet in the transcript' })"
+        return 'sent'
+    } catch { Log "send[$($q.id)] nofocus: $($_.Exception.Message)" 'INFO'; return 'fail' }
+    finally { if ($wasMin -and $w) { [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 7); Start-Sleep -Milliseconds 150; Set-DesktopGhost $w.MainWindowHandle $false } }     # SW_SHOWMINNOACTIVE: back to minimized, focus untouched
+}
+function Set-AskResult($q, [string]$label, [bool]$ok, [string]$pid0) {     # what the tray did with your answer, shown in the card; hides the (stale) watcher card for 15 s when taken
+    if ($null -eq $script:AskRes) { $script:AskRes = @{}; $script:AskMute = @{} }
+    $script:AskRes[[string]$q.id] = @{ l = $label; ok = $ok; k = [guid]::NewGuid().ToString('N'); At = (Get-Date) }
+    if ($ok) { $script:AskMute[[string]$q.id] = @{ Pid = $pid0; Until = (Get-Date).AddSeconds(15) } }
+    try { Push-WebState } catch { }
+}
+function Wait-LocalTaken($q, [string]$pid0) {     # the waiting tool call got its result in the transcript (4 s max; re-parses only when the file changed)
+    for ($vi = 0; $vi -lt 16; $vi++) { Start-Sleep -Milliseconds 250; if ($script:LocalSt -and $script:LocalSt[[string]$q.id]) { $script:LocalSt[[string]$q.id].At = [datetime]::MinValue }; $lsv = Get-LocalState $q; if ($lsv -and [string]$lsv.PendId -ne $pid0) { return $true } }
+    return $false
+}
+function Invoke-LocalAsk($q, [string]$mt, $m) {      # answer a Desktop local chat's question card or request card by UI Automation (no focus, except Enter for a typed answer)
+    $reMin = [IntPtr]::Zero; $keepFront = $false; $nav = $null
+    $nope = { param($why) Log "ask[$($q.id)]: $why - nothing done" 'WARN'; Set-AskResult $q ([string]$(if ($m.label) { $m.label } elseif ($mt -eq 'qskip') { 'Skip' } else { 'Answer' })) $false ''; try { $tray.ShowBalloonTip(4000, 'Not answered', "$why. Answer it in Claude Desktop.", [System.Windows.Forms.ToolTipIcon]::Warning) } catch { } }
+    try {
+        $la0 = Get-LocalAsk $q
+        if (-not $la0) { & $nope 'no question or request for this chat now'; return }
+        if (-not (Test-LocalSafe $q)) { return }
+        $ls0 = Get-LocalState $q; $pid0 = $(if ($ls0) { [string]$ls0.PendId } else { '' })
+        if ($ls0 -and $ls0.St -eq 'ask' -and $ls0.Ask -and ($ls0.Ask.Multi -or [int]$ls0.Ask.N -gt 1)) { & $nope 'multi-choice / several questions'; return }
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $AE = [System.Windows.Automation.AutomationElement]; $TS = [System.Windows.Automation.TreeScope]
+        $btnC = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+        $w = Get-ClaudeWindow; if (-not $w) { & $nope 'Claude Desktop is not running'; return }
+        if ([ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) {     # a minimized Desktop doesn't draw the card: restore it behind your windows, without focus (minimized again at the end)
+            Set-DesktopGhost $w.MainWindowHandle $true; [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 4); [void][ClaudeTray.Native]::SetWindowPos($w.MainWindowHandle, [IntPtr]1, 0, 0, 0, 0, 0x0013); $reMin = $w.MainWindowHandle
+            Log "ask[$($q.id)]: Claude Desktop was minimized - restored behind, no focus"
+        }
+        $uiRoot = $AE::FromHandle([IntPtr]$w.MainWindowHandle)
+        $nav = Enter-LocalChat $q; $front = [bool]$nav.Ok     # switch Desktop to this chat if another one is open
+        if (-not $front) { & $nope 'Claude Desktop shows another chat'; return }
+        $lbl = ([string]$m.label).Trim()
+        if ($la0.Inline) {      # inline request card: its buttons are direct children of the conversation scroller (or of a 'contents' wrapper); the LAST match is the live card
+            if ($mt -ne 'qpick') { & $nope 'this request only has buttons'; return }
+            $tw3 = [System.Windows.Automation.TreeWalker]::ControlViewWalker; $hit = $null
+            foreach ($bx in @($uiRoot.FindAll($TS::Descendants, $btnC))) {
+                if (([string]$bx.Current.Name).Trim() -cne $lbl -or -not $bx.Current.IsEnabled) { continue }
+                $pa = $tw3.GetParent($bx); if ($pa -and [string]$pa.Current.ClassName -eq 'contents') { $pa = $tw3.GetParent($pa) }
+                if ($pa -and ([string]$pa.Current.ClassName).StartsWith('overflow-y-auto')) { $hit = $bx }
+            }
+            if (-not $hit) { & $nope "button '$lbl' not found"; return }
+            if ($QS.DeskOnly.ContainsKey($lbl)) {     # Desktop ignores this button when pressed from outside (approvals): open Desktop on the chat right away
+                $keepFront = $true; Set-DesktopGhost $w.MainWindowHandle $false; try { $w2 = Get-ClaudeWindow; if ([ClaudeTray.Native]::IsIconic($w2.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w2.MainWindowHandle, 9) }; [void][ClaudeTray.Native]::SetForegroundWindow($w2.MainWindowHandle) } catch { }
+                Set-AskResult $q $lbl $false $pid0; Log "ask[$($q.id)]: '$lbl' must be pressed in Claude Desktop - brought it to the front"; return
+            }
+            $hit.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); $Probe.FastUntil = (Get-Date).AddSeconds(20)
+            $ok = $false     # taken = the transcript moved on OR the button is gone from a fresh scan of the scroller (some requests write their result late)
+            for ($vi = 0; $vi -lt 20 -and -not $ok; $vi++) {
+                Start-Sleep -Milliseconds 250
+                if ($script:LocalSt -and $script:LocalSt[[string]$q.id]) { $script:LocalSt[[string]$q.id].At = [datetime]::MinValue }; $lsv = Get-LocalState $q; if ($lsv -and [string]$lsv.PendId -ne $pid0) { $ok = $true; break }
+                $still = $false
+                foreach ($bx in @($uiRoot.FindAll($TS::Descendants, $btnC))) { if (([string]$bx.Current.Name).Trim() -cne $lbl) { continue }; $pa = $tw3.GetParent($bx); if ($pa -and [string]$pa.Current.ClassName -eq 'contents') { $pa = $tw3.GetParent($pa) }; if ($pa -and ([string]$pa.Current.ClassName).StartsWith('overflow-y-auto')) { $still = $true; break } }
+                if (-not $still) { $ok = $true }
+            }
+            Set-AskResult $q $lbl $ok $pid0
+            Log ("ask[{0}]: pressed '{1}' (inline card) - {2}" -f $q.id, $lbl, $(if ($ok) { 'taken by Desktop' } else { 'NOT CONFIRMED after 5 s (card still there, transcript unchanged)' })) $(if ($ok) { 'INFO' } else { 'WARN' })
+            if (-not $ok) { $QS.DeskOnly[$lbl] = $true; Save-State; $keepFront = $true; Set-DesktopGhost $w.MainWindowHandle $false; try { $w2 = Get-ClaudeWindow; if ([ClaudeTray.Native]::IsIconic($w2.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w2.MainWindowHandle, 9) }; [void][ClaudeTray.Native]::SetForegroundWindow($w2.MainWindowHandle) } catch { }; try { $tray.ShowBalloonTip(6000, 'Approve it in Claude Desktop', 'Claude Desktop did not take this answer from the tray (some approvals must be given in Desktop itself). It is open on this chat now.', [System.Windows.Forms.ToolTipIcon]::Warning) } catch { } }     # no workaround - bring Desktop forward on this chat
+            return
+        }
+        $grpC = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Group); $card = $null
+        for ($tr = 0; $tr -lt 12 -and -not $card; $tr++) {
+            $gs = @($uiRoot.FindAll($TS::Descendants, $grpC))
+            foreach ($e in $gs) { if ([string]$e.Current.ClassName -match 'rounded-composer.*cds-question') { $card = $e; break } }
+            if (-not $card -and $la0.Gen) { foreach ($e in $gs) { if ([string]$e.Current.ClassName -match 'rounded-composer' -and -not $e.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ClassNameProperty, 'tiptap ProseMirror')))) { $card = $e; break } } }
+            if (-not $card) { Start-Sleep -Milliseconds 250 }
+        }
+        if (-not $card) { & $nope 'the card is not shown in Claude Desktop'; return }
+        $btns = @($card.FindAll($TS::Descendants, $btnC))
+        $rows = @($btns | Where-Object { [string]$_.Current.ClassName -like 'group/row *' }); $other = @($btns | Where-Object { -not ([string]$_.Current.ClassName -like 'group/row *') })
+        switch ($mt) {
+            'qpick' {
+                if (-not $rows.Count) {      # request card above the composer: the button with exactly that name
+                    $gbt = @($btns | Where-Object { ([string]$_.Current.Name).Trim() -ceq $lbl -and $_.Current.IsEnabled })
+                    if ($gbt.Count -ne 1) { & $nope "button '$lbl' not found once on the card"; return }
+                    $gbt[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); $Probe.FastUntil = (Get-Date).AddSeconds(20)
+                    $ok = Wait-LocalTaken $q $pid0; Set-AskResult $q $lbl $ok $pid0; Log ("ask[{0}]: pressed '{1}' (card) - {2}" -f $q.id, $lbl, $(if ($ok) { 'taken' } else { 'NOT TAKEN' })); return
+                }
+                $match = @($rows | Where-Object { $nm = ([string]$_.Current.Name).Trim(); $nm -ceq $lbl -or $nm.StartsWith($lbl + ' ') })     # transcript labels vs UIA 'label description'
+                if ($match.Count -ne 1) { & $nope "choice '$lbl' not found once on the card"; return }     # SAFETY: never click another choice
+                $tp = $null; try { $tp = $match[0].GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) } catch { }
+                if ($tp) { $tp.Toggle() } else { $match[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
+                $ok = Wait-LocalTaken $q $pid0; Set-AskResult $q $lbl $ok $pid0; Log ("ask[{0}]: picked a choice - {1}" -f $q.id, $(if ($ok) { 'taken' } else { 'NOT TAKEN' }))
+            }
+            'qskip' {
+                $sk = $(if ($other.Count -ge 2) { $other[-1] } else { $null }); $skn = $(if ($sk) { ([string]$sk.Current.Name).Trim() } else { '' })
+                $want = $(if ($Probe.Ask -and -not $Probe.Ask.Gen) { ([string]$Probe.Ask.Skip).Trim() } else { '' })
+                if (-not $sk -or -not (($want -and $skn -ceq $want) -or (-not $want -and $skn -match '(?i)^(skip|passer|ignorer|omitir|saltar|.berspringen|salta)$'))) { & $nope 'skip button not identified'; return }
+                $sk.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                $ok = Wait-LocalTaken $q $pid0; Set-AskResult $q 'Skip' $ok $pid0; Log ("ask[{0}]: skipped - {1}" -f $q.id, $(if ($ok) { 'taken' } else { 'NOT TAKEN' }))
+            }
+            'qother' {
+                $edx = $card.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)))
+                if (-not $edx) { & $nope "no 'other' field"; return }
+                $edx.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue([string]$m.text)
+                if ($m.enter) {           # submitting a typed answer needs Enter in that field: brief focus on Claude Desktop, checked, then back
+                    $script:ParkHold = (Get-Date).AddSeconds(4); $ctx = @{ PrevFg = [ClaudeTray.Native]::GetForegroundWindow(); WasMin = $false; WasFront = $false; Hwnd = $w.MainWindowHandle }
+                    [void][ClaudeTray.Native]::SetForegroundWindow($w.MainWindowHandle); $edx.SetFocus(); Start-Sleep -Milliseconds 150
+                    $focusOk = $false; try { $focusOk = ([ClaudeTray.Native]::GetForegroundWindow() -eq $w.MainWindowHandle) -and [System.Windows.Automation.Automation]::Compare([System.Windows.Automation.AutomationElement]::FocusedElement, $edx) } catch { }
+                    if (-not $focusOk) { Restore-Focus $ctx; & $nope 'could not focus the answer field (text is typed there)'; return }     # SAFETY: never press Enter in another app
+                    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}'); Start-Sleep -Milliseconds 150; Restore-Focus $ctx
+                    $ok = Wait-LocalTaken $q $pid0; Set-AskResult $q 'Other' $ok $pid0
+                }
+                Log ("ask[{0}]: other answer set ({1} chars), enter={2}" -f $q.id, ([string]$m.text).Length, [bool]$m.enter)
+            }
+        }
+        $Probe.FastUntil = (Get-Date).AddSeconds(20)
+    } catch { Log "ask[$($q.id)]: $($_.Exception.Message)" 'WARN' }
+    finally { if ($nav) { Exit-LocalChat $nav (-not $keepFront) }; if ($reMin -ne [IntPtr]::Zero -and -not $keepFront) { Start-Sleep -Milliseconds 300; if ([ClaudeTray.Native]::GetForegroundWindow() -ne $reMin) { [void][ClaudeTray.Native]::ShowWindow($reMin, 7) } }; if ($reMin -ne [IntPtr]::Zero) { Start-Sleep -Milliseconds 150; Set-DesktopGhost $reMin $false } }     # minimized again, focus untouched; visible again
 }
 function Stop-Chat($q) {                           # press the stop button for this chat: browser tab first, else the app's (no focus change needed)
     $wc = Get-WebChat $q
     if ($wc) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'stop'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log "stop[$($q.id)]: queued to the browser tab"; return }
     try {
+        if (([string]$q.id).StartsWith('local/')) {     # switch Desktop to this chat (background), press its stop button, back
+            $nav = Enter-LocalChat $q; if (-not $nav.Ok) { Exit-LocalChat $nav $false; Log "stop[$($q.id)]: could not switch Claude Desktop to it" 'WARN'; return }
+            try { Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes; $rt = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$nav.Hwnd); Start-Sleep -Milliseconds 300
+                $sbx = @(@($rt.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))) | Where-Object { $nm = [string]$_.Current.Name; ($Probe.StopName -and $nm -ceq [string]$Probe.StopName) -or $nm -match '(?i)^(stop|arr.t|interromp|annuler la r)|stop (response|generating)' })[0]
+                if ($sbx -and (Invoke-UiaAny $sbx)) { Log "stop[$($q.id)]: pressed its stop button" } else { Log "stop[$($q.id)]: no stop button on that chat - marked idle" 'WARN'; $lsx0 = Get-LocalState $q; if ($lsx0) { if ($null -eq $script:LocalIdle) { $script:LocalIdle = @{} }; $script:LocalIdle[[string]$q.id] = [long]$lsx0.Len; Push-WebState $true } } } catch { Log "stop[$($q.id)]: $($_.Exception.Message)" 'WARN' }
+            Exit-LocalChat $nav; return
+        }\r
         if (-not (Test-ChatWorking $q)) { Log "stop[$($q.id)]: not working (page '$(Get-PageLabel $Probe.Page)')" 'DEBUG'; return }
         $name = [string]$Probe.StopName; if (-not $name) { Log "stop[$($q.id)]: watcher has no stop-button name" 'WARN'; return }
         Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
@@ -1968,7 +2563,7 @@ $pop.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
 $pop.BackColor = $T.Bg; $pop.ForeColor = $T.Tx; $pop.Font = $FUi
 $pop.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None     # sizes are already in px (DPI-scaled by px); font-autoscale would grow the form again
 $pop.Width = px 340; $pop.Height = px 200
-$pop.Padding = New-Object System.Windows.Forms.Padding 1
+$pop.Padding = New-Object System.Windows.Forms.Padding 1, 0, 1, 1     # no top border strip, so the page's top resize zone starts at the window's real top edge
 $null = $pop.Handle
 $hPop = $pop.Handle
 [void][ClaudeTray.Native]::SetWindowLong($hPop, -20, ([ClaudeTray.Native]::GetWindowLong($hPop, -20) -bor 0x08000088))   # NOACTIVATE | TOOLWINDOW | TOPMOST
@@ -1992,7 +2587,7 @@ $dragH = @{
         if (($sender -eq $pop -or $sender -eq $content) -and $inForm.Y -gt (px 36)) { return }
         $UI.Drag = @{ Start = [System.Windows.Forms.Cursor]::Position; Origin = $pop.Location }; $UI.DragMoved = $false }
     MouseMove = { param($sender, $e) if ($UI.Drag -and [System.Windows.Forms.Control]::MouseButtons -eq 'Left') { $c = [System.Windows.Forms.Cursor]::Position; if ((Dist $c $UI.Drag.Start) -gt 3) { $UI.DragMoved = $true; $pop.Location = New-Object System.Drawing.Point ($UI.Drag.Origin.X + $c.X - $UI.Drag.Start.X), ($UI.Drag.Origin.Y + $c.Y - $UI.Drag.Start.Y) } } }
-    MouseUp   = { param($sender, $e) if ($UI.Drag) { $UI.Drag = $null; if ($UI.DragMoved) { if (-not $UI.Docked) { $UI.Docked = $true; Pin-Pop; Request-Build }; $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State; Log ("panel dragged to {0},{1} (docked)" -f $pop.Left, $pop.Top) 'DEBUG' } } }
+    MouseUp   = { param($sender, $e) if ($UI.Drag) { $UI.Drag = $null; if ($UI.DragMoved) { if (-not $UI.Docked) { $UI.Docked = $true; Pin-Pop; Request-Build }; Set-DockMemo; Save-State; Log ("panel dragged to {0},{1} (docked)" -f $pop.Left, $pop.Top) 'DEBUG' } } }
 }
 foreach ($hn in 'MouseDown', 'MouseMove', 'MouseUp') { $pop."add_$hn"($dragH[$hn]); $content."add_$hn"($dragH[$hn]) }
 # side panel: full text of a box, shown next to the flyout while hovering it; pin keeps it
@@ -2092,6 +2687,7 @@ function Set-Activatable([bool]$on) {
     $ex = if ($on) { $ex -band (-bnot 0x08000000) } else { $ex -bor 0x08000000 }
     [void][ClaudeTray.Native]::SetWindowLong($hPop, -20, $ex)
 }
+function Set-DockMemo { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); $QS.DockB = $pop.Bottom }   # remember the pinned spot (top-left for old state.json + its bottom edge = the anchor)
 function Pin-Pop { if (-not $UI.Pinned) { $UI.Pinned = $true; Set-Activatable $true; try { $pop.Activate() } catch { } } }
 function Hook-Click($ctl) {
     $ctl.add_MouseDown({ Pin-Pop })
@@ -2206,15 +2802,18 @@ function Grow-Field($pn, [int]$maxLines) {    # field height follows its line co
     }
     $tb.ScrollToCaret(); Update-FieldBar $pn
 }
-function Fit-Pop {                            # size the flyout to its content; when attached to the icon keep the bottom edge fixed
+function Fit-Pop {                            # size the flyout to its content; the bottom edge stays fixed (attached or pinned), only the top moves
     $wa = [System.Windows.Forms.Screen]::FromControl($pop).WorkingArea
     $need = (px 14); foreach ($c in $content.Controls) { $need += $c.Height + $c.Margin.Vertical }
     $nh = [Math]::Min([Math]::Max((px 60), $need), [int]($wa.Height * 0.85))
     if ($nh -eq $pop.Height -and $pop.Bottom -le $wa.Bottom -and $pop.Top -ge $wa.Top) { return }
-    $top = if ($pop.Visible -and -not $UI.Docked) { $pop.Bottom - $nh } else { $pop.Top }      # attached: grow upwards; parked: grow downwards
+    if ($UI.Docked -and $null -eq $QS.DockB) { $QS.DockB = $pop.Bottom }                           # old state.json had no bottom
+    $bot = if ($UI.Docked) { [int]$QS.DockB } else { $pop.Bottom }                                # pinned: the remembered bottom, so a clamp below never drifts it
+    $top = $bot - $nh                                                                            # grow/shrink upwards only
     if ($top + $nh -gt $wa.Bottom) { $top = $wa.Bottom - $nh }                                   # would leave the screen: move up instead
     if ($top -lt $wa.Top) { $top = $wa.Top; $nh = [Math]::Min($nh, $wa.Height) }
     if ($pop.Visible) { $pop.SetBounds($pop.Left, $top, $pop.Width, $nh) } else { $pop.Height = $nh; $pop.Top = $top }
+    if ($UI.Docked) { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top) }           # in memory; DockB kept as the anchor
     try { [void][ClaudeTray.Scroll]::ShowScrollBar($content.Handle, 1, $false) } catch { }
 }
 function New-ChatBox([int]$w, [int]$h) {        # the card's conversation: rounded panel + read-only RichTextBox + thin scroll indicator
@@ -2374,7 +2973,7 @@ function Build-RowsCore {
     $grip = New-Lbl '' $FSmall $T.Mu ($W - (px 20)); $grip.Cursor = [System.Windows.Forms.Cursors]::SizeAll
     foreach ($hn in 'MouseDown', 'MouseMove', 'MouseUp') { $grip."add_$hn"($dragH[$hn]) }
     $grip.add_Paint({ param($sender, $e) $b = New-Object System.Drawing.SolidBrush $T.Ln; $cx = [int]($sender.Width / 2); $e.Graphics.FillRectangle($b, $cx - (px 14), [int](($sender.Height - (px 3)) / 2), (px 28), (px 3)); $b.Dispose() })
-    $pinG = New-Glyph $(if ($UI.Docked) { $Gly.unpin } else { $Gly.pin }) $(if ($UI.Docked) { 'Unpin (closes on click outside)' } else { 'Pin here (stays on top)' }) $(if ($UI.Docked) { $T.Acc } else { $T.Mu }) $null { if ($UI.Docked) { $UI.Docked = $false } else { $UI.Docked = $true; Pin-Pop; $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State }; Request-Build }
+    $pinG = New-Glyph $(if ($UI.Docked) { $Gly.unpin } else { $Gly.pin }) $(if ($UI.Docked) { 'Unpin (closes on click outside)' } else { 'Pin here (stays on top)' }) $(if ($UI.Docked) { $T.Acc } else { $T.Mu }) $null { if ($UI.Docked) { $UI.Docked = $false } else { $UI.Docked = $true; Pin-Pop; Set-DockMemo; Save-State }; Request-Build }
     $pinG.Height = px 16
     $gearG = New-Glyph $Gly.gear 'Settings (same as right-click on the tray icon)' $T.Mu $null { $UI.MenuFromPanel = $true; $menu.Show($this, (New-Object System.Drawing.Point 0, $this.Height)) }
     $gearG.Height = px 16; $grip.Width = $grip.Width - (px 20)
@@ -2656,7 +3255,11 @@ function Show-Pop([string]$why = 'hover') {
     $scr = [System.Windows.Forms.Screen]::FromPoint($cur)
     $sb = $scr.Bounds
     $w = $pop.Width; $h = $pop.Height; $gap = px 8
-    if ($UI.Docked -and $UI.DockPos) { $pop.Location = $UI.DockPos }
+    if ($UI.Docked -and $UI.DockPos) {               # pinned: same left, same bottom edge; old state.json: top-left as before
+        $dy = $UI.DockPos.Y
+        if ($null -ne $QS.DockB) { $dwa = [System.Windows.Forms.Screen]::FromPoint($UI.DockPos).WorkingArea; $dy = [Math]::Max($dwa.Top, [Math]::Min([int]$QS.DockB - $h, $dwa.Bottom - $h)) }
+        $pop.Location = New-Object System.Drawing.Point $UI.DockPos.X, $dy
+    }
     elseif (-not $UI.Docked -or -not $UI.Shown) {
         # the taskbar itself (WorkingArea is unreliable with auto-hide / some DPI setups)
         $tb = $null; try { $rr = New-Object ClaudeTray.Native+RECT; $hTb = [ClaudeTray.Native]::FindWindow('Shell_TrayWnd', $null); if ($hTb -ne [IntPtr]::Zero -and [ClaudeTray.Native]::GetWindowRect($hTb, [ref]$rr)) { $tb = New-Object System.Drawing.Rectangle $rr.L, $rr.T, ($rr.R - $rr.L), ($rr.B - $rr.T) } } catch { }
@@ -2817,6 +3420,17 @@ function Finish-Download($key, [string]$srcFile) {        # file is in our temp 
     } catch { $dl.St = 'failed'; Log "dl[$key]: $($_.Exception.Message)" 'WARN' }
     Push-WebState
 }
+function Poll-ModelMenu {                             # the model menu read / pick from a chat's tab -> the panel's menu, or a balloon
+    $mw = $UI.MMWait; if (-not $mw) { return }
+    $wr = $Web.Results[$mw.Key]
+    if (-not $wr) { if (((Get-Date) - $mw.At).TotalSeconds -gt 20) { $UI.MMWait = $null; Log "model[$($mw.Id)]: no answer from the tab" 'WARN' }; return }
+    $Web.Results.Remove($mw.Key); $UI.MMWait = $null
+    $o = $null; try { $o = ([string]$wr.Res -replace '^model:', '') | ConvertFrom-Json } catch { }
+    Log ("model[{0}] {1}: {2}" -f $mw.Id, $mw.Mode, ([string]$wr.Res).Substring(0, [Math]::Min(1200, ([string]$wr.Res).Length))) 'DEBUG'     # menu labels (UI text): to fix the selectors when claude.ai changes
+    if ($mw.Mode -eq 'read') { $UI.ModelMenu = @{ id = [string]$mw.Id; k = [guid]::NewGuid().ToString('N'); models = @($(if ($o) { $o.models })); efforts = @($(if ($o) { $o.efforts })); ok = [bool]($o -and @($o.models).Count) }; if (-not ($o -and @($o.models).Count)) { try { $tray.ShowBalloonTip(4000, 'Model menu not found', 'Change it in the chat itself (Open in Claude).', [System.Windows.Forms.ToolTipIcon]::Warning) } catch { } } }
+    elseif (-not ($o -and $o.ok)) { try { $tray.ShowBalloonTip(4000, 'Model not changed', 'Change it in the chat itself (Open in Claude).', [System.Windows.Forms.ToolTipIcon]::Warning) } catch { } }
+    Push-WebState $true
+}
 function Poll-Downloads {                             # called by the quest timer: command results + files appearing in the temp folders
     foreach ($key in @($UI.Dl.Keys)) {
         $dl = $UI.Dl[$key]; if ($dl.St -ne 'working') { continue }
@@ -2870,11 +3484,46 @@ function Get-BridgeLine($q) {                            # '[tray] 1 ✓ exit 0 
         $p0 = "$($bs.n) $mk"
         if ($null -ne $rr.exit -and [string]$rr.exit -ne '') { $p0 += " exit $($rr.exit)" }
         if ($rr.answer) { $p0 += ' "' + ([string]$rr.answer -replace '\s+', ' ').Trim() + '"' }
-        if ($rr.out -and ($rr.status -eq 'failed' -or ($rr.exit -and [string]$rr.exit -ne '0'))) { $ot = (([string]$rr.out -split "`n") | Where-Object { $_.Trim() } | Select-Object -Last 2) -join ' / '; if ($ot.Length -gt 160) { $ot = $ot.Substring($ot.Length - 160) }; $p0 += ": $ot" }
+        if ($rr.out) {     # failed: last 2 lines; done: the last line (Claude sees the result without a copy / paste)
+            $bad = $rr.status -eq 'failed' -or ($rr.exit -and [string]$rr.exit -ne '0'); $ot = (([string]$rr.out -split "`n") | Where-Object { $_.Trim() } | Select-Object -Last $(if ($bad) { 2 } else { 1 })) -join ' / '
+            $cap = $(if ($bad) { 160 } else { 120 }); if ($ot.Length -gt $cap) { $ot = $ot.Substring($ot.Length - $cap) }; if ($ot) { $p0 += ": $($ot.Trim())" }
+        }
         $p0
     }
     if (-not @($parts).Count) { return '' }
     return "`n`n[tray] " + (@($parts) -join ' | ') + $(if ($Cfg.terse) { ' | style terse' } else { ' | style normal' })
+}
+$script:DeskLocalCache = $null; $script:DeskLocalAt = [datetime]::MinValue
+function Get-DesktopLocal {   # (off unless Settings > Claude Desktop local chats) Claude Desktop Local/Cowork sessions, read-only. Roots: MSIX (%LOCALAPPDATA%\Claude-Data\*), classic (%APPDATA%\Claude), or the running Desktop's --user-data-dir. Layout <root>\local-agent-mode-sessions\<account>\<org>\local_*.json; only the signed-in org ($UI.Org) when its folder exists. Regex-extracts whitelisted top-level fields only (never deserializes email/system prompt/telemetry headers). pn = Local project name from the 'instructions for this project ("<name>")' phrase. Returns a plain array: callers wrap with @().
+  if (-not $Caps.Local) { return @() }
+  if ($null -ne $script:DeskLocalCache -and ((Get-Date) - $script:DeskLocalAt).TotalSeconds -lt 60) { return $script:DeskLocalCache }
+  if (-not $script:DeskLocalRoots) {
+    $rs = New-Object System.Collections.ArrayList
+    foreach ($d in @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Claude-Data') -Directory -ErrorAction SilentlyContinue)) { [void]$rs.Add($d.FullName) }
+    [void]$rs.Add((Join-Path $env:APPDATA 'Claude'))
+    try { foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='claude.exe'" -ErrorAction Stop)) { if ([string]$p.CommandLine -match '--user-data-dir=(?:"([^"]+)"|(\S+))') { [void]$rs.Add($(if ($Matches[1]) { $Matches[1] } else { $Matches[2] })) } } } catch { }
+    $script:DeskLocalRoots = @($rs | ForEach-Object { Join-Path ([string]$_).TrimEnd('\') 'local-agent-mode-sessions' } | Where-Object { Test-Path $_ } | Sort-Object -Unique)
+  }
+  $org = ''; try { $org = [string]$UI.Org } catch { }
+  $out = New-Object System.Collections.ArrayList; $seen = @{}
+  $get = { param($kx) $m = [regex]::Match($tx, '"' + $kx + '"\s*:\s*"((?:[^"\\]|\\.)*)"'); if ($m.Success) { try { [string](('"' + $m.Groups[1].Value + '"') | ConvertFrom-Json) } catch { $m.Groups[1].Value } } else { '' } }
+  foreach ($rt in @($script:DeskLocalRoots)) {
+    $dirs = @(Get-Item (Join-Path $rt '*\*') -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer })
+    if ($org) { $mine = @($dirs | Where-Object { $_.Name -eq $org }); if ($mine.Count) { $dirs = $mine } }
+    foreach ($dd in $dirs) { foreach ($f in @(Get-ChildItem (Join-Path $dd.FullName 'local_*.json') -File -ErrorAction SilentlyContinue)) {
+      try { $tx = [IO.File]::ReadAllText($f.FullName)
+        if ($tx -match '"isArchived"\s*:\s*true') { continue }
+        $sid = & $get 'sessionId'; if (-not $sid -or $seen.ContainsKey($sid)) { continue }; $seen[$sid] = 1
+        if ($null -eq $script:DeskLocalDir) { $script:DeskLocalDir = @{} }; $script:DeskLocalDir[$sid] = $dd.FullName; if ($null -eq $script:DeskLocalCli) { $script:DeskLocalCli = @{} }; $script:DeskLocalCli[$sid] = (& $get 'cliSessionId')     # org folder, for the session transcript
+        $ms = [regex]::Match($tx, '"lastActivityAt"\s*:\s*(\d+)'); $at = if ($ms.Success) { [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$ms.Groups[1].Value).UtcDateTime.ToString('o') } else { '' }
+        $mf = [regex]::Match($tx, '"userSelectedFolders"\s*:\s*\[\s*"((?:[^"\\]|\\.)*)"'); $fd = if ($mf.Success) { Split-Path ($mf.Groups[1].Value -replace '\\\\', '\') -Leaf } else { '' }
+        $mp = [regex]::Match($tx, 'instructions for this project \(\\"(.{1,120}?)\\"\)'); $pn = if ($mp.Success) { $mp.Groups[1].Value } else { '' }
+        [void]$out.Add([ordered]@{ id = $sid; name = (& $get 'title'); at = $at; sp = (& $get 'spaceId'); f = [string]$fd; pn = [string]$pn })
+      } catch { }
+    } }
+  }
+  $script:DeskLocalCache = @($out | Sort-Object { $_.at } -Descending | Select-Object -First 500); $script:DeskLocalAt = Get-Date
+  return $script:DeskLocalCache
 }
 function Poll-NewChat {                               # results of catalog / newchat / rename commands
     if ($UI.CatKey -and $Web.Results[$UI.CatKey]) {
@@ -2935,6 +3584,7 @@ function Get-WebQuest($wid) { return @($QS.List | Where-Object { [string]$_.id -
 function Get-WebUiChat($q) {
     $id = [string]$q.id; $wc = Get-WebChat $q; $raw = $Web.Chats[$id]
     $msgs = if ($raw -and $raw.Msgs) { @($raw.Msgs) } else { @() }
+    $lsx = if (-not $raw -and $id.StartsWith('local/')) { Get-LocalState $q } else { $null }; if ($lsx) { $msgs = @($lsx.Msgs) }     # Desktop local chat messages from its transcript
     $pend = $UI.Sending[$id]
     if ($pend) {                                  # "sending..." until the chat shows the message (or 20 s)
         $lastU = @($msgs | Where-Object { $_.r -eq 'u' })[-1]
@@ -2944,13 +3594,14 @@ function Get-WebUiChat($q) {
     $pv = if ($wc -and $wc.Reply) { [string]$wc.Reply } elseif ($q.answer) { [string]$q.answer } else { [string]$q.summary }
     $pv = [string](@($pv -split "`n" | Where-Object { $_.Trim() -match '[\p{L}\p{N}]' -and $_.Trim() -notmatch $StatusRx }) | Select-Object -Last 1); $pv = $pv -replace '[\p{Co}\p{Cn}\u200B-\u200F\uFEFF]', ''; if ($pv.Length -gt 160) { $pv = $pv.Substring(0, 160) }
     $wst = switch ([string]$q.St) { 'act' { 'act' } 'done' { 'done' } default { 'sent' } }
+    if ($wst -eq 'sent' -and $lsx -and ($lsx.St -in 'done', 'idle' -or ($lsx.St -eq 'working' -and (Test-LocalIdleSeen $q $lsx))) -and $q.LastSent -and $lsx.Mt -gt $q.LastSent.ToUniversalTime()) { $wst = 'done' }
     if ($wst -eq 'sent' -and $raw -and -not $raw.Working -and $raw.EndAt -and $q.LastSent -and $raw.EndAt -gt $q.LastSent) { $wst = 'done' }     # Claude answered without new steps
     $sbr = if (@($q.steps).Count) { Get-StepsBefore $q $msgs $raw } else { @{ Sb = -1; Ans = $false } }; $sb = [int]$sbr.Sb
     if ($wst -eq 'act' -and $sbr.Ans) { $wst = 'done' }; $UI.Answered[$id] = [bool]$sbr.Ans                       # you already answered (maybe in the app): the steps are history
-    $ch = [ordered]@{ id = $id; title = [string]$q.title; st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
+    $ch = [ordered]@{ id = $id; trayCmd = $(if ($id.StartsWith('local/')) { $(if ($Cfg.localTrayCommand) { [string]$Cfg.localTrayCommand } else { '/tray' }) } else { '/tray' }); title = $(if ($QS.Titles[$id]) { [string]$QS.Titles[$id] } elseif ($id.StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }); st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
                       age = (Format-Age $q.Upd); preview = $pv.Trim(); web = [bool]$wc; sending = $(if ($pend) { [string]$pend.Text } else { $null })
                       unread = (Test-Unread $q); readKey = $(if ($QS.Read[$id]) { [string]$QS.Read[$id].K } else { $null })
-                      act = $(if ($wc -and $wc.Working) { [string]$wc.Act } else { '' }); prompts = @($(if ($wc) { $wc.Prompts } else { @() })); q = $(if ($wc -and $wc.Q) { $wc.Q } else { $null }); model = $(if ($wc) { [string]$wc.Model } else { '' }); retry = [bool]($wc -and $wc.Retry); pin = [bool]$QS.Pins.Contains($id); bridge = [bool]$q.bridge; skill = (Test-TraySkill $q $msgs); stepsBefore = $sb
+                      act = $(if ($wc -and $wc.Working) { [string]$wc.Act } else { '' }); prompts = @($(if ($wc) { $wc.Prompts } else { @() })); q = $(if ($wc -and $wc.Q) { $wc.Q } elseif ($lq = Get-LocalQ $q) { $lq } else { $null }); askRes = $(if ($script:AskRes -and $script:AskRes[$id] -and ((Get-Date) - $script:AskRes[$id].At).TotalSeconds -lt 12) { @{ l = [string]$script:AskRes[$id].l; ok = [bool]$script:AskRes[$id].ok; k = [string]$script:AskRes[$id].k } } else { $null }); model = $(if ($wc) { [string]$wc.Model } elseif ($lsx) { [string]$lsx.Model } else { '' }); effort = $(if ($lsx) { [string]$lsx.Effort } else { '' }); retry = [bool]($wc -and $wc.Retry); pin = [bool]$QS.Pins.Contains($id); bridge = [bool]$q.bridge; skill = (Test-TraySkill $q $msgs); stepsBefore = $sb
                       ts = [long](([DateTimeOffset]$q.Upd).ToUnixTimeMilliseconds()); kind = $(if ($id -like 'code/*') { 'code' } else { 'chat' }); proj = $(if ($id -like 'code/*') { 'Claude Code' } elseif ($QS.Proj.ContainsKey($id)) { [string]$QS.Proj[$id] } else { $null }) }
     if ($UI.Drafts.ContainsKey($id)) { $ov = if ($UI.DraftRestore.ContainsKey($id)) { [int]$UI.DraftRestore[$id].V } else { 0 }; $UI.DraftRestore[$id] = @{ T = [string]$UI.Drafts[$id]; V = $ov + 1 }; $UI.Drafts.Remove($id) }
     if ($UI.DraftRestore.ContainsKey($id)) { $ch.draft = $UI.DraftRestore[$id].T; $ch.draftV = $UI.DraftRestore[$id].V }
@@ -3016,8 +3667,8 @@ function Get-StepsBefore($q, $msgs, $raw) {          # where this round's steps 
 }
 function Test-TraySkill($q, $msgs) {                 # /tray is on in this chat: Claude wrote a quest (not our placeholder) or a message started with /tray
     if ($q.bridge -or -not ($q.tracked -or [string]$q.summary -in 'Tracked from the tray', 'New chat - waiting for Claude')) { return $true }
-    foreach ($sx in @($q.Res.sent)) { if (([string]$sx.text).TrimStart().StartsWith('/tray')) { return $true } }
-    foreach ($mx in @($msgs)) { if ($mx.r -eq 'u' -and ([string]$mx.t).TrimStart().StartsWith('/tray')) { return $true } }
+    foreach ($sx in @($q.Res.sent)) { if ([string]$sx.text -match '^\s*/(?:[\w-]+:)?tray\b') { return $true } }     # also '/<plugin>:tray' (Claude Desktop names skills by plugin)
+    foreach ($mx in @($msgs)) { if ($mx.r -eq 'u' -and [string]$mx.t -match '^\s*/(?:[\w-]+:)?tray\b') { return $true } }
     return $false
 }
 function Get-WebHint {                              # why conversations can't show (shown in an empty conversation)
@@ -3043,10 +3694,10 @@ function Push-WebState([bool]$force = $false) {
         $UI.WebMsgIdx = @()
         $state = [ordered]@{ type = 'state'; theme = $thm; nc = [bool]$UI.WebNc; docked = [bool]$UI.Docked; maxH = [int]($wa.Height * 0.62 / ($k * $UI.Zoom)); shown = [bool]($UI.Shown -or $UI.Docked); expanded = @($UI.WebOpen); big = @($UI.WebBig)
                              mainW = (Get-PanelW); sides = $(Get-WebSidesState $wa)
-                             err = $werr; usage = $us; catalog = $UI.Catalog; newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)
-                             hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd) } })
+                             err = $werr; usage = $us; catalog = $UI.Catalog; desklocal = @(try { Get-DesktopLocal } catch { }); deskOnly = @($QS.DeskOnly.Keys); seen = $(try { $sm = @{}; foreach ($sq in @($QS.List)) { $sl = Get-LastActivity $sq; $sr = $(if ($QS.Read[[string]$sq.id]) { $QS.Read[[string]$sq.id].At } else { $null }); $sv = $(if ($sr -is [datetime]) { $sr } elseif ($sq.LastSent -is [datetime]) { $sq.LastSent } else { $sq.Upd }); if ($sv) { $sm[[string]$sq.id] = ([datetime]$sv).ToUniversalTime().ToString('o') } }; $sm } catch { @{} }); newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)     # seen = when you last saw each tracked chat (Browse dot)
+                             hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible -and -not ([string]$_.id).StartsWith('local/') -or (-not $_.Visible -and $Caps.Local) } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd); at = ([datetime]$qh.Upd).ToUniversalTime().ToString('o') } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             settings = [ordered]@{ theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             modelMenu = $UI.ModelMenu; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; local = [bool]$Caps.Local; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ local = [bool]$Cfg.localChats; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -3055,16 +3706,19 @@ function Push-WebState([bool]$force = $false) {
         }
     } catch { Log ("webui push: {0} @ line {1}" -f $_.Exception.Message, $_.InvocationInfo.ScriptLineNumber) 'ERR' }
 }
-function Fit-WebPop {                                # page height (CSS px) -> panel height; attached: grow upwards, parked: downwards, never off-screen
+function Fit-WebPop {                                # page height (CSS px) -> panel height; bottom edge fixed (attached or pinned), only the top moves, never off-screen
     if (-not $UI.WebH) { return }
     $wa = [System.Windows.Forms.Screen]::FromControl($pop).WorkingArea
     if ($UI.Rsz) { return }                                     # you're resizing it
     $nh = if ([int]$Cfg.panelHeight -gt 0 -and @($UI.WebOpen).Count) { [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px 60), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }
     if ($nh -eq $pop.Height -and $pop.Bottom -le $wa.Bottom -and $pop.Top -ge $wa.Top) { return }
-    $top = if ($pop.Visible -and -not $UI.Docked) { $pop.Bottom - $nh } else { $pop.Top }
+    if ($UI.Docked -and $null -eq $QS.DockB) { $QS.DockB = $pop.Bottom }      # old state.json had no bottom
+    $bot = if ($UI.Docked) { [int]$QS.DockB } else { $pop.Bottom }           # pinned: the remembered bottom, so a clamp below never drifts it
+    $top = $bot - $nh
     if ($top + $nh -gt $wa.Bottom) { $top = $wa.Bottom - $nh }
     if ($top -lt $wa.Top) { $top = $wa.Top }
     if ($pop.Visible) { $pop.SetBounds($pop.Left, $top, $pop.Width, $nh) } else { $pop.Height = $nh; $pop.Top = $top }
+    if ($UI.Docked) { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top) }      # in memory; DockB kept as the anchor
 }
 # reading columns: separate small windows next to the panel (the panel never resizes -> no jump)
 function New-SideWin([string]$X) {
@@ -3157,7 +3811,7 @@ function Set-WebZoom([int]$d) {                       # Ctrl+wheel over the pane
 function Get-PanelW { if ($Cfg.panelWidth) { return [int]$Cfg.panelWidth } else { return 340 } }
 function Set-DockHere {
     if (-not $UI.Docked) { $UI.Docked = $true; Pin-Pop }
-    $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State
+    Set-DockMemo; Save-State
     Log ("panel dragged to {0},{1} (docked)" -f $pop.Left, $pop.Top) 'DEBUG'; Push-WebState
 }
 function On-WebMsg($m) {
@@ -3165,6 +3819,8 @@ function On-WebMsg($m) {
     if ($mt -notin 'focus', 'size', 'drag', 'log', 'copy', 'rsz') { Log ("webui: {0}{1}{2}" -f $mt, $(if ($m.id) { " $($m.id)" } else { '' }), $(if ($null -ne $m.n) { "#$($m.n)" } else { '' })) 'DEBUG' }
     $q = if ($m.id) { Get-WebQuest $m.id } else { $null }
     $wstep = if ($q -and $null -ne $m.n) { @($q.steps | Where-Object { [int]$_.n -eq [int]$m.n })[0] } else { $null }
+    if ($m.id -and ([string]$m.id).StartsWith('local/') -and $mt -in 'qpick', 'qother', 'qskip') { if ($q) { Invoke-LocalAsk $q $mt $m }; return }     # answer the Desktop question card through UI Automation
+    if ($m.id -and ([string]$m.id).StartsWith('local/') -and $mt -in 'more', 'qpick', 'qnext', 'qother', 'qprev', 'qskip', 'qsub', 'press', 'reload', 'retry', 'dl') { Log "webui: $mt ignored for a Desktop local chat (no claude.ai tab)" 'DEBUG'; return }     # would sit in Web.Cmds forever (never consumed) and keep the browser loop busy
     switch ($mt) {
         'ready' {
             $first = -not $UI.WebReady
@@ -3187,6 +3843,10 @@ function On-WebMsg($m) {
                 'terse' { Save-CfgKey 'terse' (-not [bool]$Cfg.terse); $miTerse.Checked = [bool]$Cfg.terse; foreach ($qt in @($QS.List)) { Save-Results $qt (Get-Results $qt) } }
                 'debug' { Save-CfgKey 'debugLog' (-not [bool]$Cfg.debugLog); Log ("debug logs {0}" -f $(if ($Cfg.debugLog) { 'ON' } else { 'off' })) 'WARN'; if ($Cfg.debugLog) { Write-DebugSnapshot 'debug on' } }
                 'start' { Save-CfgKey 'startWith' ([string]$m.v); New-BootLnk; foreach ($o in $miBoot.DropDownItems) { $o.Checked = ($o.Tag -eq [string]$m.v) } }
+                'local' { Save-CfgKey 'localChats' (-not [bool]$Cfg.localChats); $Caps.Local = [bool]$Cfg.localChats; $Caps.Park = $Caps.Local; $Caps.Ghost = $Caps.Local; if (-not $Caps.Local) { try { if ($script:Park) { Undo-DesktopPark $false } } catch { } }; $script:DeskLocalCache = $null; Log ("Menu: Claude Desktop local chats {0}" -f $Caps.Local); Refresh-Quests $true }
+                'park' { Save-CfgKey 'parkDesktop' (-not [bool]$Cfg.parkDesktop); if (-not $Cfg.parkDesktop) { Undo-DesktopPark $false }; Log ("Menu: park Claude Desktop off-screen when minimized {0}" -f $(if ($Cfg.parkDesktop) { 'ON' } else { 'off' })) }
+                'ghost' { Save-CfgKey 'ghostDesktop' (-not [bool]$Cfg.ghostDesktop); Log ("Menu: hide Claude Desktop while the tray works {0}" -f $(if ($Cfg.ghostDesktop) { 'ON' } else { 'off' })) }
+                'hideafter' { Save-CfgKey 'hideAfterMin' ([double]$m.v); Log ("Menu: hide idle chats after {0} min" -f $m.v); Refresh-Quests $true }
                 'size' { Save-CfgKey 'panelWidth' $null; Save-CfgKey 'panelHeight' $null; $pop.Width = px ((Get-PanelW) * $UI.Zoom); Fit-WebPop }
                 'refresh' { Invoke-Poll }
                 'weblogin' { Start-Process $PsExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -WebLogin" -WorkingDirectory $Root }
@@ -3203,14 +3863,20 @@ function On-WebMsg($m) {
         'col' { if ($m.open) { Show-SideWin ([string]$m.x) $m } else { Hide-SideWin ([string]$m.x) } }
         'zoom' { Set-WebZoom ([int]$m.d) }
         'menu' { $UI.MenuFromPanel = $true; $menu.Show([System.Windows.Forms.Cursor]::Position) }
-        'pin' { if ($UI.Docked) { $UI.Docked = $false; Save-State } else { $UI.Docked = $true; Pin-Pop; $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State } }
+        'pin' { if ($UI.Docked) { $UI.Docked = $false; Save-State } else { $UI.Docked = $true; Pin-Pop; Set-DockMemo; Save-State } }
         'copy' { if ($m.text) { Set-Clipboard -Value ([string]$m.text) } }
         'log' { Log ("webui page: {0}" -f $m.text) 'WARN' }
-        'expand' { $wasOpen = @($UI.WebOpen).Count; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in $newIds) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0)) { Fit-WebPop } }
+        'expand' { $wasOpen = @($UI.WebOpen).Count; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in @($newIds | Where-Object { -not ([string]$_).StartsWith('local/') })) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0)) { Fit-WebPop } }
         'more' { if ($q) { $Web.MsgN[[string]$q.id] = [int]$(if ($Web.MsgN.ContainsKey([string]$q.id)) { $Web.MsgN[[string]$q.id] } else { 20 }) + 15; [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'more'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("chat[{0}]: load earlier (now {1} messages)" -f $q.id, $Web.MsgN[[string]$q.id]) 'DEBUG' } }
         'open' { if ($q) { Open-Chat $q ([bool]$m.web) } }
         'bell' { if ($q) { $kb = [string]$q.id; $QS.Bells[$kb] = ($QS.Bells.ContainsKey($kb) -and -not $QS.Bells[$kb]); Save-State } }
         'hide' { if ($q) { $QS.Pins.Remove([string]$q.id); $QS.Hidden[[string]$q.id] = [string]$q.updated; Save-State; Refresh-Quests $true; Log "hide $($q.id)" } }
+        'rename' { if ($q) { $nn = (([string]$m.name) -replace '[\r\n\t]+', ' ').Trim(); if ($nn.Length -gt 200) { $nn = $nn.Substring(0, 200) }; $rid = [string]$q.id     # claude.ai chats only (Desktop local chats: greyed out in the menu)
+                if ($nn -and $rid.StartsWith('local/')) { if (Rename-LocalChat $q $nn) { Push-WebState $true } else { try { $tray.ShowBalloonTip(4000, 'Rename it in Claude Desktop', "The tray couldn't rename this chat in Claude Desktop.", [System.Windows.Forms.ToolTipIcon]::Warning) } catch { } } }
+                elseif ($nn -and $rid -match '^chat/([0-9a-f-]{36})$' -and $UI.Org -and $webEnabled) { $QS.Titles[$rid] = $nn; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'rename'; Uuid = $Matches[1]; Name = $nn; Org = $UI.Org; Key = 'rn-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Save-State; Push-WebState $true; Log "rename[$rid]: sent to claude.ai" } } }
+        'modelmenu' { if ($q) { if (([string]$q.id).StartsWith('local/') -or -not $webEnabled) { Open-Chat $q $false } else { $mk1 = 'mm-' + [guid]::NewGuid().ToString('N'); $UI.MMWait = @{ Key = $mk1; Id = [string]$q.id; Mode = 'read'; At = (Get-Date) }; [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'model'; Mode = 'read'; KindM = ''; Name = ''; Key = $mk1; At = (Get-Date) }) } } }     # the chip: read the chat's model menu in its tab
+        'setmodel' { if ($q -and [string]$m.kind -in 'model', 'effort' -and -not ([string]$q.id).StartsWith('local/')) { $mk1 = 'mm-' + [guid]::NewGuid().ToString('N'); $UI.MMWait = @{ Key = $mk1; Id = [string]$q.id; Mode = 'pick'; At = (Get-Date) }; [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'model'; Mode = 'pick'; KindM = [string]$m.kind; Name = [string]$m.name; Key = $mk1; At = (Get-Date) }); Log ("model[{0}]: pick {1} '{2}'" -f $q.id, $m.kind, $m.name) } }
+        'addfolder' { if ($q -and ([string]$q.id).StartsWith('local/')) { Add-LocalFolder $q } }
         'unhide' { $uid = [string]$m.id; if ($QS.Hidden.ContainsKey($uid)) { $QS.Hidden.Remove($uid); Save-State; Refresh-Quests $true; Log "unhide $uid" } }
         'pinc' { if ($q) { $pid0 = [string]$q.id; if ($QS.Pins.Contains($pid0)) { $QS.Pins.Remove($pid0) } else { $QS.Pins[$pid0] = $true }; Save-State; Refresh-Quests $true; Log ("pin {0}: {1}" -f $pid0, $QS.Pins.Contains($pid0)) } }
         'send' {
@@ -3219,6 +3885,7 @@ function On-WebMsg($m) {
                 foreach ($fx in @($m.files)) { try { $paths += Save-Upload $fx } catch { Log "upload: $($_.Exception.Message)" 'WARN' } }
                 if ($paths.Count) { Log ("send[{0}]: {1} attachment(s), {2} KB" -f $q.id, $paths.Count, [int](($paths | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum / 1KB)) }
                 $txt1 = [string]$m.text; if ($m.tray -and -not $txt1.TrimStart().StartsWith('/tray')) { $txt1 = '/tray ' + $txt1 }     # the panel's /tray chip: turns the skill on with this message
+                if (([string]$q.id).StartsWith('local/') -and $txt1 -match '^\s*/(?:[\w-]+:)?tray\b' -and $QuestRoots.Count) { $txt1 += "`n`n[tray-id] $([string]$q.id) root=$($QuestRoots[0])"; Log "send[$($q.id)]: /tray message - added its quest id and folder for the session" }     # a Desktop local session can't learn its quest id / folder otherwise (no bridge mode there)
                 $bl = Get-BridgeLine $q; if ($bl -and $UI.BridgeSent[[string]$q.id] -ne $bl) { $txt1 += $bl; $UI.BridgeSent[[string]$q.id] = $bl; Log ("bridge[{0}]: results appended ({1} chars)" -f $q.id, $bl.Length) }     # whenever the results changed since the last send
                 if (-not (Send-ToChat $q $txt1 'panel' $false $paths)) { if ($m.text) { $UI.Drafts[[string]$q.id] = [string]$m.text }; $UI.BridgeSent.Remove([string]$q.id) }
             }
@@ -3236,7 +3903,7 @@ function On-WebMsg($m) {
         'slash' { if ($q -and $webEnabled -and -not $UI.SlashKey -and -not ($UI.Slash -and ((Get-Date) - $UI.Slash.At).TotalMinutes -lt 10 -and @($UI.Slash.Items).Count)) { $UI.SlashKey = 'sl-' + [guid]::NewGuid().ToString('N'); [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'slash'; Key = $UI.SlashKey; At = (Get-Date) }) } }
         'retry' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'retry'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log "retry[$($q.id)]" } }
         'openurl' { $u0 = [string]$m.url; if ($u0 -match '^https?://[^\s"<>]+$') { Start-Process $u0; Log ("open link {0}" -f ($u0 -replace '\?.*$', '?...')) } else { Log 'open link: refused (not http/https)' 'WARN' } }
-        'track' { $tid = [string]$m.id; if (@($QS.List | Where-Object { [string]$_.id -eq $tid }).Count) { $QS.Hidden.Remove($tid); Save-State; Refresh-Quests $true; Log "track: $tid already known - shown again" } elseif ($tid -match '^chat/[0-9a-f-]{36}$') { try { Write-Placeholder $tid ([string]$m.title) ''; $QS.Read[$tid] = @{ K = ''; At = (Get-Date) }; $UI.WebOpen = @(@($UI.WebOpen) + $tid); Log "track: $tid"; Refresh-Quests $true } catch { Log "track: $($_.Exception.Message)" 'WARN' } } }
+        'track' { $tid = [string]$m.id; if (@($QS.List | Where-Object { [string]$_.id -eq $tid }).Count) { if ($null -eq $script:CoolTouch) { $script:CoolTouch = @{} }; $script:CoolTouch[$tid] = Get-Date; $QS.Hidden.Remove($tid); Save-State; Refresh-Quests $true; Log "track: $tid already known - shown again" } elseif ($tid -match '^chat/[0-9a-f-]{36}$' -or ($Caps.Local -and $tid -match '^local/[A-Za-z0-9_-]{6,80}$')) { try { Write-Placeholder $tid ([string]$m.title) ''; $QS.Read[$tid] = @{ K = ''; At = (Get-Date) }; $UI.WebOpen = @(@($UI.WebOpen) + $tid); Log "track: $tid"; Refresh-Quests $true } catch { Log "track: $($_.Exception.Message)" 'WARN' } } }
         'catproj' { $cp0 = [string]$m.pid; if ($webEnabled -and $UI.Org -and $cp0 -match '^[0-9a-f-]{36}$' -and -not $UI.CatProj.ContainsKey($cp0)) { $UI.CatProj[$cp0] = 'cp-' + [guid]::NewGuid().ToString('N'); [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catproj'; Org = $UI.Org; Pid = $cp0; Key = $UI.CatProj[$cp0]; At = (Get-Date) }) } }
         'layout' { $QS.Layout = $m.layout; $UI.LayoutDirty = Get-Date }
         'catalog' { if (-not $webEnabled) { $UI.Catalog = [ordered]@{ projects = @(); err = 'not available (engine off)' } } elseif (-not $UI.CatKey -and -not ($UI.Catalog -and $UI.Catalog.at -and -not $m.force -and ((Get-Date) - (Parse-Iso $UI.Catalog.at)).TotalMinutes -lt 3)) { $UI.CatKey = 'cat-' + [guid]::NewGuid().ToString('N'); if ($UI.Catalog -and $UI.Catalog.recent) { $UI.Catalog.loading = $true } else { $UI.Catalog = [ordered]@{ loading = $true; projects = @() } }; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catalog'; Key = $UI.CatKey; At = (Get-Date) }) } }
@@ -3288,7 +3955,7 @@ $rszTimer.add_Tick({
         if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) {
             $UI.Rsz = $null; $rszTimer.Stop(); $UI.LeftAt = $null
             $zk = $k * $UI.Zoom; Save-CfgKey 'panelWidth' ([int][Math]::Round($pop.Width / $zk)); if ($rzEdge -match '[tb]') { Save-CfgKey 'panelHeight' ([int][Math]::Round($pop.Height / $zk)) }
-            if ($UI.Docked) { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); Save-State }; Log ("panel resized to {0}x{1} ({2}), docked {3}" -f $pop.Width, $pop.Height, $rzEdge, $UI.Docked) 'DEBUG'; Push-WebState $true; return
+            if ($UI.Docked) { Set-DockMemo; Save-State }; Log ("panel resized to {0}x{1} ({2}), docked {3}" -f $pop.Width, $pop.Height, $rzEdge, $UI.Docked) 'DEBUG'; Push-WebState $true; return
         }
         $pop.SetBounds($l, $t0, $r - $l, $bt - $t0)
     } catch { $UI.Rsz = $null; $rszTimer.Stop() }
@@ -3354,20 +4021,21 @@ $miRestart.add_Click({ Restart-Tray 'menu' })
 $menu.add_Opening({ try { if ($UI.MenuFromPanel) { $UI.MenuFromPanel = $false; Pin-Pop } elseif ($UI.Shown -and -not $UI.Docked) { Hide-Pop 'menu' } } catch { } })
 
 # hover / click
-$tray.add_MouseMove({ try { $UI.Anchor = [System.Windows.Forms.Cursor]::Position; if (-not $UI.Shown -and -not $UI.Pending) { $UI.Pending = $true; $UI.PendSince = Get-Date } } catch { Log "mousemove: $($_.Exception.Message)" 'ERR' } })
+$tray.add_MouseMove({ try { $UI.Anchor = [System.Windows.Forms.Cursor]::Position; if ($UI.Docked -and $UI.ClickHid) { return }; if (-not $UI.Shown -and -not $UI.Pending) { $UI.Pending = $true; $UI.PendSince = Get-Date } } catch { Log "mousemove: $($_.Exception.Message)" 'ERR' } })
 $tray.add_MouseClick({
     param($sender, $e)
     try {
         if ($e.Button -ne [System.Windows.Forms.MouseButtons]::Left) { return }
         # one click = show / hide (pinned or not). A panel the hover just opened stays open (it counts as hidden before).
         $UI.ClickWas = if ($UI.Shown -and ($UI.Pinned -or $UI.Docked)) { 'open' } else { 'closed' }
-        if ($UI.ClickWas -eq 'open') { Hide-Pop 'icon click' $true; return }
+        if ($UI.ClickWas -eq 'open') { Hide-Pop 'icon click' $true; $UI.ClickHid = [bool]$UI.Docked; return }     # a pinned panel hidden by a click stays hidden until the next click (no hover re-show)
+        $UI.ClickHid = $false
         $UI.Anchor = [System.Windows.Forms.Cursor]::Position
         if (((Get-Date) - $UI.LastPollAt).TotalSeconds -gt 20) { $UI.LastPollAt = Get-Date; Update-Usage }
         Refresh-Quests $false; Show-Pop 'click'; Pin-Pop
     } catch { Log "click: $($_.Exception.Message)" 'ERR' }
 })
-$tray.add_MouseDoubleClick({ try { if ($UI.ClickWas -eq 'closed' -and $UI.Shown) { Hide-Pop 'double click' $true } elseif ($UI.ClickWas -eq 'open' -and -not $UI.Shown) { Show-Pop 'double click'; Pin-Pop }; Open-ClaudeApp } catch { Log "double click: $($_.Exception.Message)" 'WARN' } })     # undo the first click's show/hide, then open the app
+$tray.add_MouseDoubleClick({ try { if ($UI.Docked) { return }; if ($UI.ClickWas -eq 'closed' -and $UI.Shown) { Hide-Pop 'double click' $true } elseif ($UI.ClickWas -eq 'open' -and -not $UI.Shown) { Show-Pop 'double click'; Pin-Pop }; Open-ClaudeApp } catch { Log "double click: $($_.Exception.Message)" 'WARN' } })     # undo the first click's show/hide, then open the app
 $tray.add_BalloonTipClicked({ try { Refresh-Quests $false; Show-Pop 'balloon'; Pin-Pop } catch { } })
 
 $uiTimer = New-Object System.Windows.Forms.Timer
@@ -3427,6 +4095,12 @@ $questTimer = New-Object System.Windows.Forms.Timer
 $questTimer.Interval = 700
 $questTimer.add_Tick({
     try {
+        $UI.CoolN = [int]$UI.CoolN + 1
+        if ($script:Park -or ($Cfg.parkDesktop -and $Caps.Park)) { Update-DesktopPark }     # off unless the capability is on
+        if ($script:Ghost -and ((Get-Date) - $script:Ghost.At).TotalSeconds -gt 20) { Log 'ghost: safety net - Claude Desktop made visible again' 'WARN'; Set-DesktopGhost $script:Ghost.H $false }
+        if ($webEnabled -and $Web.Usage -and [int]$Web.Usage.Code -eq 200 -and $Web.Usage.At -ne $UI.UsageSeen) { $UI.UsageSeen = $Web.Usage.At; try { Update-Usage; Update-TrayIcon; Push-WebState } catch { } }     # show a fresh claude.ai usage at once (not at the next 3-min poll)
+        if ($webEnabled -and $UI.CoolN -eq 7 -and -not @(@($Web.Want) | Where-Object { ([string]$_) -match '^(chat|code)/' }).Count -and (-not $Web.Usage -or ((Get-Date) - $Web.Usage.At).TotalSeconds -gt 170) -and -not @($Web.Cmds.ToArray() | Where-Object { $_.Kind -eq 'usage' }).Count) { [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'usage'; Key = 'us-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log 'usage: queued a claude.ai usage read (no chat tab open)' }
+        if ($UI.CoolN -ge 14) { $UI.CoolN = 0; foreach ($cq in @($QS.List)) { if ([bool](Get-QVisible $cq) -ne [bool]$cq.Visible) { Log ("cooldown: {0} -> {1}" -f $cq.id, $(if ($cq.Visible) { 'browse only' } else { 'back in the tray' })); Refresh-Quests $true; break } } }     # , ~10 s
         $changed = Poll-Running
         # live state from the app watcher
         if ([bool]$Probe.Working -ne [bool]$UI.LastWorking -and (Get-PageLabel $Probe.Page) -ne '<other chat>') {
@@ -3461,7 +4135,7 @@ $questTimer.add_Tick({
                 try { $tray.ShowBalloonTip(4000, 'Check the chat', "Couldn't confirm your message arrived in '$($ws0.Q.title)'. Your text is back in the box.", [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }
             }
         }
-        if ($webEnabled -and $UI.WebReady) { Poll-Downloads; Poll-NewChat }
+        if ($webEnabled -and $UI.WebReady) { Poll-Downloads; Poll-NewChat; Poll-ModelMenu }
         if ($webEnabled -and $Web.Usage -and $Web.Usage.At -ne $UI.UsageSeen) { $UI.UsageSeen = $Web.Usage.At; Update-Usage; Test-UsageAlerts; Update-TrayIcon }     # fresh usage from claude.ai: show it now
         if ($Cfg.debugLog -and (-not $UI.SnapAt -or ((Get-Date) - $UI.SnapAt).TotalSeconds -gt 60)) { $UI.SnapAt = Get-Date; Write-DebugSnapshot }
         if ($UI.LayoutDirty -and ((Get-Date) - $UI.LayoutDirty).TotalSeconds -gt 1) { $UI.LayoutDirty = $null; Save-State }     # sections / order / sort from the panel
@@ -3469,11 +4143,11 @@ $questTimer.add_Tick({
         if ($webEnabled -and ($UI.Tick % 40 -eq 0)) { foreach ($rk0 in @($Web.Results.Keys)) { $rv0 = $Web.Results[$rk0]; if ($rv0 -and $rv0.At -and ((Get-Date) - $rv0.At).TotalSeconds -gt 60) { $Web.Results.Remove($rk0) } } }   # press / retry / stop / more results nobody reads
         if ($webEnabled -and $UI.WebReady) { foreach ($oid in @($UI.WebOpen)) { $wc1 = $Web.Chats[$oid]; if ($wc1 -and $wc1.Msgs) { $mn1 = @($wc1.Msgs).Count; if ($UI.MsgCount[$oid] -and $mn1 -gt $UI.MsgCount[$oid] -and -not ($UI.DiagAt[$oid] -and ((Get-Date) - $UI.DiagAt[$oid]).TotalSeconds -lt 60)) { $UI.DiagAt[$oid] = Get-Date; [void]$Web.Cmds.Add(@{ Id = $oid; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) }; $UI.MsgCount[$oid] = $mn1 } } }   # new message in an open chat: log its structure (no text) - file cards, prompts
         if ($webEnabled) {
-            $Web.Want = @($QS.List | Where-Object { $_.Visible } | ForEach-Object { [string]$_.id })
+            $Web.Want = @($QS.List | Where-Object { $_.Visible -and -not ([string]$_.id).StartsWith('local/') } | ForEach-Object { [string]$_.id })     # Desktop local chats have no claude.ai page
             $Web.MsgFor = if ($UI.WebReady) { if ($UI.Shown -or $UI.Docked -or $UI.Pending) { @($UI.WebBig) } else { @() } } elseif ($UI.Shown -or $UI.Docked) { @($UI.Chats.Keys) } else { @() }
             $msig = (@($UI.Chats.Keys | ForEach-Object { $cc1 = $Web.Chats[$_]; if ($cc1 -and $cc1.Msgs) { "$_=$(@($cc1.Msgs).Count)/$(([string]@($cc1.Msgs)[-1].t).Length)" } }) -join ';')
             if ($msig -ne $UI.MsgSig) { $UI.MsgSig = $msig; foreach ($cid in @($UI.Chats.Keys)) { Render-Chat $cid } }
-            while ($Web.Log.Count) { $wl = $Web.Log[0]; $Web.Log.RemoveAt(0); Log "web: $wl" 'DEBUG' }
+            while ($Web.Log.Count) { $wl = $Web.Log[0]; $Web.Log.RemoveAt(0); Log "web: $wl" $(if ([string]$wl -match 'new: usage|usage via|launch|edge|profile|sign') { 'INFO' } else { 'DEBUG' }) }     # usage / browser lines visible without debug
             $wsig = (@($Web.Chats.Keys | ForEach-Object { $cc = $Web.Chats[$_]; "$_=$($cc.Working)/$(if (-not $UI.WebReady) { $cc.Reply.Length })" }) -join ';')     # the web panel reads replies on its own push: streaming text needn't re-read every quest file
             if ($wsig -ne $UI.WebSig) { $UI.WebSig = $wsig; $changed = $true }
             $UI.AnyWorking = [bool](@($Web.Chats.Values | Where-Object { $_.Working }).Count)

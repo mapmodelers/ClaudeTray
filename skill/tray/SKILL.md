@@ -39,6 +39,12 @@ is missing, the first steps set it up (install, then an `"interactive": true` si
 **bridge mode**: put the same quest JSON, minified, in a fenced code block tagged `tray-quest` as the very last
 thing of your reply. The tray reads it from the page, hides it and writes the file itself. Don't mention it.
 
+**Claude Desktop local / Cowork chats** have no claude.ai page, so bridge mode can't reach them: write the file.
+Their id is `local/<sessionId>` (file `local__<sessionId>.json`). A `/tray` message sent from the tray ends with
+`[tray-id] <id> root=<folder>`: use that id, and request access to that folder (once) so you can write the quest
+there. Without that line, ask the user to click **+** on this chat in the tray's BROWSE: the tray then writes a
+placeholder `quests\local__<sessionId>.json` with this chat's title; take the id from that file.
+
 ## End of a turn with steps for the user
 
 Keep the short numbered list in the chat, and overwrite `<root>\quests\<id>.json` (`<id>` = this chat's
@@ -54,7 +60,7 @@ claude.ai path with `/` → `__`: `code__session_…` or `chat__<uuid>`):
   ] }
 ```
 
-Kinds: `cmd`/`ps` (run hidden, output captured) · `exe` · `dir` · `file` · `url` (open) · `observe` (one-line
+Kinds: `cmd`/`ps` (run hidden, output captured; field `cmd`) · `exe` · `dir` · `file` (field `path`) · `url` (field `url`) (open) · `observe` (one-line
 answer; with `"options": ["Yes", "No"]` it shows buttons) · `manual`. Add `"admin": true` for elevation, `"interactive": true` when it prompts. Omit false/empty fields.
 
 End of a turn with **nothing** to run: write nothing (the tray sees you finished).

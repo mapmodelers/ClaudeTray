@@ -262,3 +262,9 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   `askTxt(c)` drive the orange "?" marker, the "Claude asks: ..." row text and auto-open. The "N hidden" line is gone:
   Browse (`#brw`, always last, `LAY.browse` = unfolded) lists `S.hidden` first. `Fit-WebPop` ignores `panelHeight`
   while nothing is open. Resizing no longer calls `Set-DockHere` (it pinned the panel).
+- 0.3.0 merged a field test (38 patches, see docs/FIELD-NOTES-2026-10-21.md for what each one does and what failed).
+  Claude Desktop local chats (`local/<sessionId>`) are behind `localChats` (`$Caps.Local`, Settings): `Get-DesktopLocal`
+  (Browse), `Get-LocalState` (transcript), `Enter-LocalChat` / `Exit-LocalChat` (switch Desktop in the background),
+  `Send-LocalNoFocus`, `Invoke-LocalAsk`; parking / hiding Desktop (`parkDesktop`, `ghostDesktop`) only with it.
+  Model chip on web chats: `modelmenu` / `setmodel` -> web command `model` ($modelJs; the effort sub-menu opens on a
+  CDP mouse move) -> `Poll-ModelMenu` -> `$UI.ModelMenu` -> page `modelMenuShow`.
