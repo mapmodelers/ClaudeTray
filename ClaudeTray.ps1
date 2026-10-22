@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.5'
+$Version = '0.3.6'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1548,7 +1548,7 @@ $webScript = {
         $old = @($cc0.Msgs); if (-not $nw.Count) { return $old }     # page reloading / empty for a moment: keep what we had
         $nk = @($nw | Where-Object { $null -ne $_.k })
         if ($nk.Count -eq $nw.Count) {
-            $byK = $cc0.ByK; $top = [int]$cc0.ByKMax; if (-not $byK) { $byK = @{}; $top = -1 }
+            $byK = $(if ($cc0.ByK) { $cc0.ByK.Clone() } else { $null }); $top = [int]$cc0.ByKMax; if (-not $byK) { $byK = @{}; $top = -1 }     # a copy: the tray's other thread may be reading the one it holds
             foreach ($mm in $nk) { $p0 = $byK[[int]$mm.k]; if ($p0 -and $p0.r -ne $mm.r) { $byK = @{}; $top = -1; $cc0.MorePg = 0; break } }     # rows numbered differently (another page): start over
             foreach ($mm in $nk) { $byK[[int]$mm.k] = $mm; if ([int]$mm.k -gt $top) { $top = [int]$mm.k } }
             foreach ($ok0 in @($byK.Keys | Where-Object { $_ -lt $top - 600 })) { $byK.Remove($ok0) }
@@ -2672,8 +2672,11 @@ function Start-Step($q, $st) {
                     else { Set-Content "$tmp.ps1" ([string]$st.cmd) -Encoding UTF8; $inner = "& '$tmp.ps1' *> '$outF'; exit `$LASTEXITCODE" }
                     $proc = Start-Process $PsExe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$inner`"" -PassThru
                 } else {
-                    if ($kind -eq 'cmd') { Write-CmdFile "$tmp.cmd" ([string]$st.cmd); $proc = Start-Process cmd.exe -ArgumentList "/c `"$tmp.cmd`"" -WindowStyle Hidden -RedirectStandardOutput $outF -RedirectStandardError "$tmp.err.txt" -PassThru }
-                    else { Set-Content "$tmp.ps1" ([string]$st.cmd + "`r`nif (`$LASTEXITCODE) { exit `$LASTEXITCODE }") -Encoding UTF8; $proc = Start-Process $PsExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tmp.ps1`"" -WindowStyle Hidden -RedirectStandardOutput $outF -RedirectStandardError "$tmp.err.txt" -PassThru }
+                    # no window at all (not even a hidden console): a console app can open a terminal window, which takes the foreground and shows the taskbar over a full-screen app
+                    $line = $(if ($kind -eq 'cmd') { Write-CmdFile "$tmp.cmd" ([string]$st.cmd); "`"$tmp.cmd`"" } else { Set-Content "$tmp.ps1" ([string]$st.cmd + "`r`nif (`$LASTEXITCODE) { exit `$LASTEXITCODE }") -Encoding UTF8; "`"$PsExe`" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$tmp.ps1`"" })
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo; $psi.FileName = "$env:SystemRoot\System32\cmd.exe"; $psi.Arguments = "/d /s /c `"$line > `"$outF`" 2> `"$tmp.err.txt`"`""
+                    $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.WorkingDirectory = (Get-Location).ProviderPath
+                    $proc = [System.Diagnostics.Process]::Start($psi)
                 }
                 try { $null = $proc.Handle } catch { }           # PS 5.1: without this ExitCode comes back null
                 $QS.Running[$key] = @{ Proc = $proc; Out = $outF; Err = "$tmp.err.txt"; Tmp = $tmp; Q = $q; N = [int]$st.n; Started = (Get-Date) }

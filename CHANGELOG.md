@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.6
+
+- A pinned panel keeps the app in front for every button too: running a step, a choice, a menu. Steps run with no
+  window at all (a console app could open a terminal window, which took the foreground and showed the taskbar). The
+  panel takes the focus only to type in a field or select text in the conversation.
+- Fix: an error ("collection was modified") could happen when earlier messages came in.
+
 ## 0.3.5
 
 - Fix: a long chat could show only its newest messages, or jump back to very old ones after you scrolled up.
