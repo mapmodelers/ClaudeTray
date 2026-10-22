@@ -2,6 +2,26 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.5
+
+- Fix: a long chat could show only its newest messages, or jump back to very old ones after you scrolled up.
+  Messages the tray has seen are kept by claude.ai's row number, scrolling up reads the page just above and puts the
+  hidden page back at the bottom (where the newest reply, its status and its steps are read).
+- Fix: scrolling up did nothing on some chats ("no scroller"): the scrolling part of the page is found more widely.
+- BROWSE: the chat list is read as soon as the tray's browser is ready, not only when BROWSE opens. If claude.ai
+  doesn't answer (right after a reboot, say), it tries again after 15 s, 30 s, 1 min… up to every 5 min, and keeps
+  the last list it had. Reading it may take up to 45 s, a project up to 30 s.
+- When claude.ai can't be reached for a minute, the panel greys out with "claude.ai not reachable – reconnecting…"
+  and a Reconnect button. After 90 s it reconnects by itself (at most every 5 min).
+- Double-clicking the tray icon opens the Claude app also when the panel is pinned, and starts it when it isn't
+  running (Microsoft Store install included).
+- One chat open at a time: clicking a chat's dot opens it and closes the others. Right-click the dot to open it next
+  to the ones already open. New steps open a chat only when none is open.
+- One line per chat is now the only layout: the Compact mode setting is gone.
+- A pinned panel no longer takes the focus when you click the grip or a button, so the app in front stays in
+  front and a hidden taskbar stays hidden (a full-screen video, say). It takes the focus only when you click a text
+  field or the conversation, to type or select.
+
 ## 0.3.4
 
 - The panel keeps the height you gave it when you close a chat. Only collapse all (grip or toolbar) brings it back

@@ -21,7 +21,7 @@ Preview release (0.3.x). It works, but things still change between versions. Bug
 
 <p>
   <img src="docs/question.png" width="340" alt="A question from Claude answered in the panel">
-  <img src="docs/compact.png" width="340" alt="Compact mode in the light theme">
+  <img src="docs/compact.png" width="340" alt="The panel in the light theme">
 </p>
 
 ## Install
@@ -58,7 +58,7 @@ Claude plan. No installer and no admin rights.
 | Slash commands | Type `/` in a reply box |
 | Attach files | Paste, drop, or use the clip button |
 | Pin, move, hide a chat, open it on claude.ai | Right-click its title |
-| One line per chat | Settings > Compact mode |
+| Open a chat | Click its dot (one at a time). Right-click the dot to keep the others open. |
 | Update | Settings > Check for updates (a git clone updates with `git`, a zip install from the release) |
 
 ## Commands
