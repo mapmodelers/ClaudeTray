@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.7
+
+- Chats renamed on claude.ai get their new name in the tray: from the open page's title, and from the chat list
+  (read again every 10 minutes while the panel is open, and on BROWSE's refresh button). A chat used to keep the
+  name it had when you added it.
+
 ## 0.3.6
 
 - A pinned panel keeps the app in front for every button too: running a step, a choice, a menu. Steps run with no

@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.6'
+$Version = '0.3.7'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -884,6 +884,12 @@ $UpdScript = {
         $r.Msg = if ($m0 -match '404') { 'no public release list (private repository?)' } elseif ($m0 -match 'resolve|connect|timed out') { 'GitHub not reachable' } else { 'failed' }
         return $r
     }
+}
+function Sync-ChatTitles($rows) {                     # names from claude.ai (chat list, a project's chats): a chat renamed there gets its new name here too
+    $chg = $false; $ids = @{}; foreach ($q0 in @($QS.List)) { $ids[[string]$q0.id] = $true }
+    foreach ($rw in @($rows)) { $cid = "chat/$($rw.id)"; $nm = ([string]$rw.name).Trim(); if ($nm -and $ids[$cid] -and [string]$QS.Titles[$cid] -cne $nm) { $QS.Titles[$cid] = $nm; $chg = $true } }
+    if ($chg) { Save-State; Log 'titles: renamed on claude.ai, updated' 'DEBUG' }
+    return $chg
 }
 function Test-Offline {                               # the browser engine hasn't read claude.ai for a minute (or never, 90 s after start), or the chat list failed twice
     if (-not $webEnabled -or -not $UI.WebReady) { return $false }
@@ -1920,6 +1926,7 @@ $webScript = {
                 }
                 $c = $Web.Chats[$id]; if (-not $c) { $c = [hashtable]::Synchronized(@{ Working = $false; Reply = ''; ReplyAt = [datetime]::MinValue; At = [datetime]::MinValue; Ok = $false; Users = 0; EndAt = [datetime]::MinValue; StartAt = [datetime]::MinValue; FirstAt = (Get-Date) }); $Web.Chats[$id] = $c }
                 $work = [bool]($o.stop -or $o.streaming)
+                $c.DocT = ([string]$o.t -replace '\s+[-\u2013|]\s+Claude( Code)?\s*$', '').Trim()     # the page's title = the chat's current name on claude.ai
                 if ($c.ReloadAt -and ((Get-Date) - $c.ReloadAt).TotalSeconds -lt 15 -and -not $o.ok) { $c.At = Get-Date; continue }     # reloaded page still coming back: keep the last state
                 $rsig = "$($o.replies)|$($o.rl)|$($o.users)|$($o.act)"
                 if ($rsig -ne [string]$c.RSig) { $c.RSig = $rsig; $c.ChangeAt = Get-Date }
@@ -3683,6 +3690,7 @@ function Poll-NewChat {                               # results of catalog / new
         $r0 = [string]$Web.Results[$UI.CatKey].Res; $Web.Results.Remove($UI.CatKey); $UI.CatKey = $null
         if ($r0 -like 'catalog:*') { try { $cj0 = $r0.Substring(8) | ConvertFrom-Json; $UI.Catalog = [ordered]@{ projects = @($cj0.projects | ForEach-Object { [ordered]@{ id = [string]$_.id; name = [string]$_.name } }); recent = @($cj0.recent | ForEach-Object { [ordered]@{ id = [string]$_.id; name = [string]$_.name; p = [string]$_.p; at = [string]$_.at } }); err = [string]$cj0.perr; byProj = [ordered]@{}; at = (Get-Iso (Get-Date)) }
                 $pn0 = @{}; foreach ($pj in @($cj0.projects)) { $pn0[[string]$pj.id] = [string]$pj.name }
+                if (Sync-ChatTitles $cj0.recent) { $UI.TitlesDirty = $true }
                 foreach ($rc in @($cj0.recent)) { if ($rc.p -and $pn0.ContainsKey([string]$rc.p)) { $QS.Proj["chat/$($rc.id)"] = $pn0[[string]$rc.p] } elseif (-not $rc.p) { $QS.Proj["chat/$($rc.id)"] = '' } }; Save-State; $UI.Org = [string]$cj0.org; Log ("new chat: {0} project(s), {1} recent chat(s){2}" -f @($cj0.projects).Count, @($cj0.recent).Count, $(if ($cj0.perr) { ' - projects: ' + $cj0.perr } else { '' })) } catch { $UI.Catalog = [ordered]@{ projects = @(); err = 'could not read the projects' } } }
         else {
             Log "new chat catalog: $r0" 'WARN'
@@ -3703,6 +3711,7 @@ function Poll-NewChat {                               # results of catalog / new
         $rk1 = $UI.CatProj[$pk0]; $rr = $Web.Results[$rk1]; if (-not $rr) { continue }
         $Web.Results.Remove($rk1); $UI.CatProj.Remove($pk0)
         try { $pj1 = ([string]$rr.Res).Substring(8) | ConvertFrom-Json; if ($UI.Catalog -and $UI.Catalog.byProj -ne $null) { $UI.Catalog.byProj[[string]$pk0] = [ordered]@{ rows = @($pj1.rows | ForEach-Object { [ordered]@{ id = [string]$_.id; name = [string]$_.name; at = [string]$_.at } }); err = [string]$pj1.err } }
+              if (Sync-ChatTitles $pj1.rows) { $UI.TitlesDirty = $true }
               $pnm = @($UI.Catalog.projects | Where-Object { $_.id -eq $pk0 })[0]; if ($pnm) { foreach ($rw in @($pj1.rows)) { $QS.Proj["chat/$($rw.id)"] = [string]$pnm.name } }; Save-State
               Log ("browse: project listed, {0} chat(s){1}" -f @($pj1.rows).Count, $(if ($pj1.err) { ' - ' + $pj1.err } else { '' })) } catch { Log "browse: $($_.Exception.Message)" 'WARN' }
         Push-WebState
@@ -3758,6 +3767,7 @@ function Get-WebUiChat($q) {
     if ($wst -eq 'sent' -and $raw -and -not $raw.Working -and $raw.EndAt -and $q.LastSent -and $raw.EndAt -gt $q.LastSent) { $wst = 'done' }     # Claude answered without new steps
     $sbr = if (@($q.steps).Count) { Get-StepsBefore $q $msgs $raw } else { @{ Sb = -1; Ans = $false } }; $sb = [int]$sbr.Sb
     if ($wst -eq 'act' -and $sbr.Ans) { $wst = 'done' }; $UI.Answered[$id] = [bool]$sbr.Ans                       # you already answered (maybe in the app): the steps are history
+    if ($wc -and $wc.DocT -and $wc.DocT -notmatch '^(claude|claude code|new chat|nouvelle (conversation|discussion)|untitled|sans titre)$' -and $wc.DocT.Length -le 200 -and [string]$QS.Titles[$id] -cne [string]$wc.DocT -and -not $id.StartsWith('local/')) { $QS.Titles[$id] = [string]$wc.DocT; $UI.TitlesDirty = $true }     # renamed on claude.ai: the open page says so
     $ch = [ordered]@{ id = $id; trayCmd = $(if ($id.StartsWith('local/')) { $(if ($Cfg.localTrayCommand) { [string]$Cfg.localTrayCommand } else { '/tray' }) } else { '/tray' }); title = $(if ($QS.Titles[$id]) { [string]$QS.Titles[$id] } elseif ($id.StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }); st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
                       age = (Format-Age $q.Upd); preview = $pv.Trim(); web = [bool]$wc; sending = $(if ($pend) { [string]$pend.Text } else { $null })
                       unread = (Test-Unread $q); readKey = $(if ($QS.Read[$id]) { [string]$QS.Read[$id].K } else { $null })
@@ -4300,9 +4310,10 @@ $questTimer.add_Tick({
             }
         }
         if ($UI.UpdPs) { Poll-Update }
+        if ($UI.TitlesDirty) { $UI.TitlesDirty = $false; Save-State; Refresh-Quests $true }
         $off = Test-Offline; if ($off -ne [bool]$UI.OffWas) { $UI.OffWas = $off; $UI.OffSince = $(if ($off) { Get-Date } else { $null }); Log ("claude.ai {0}" -f $(if ($off) { 'looks unreachable' } else { 'reachable again' })) 'WARN'; Push-WebState }
         if ($off -and $UI.OffSince -and ((Get-Date) - $UI.OffSince).TotalSeconds -gt 90 -and (-not $UI.RecAt -or ((Get-Date) - $UI.RecAt).TotalMinutes -gt 5)) { Invoke-Reconnect 'automatic' }     # unreachable for a while: reconnect by itself, at most every 5 min
-        if ($webEnabled -and $UI.WebReady -and -not $UI.CatKey -and ((-not $UI.Catalog -and -not $UI.CatNext) -or ($UI.CatNext -and (Get-Date) -gt $UI.CatNext))) { $UI.CatNext = $null; $UI.CatKey = 'cat-' + [guid]::NewGuid().ToString('N'); if ($UI.Catalog -and $UI.Catalog.recent) { $UI.Catalog.loading = $true } else { $UI.Catalog = [ordered]@{ loading = $true; projects = @() } }; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catalog'; Key = $UI.CatKey; At = (Get-Date) }) }     # the chat list: read once the browser is ready (from the start, not only when BROWSE opens), again after a failure
+        if ($webEnabled -and $UI.WebReady -and -not $UI.CatKey -and ((-not $UI.Catalog -and -not $UI.CatNext) -or ($UI.CatNext -and (Get-Date) -gt $UI.CatNext) -or ($UI.Shown -and -not $UI.CatNext -and $UI.Catalog -and $UI.Catalog.at -and ((Get-Date) - (Parse-Iso $UI.Catalog.at)).TotalMinutes -gt 10))) { $UI.CatNext = $null; $UI.CatKey = 'cat-' + [guid]::NewGuid().ToString('N'); if ($UI.Catalog -and $UI.Catalog.recent) { $UI.Catalog.loading = $true } else { $UI.Catalog = [ordered]@{ loading = $true; projects = @() } }; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catalog'; Key = $UI.CatKey; At = (Get-Date) }) }     # the chat list: read once the browser is ready (from the start, not only when BROWSE opens), again after a failure
         if ($webEnabled -and $UI.WebReady) { Poll-Downloads; Poll-NewChat; Poll-ModelMenu }
         if ($webEnabled -and $Web.Usage -and $Web.Usage.At -ne $UI.UsageSeen) { $UI.UsageSeen = $Web.Usage.At; Update-Usage; Test-UsageAlerts; Update-TrayIcon }     # fresh usage from claude.ai: show it now
         if ($Cfg.debugLog -and (-not $UI.SnapAt -or ((Get-Date) - $UI.SnapAt).TotalSeconds -gt 60)) { $UI.SnapAt = Get-Date; Write-DebugSnapshot }
