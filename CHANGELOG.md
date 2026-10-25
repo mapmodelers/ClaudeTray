@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.13
+
+- Fix: files Claude sends as tiles (images from a Claude Code session) stayed on "..." and never opened. The tray now
+  fetches the original file with your claude.ai session, as the page does. If a file still can't be fetched, the log
+  lists the controls that appeared after the click (labels only).
+- Such files stay in the conversation after a restart or once their message is scrolled away. claude.ai only draws
+  them in the live session, so the tray keeps their ids and names locally (`%LOCALAPPDATA%\ClaudeTray\files.json`, at
+  most 200 per chat). Files sent before this version can't come back.
+- Skill: no drafts or charts in widget cards in `/tray` chats (the tray shows text only). Upload `skill/tray.zip`
+  again to get it.
+
 ## 0.3.12
 
 - A running step shows an animated "running" mark, in the current round and in an earlier one (an earlier step run

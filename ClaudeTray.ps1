@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.12'
+$Version = '0.3.13'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1589,6 +1589,11 @@ $webScript = {
     const t = bits.map(x => x.trim()).find(x => FN.test(x));
     if (t) out.push({ el: el, name: t });
   }
+  for (const o of out) {     // claude.ai's own file id (org/file), when the page shows one: the tray can then fetch it any time, even once the message is scrolled away
+    const tl = o.el.closest('[data-testid^="delivered-"]') || o.el;
+    const mm = [tl].concat(Array.from(tl.querySelectorAll('img[src], a[href]'))).map(x => x.getAttribute('src') || x.getAttribute('href') || '').map(u => u.match(/\/api\/(?:organizations\/)?([0-9a-f-]{36})\/files\/([0-9a-f-]{36})/)).find(Boolean);
+    if (mm) o.u = mm[1] + '/' + mm[2];
+  }
   return out;
 }
 '@
@@ -1607,11 +1612,29 @@ $webScript = {
 '@
     # conversation rows -> the list the panel shows. claude.ai keeps only some rows of a long chat on the page (around where it is scrolled):
     # each row is kept by claude.ai's row number, and the panel gets the unbroken run that ends at the newest row ever seen.
+    # files Claude sent as tiles: claude.ai draws them only in the live session, not after a page reload. Their claude.ai ids are kept
+    # by row number (local, %LOCALAPPDATA%\ClaudeTray\files.json), so the panel can still offer them after a restart.
+    $fileMemo = {
+        param([string]$id0, $rows)
+        $mf = Join-Path $env:LOCALAPPDATA 'ClaudeTray\files.json'
+        if ($null -eq $Web.FileMemo) { $Web.FileMemo = @{}; if (Test-Path $mf) { try { $j0 = [IO.File]::ReadAllText($mf) | ConvertFrom-Json; foreach ($p0 in $j0.PSObject.Properties) { $h0 = @{}; foreach ($p1 in $p0.Value.PSObject.Properties) { $h0[[int]$p1.Name] = $p1.Value }; $Web.FileMemo[$p0.Name] = $h0 } } catch { } } }
+        $mm0 = $Web.FileMemo[$id0]; if (-not $mm0) { $mm0 = @{}; $Web.FileMemo[$id0] = $mm0 }; $chg = $false
+        foreach ($rw in $rows) {
+            $kk = [int]$rw.k
+            if ($rw.fu -and @($rw.fu | Where-Object { $_ }).Count) { $o0 = $mm0[$kk]; if (-not $o0 -or (@($o0.fu) -join ',') -ne (@($rw.fu) -join ',')) { $mm0[$kk] = [pscustomobject]@{ r = [string]$rw.r; f = @($rw.f); fu = @($rw.fu) }; $chg = $true } }
+            elseif (-not $rw.f -and $mm0.ContainsKey($kk) -and [string]$mm0[$kk].r -eq [string]$rw.r) { $rw | Add-Member -NotePropertyName f -NotePropertyValue @($mm0[$kk].f) -Force; $rw | Add-Member -NotePropertyName fu -NotePropertyValue @($mm0[$kk].fu) -Force }
+        }
+        if ($chg) {
+            foreach ($ok1 in @($mm0.Keys | Sort-Object | Select-Object -SkipLast 200)) { $mm0.Remove($ok1) }
+            try { $o1 = [ordered]@{}; foreach ($c1 in $Web.FileMemo.Keys) { $o2 = [ordered]@{}; foreach ($k1 in $Web.FileMemo[$c1].Keys) { $o2[[string]$k1] = $Web.FileMemo[$c1][$k1] }; $o1[$c1] = $o2 }; [IO.File]::WriteAllText($mf, (ConvertTo-Json $o1 -Depth 6 -Compress), (New-Object Text.UTF8Encoding $false)) } catch { }
+        }
+    }
     $mergeMsgs = {
-        param($cc0, $nw, [bool]$more = $false)
+        param($cc0, $nw, [bool]$more = $false, [string]$id0 = '')
         $old = @($cc0.Msgs); if (-not $nw.Count) { return $old }     # page reloading / empty for a moment: keep what we had
         $nk = @($nw | Where-Object { $null -ne $_.k })
         if ($nk.Count -eq $nw.Count) {
+            if ($id0) { try { & $fileMemo $id0 $nk } catch { } }
             $byK = $(if ($cc0.ByK) { $cc0.ByK.Clone() } else { $null }); $top = [int]$cc0.ByKMax; if (-not $byK) { $byK = @{}; $top = -1 }     # a copy: the tray's other thread may be reading the one it holds
             foreach ($mm in $nk) { $p0 = $byK[[int]$mm.k]; if ($p0 -and $p0.r -ne $mm.r) { $byK = @{}; $top = -1; $cc0.MorePg = 0; break } }     # rows numbered differently (another page): start over
             foreach ($mm in $nk) { $byK[[int]$mm.k] = $mm; if ([int]$mm.k -gt $top) { $top = [int]$mm.k } }
@@ -1691,7 +1714,7 @@ $webScript = {
     { const ki = e.closest('[data-index]'); if (ki && /^\d+$/.test(ki.getAttribute('data-index')) && els.filter(o => ki.contains(o)).length === 1) m.k = +ki.getAttribute('data-index'); }     // claude.ai's row number (only if that row holds just this message): the list keeps only some rows, this says where each one sits
     { let tm = e.querySelector('time[datetime]'); for (let p = e.parentElement, k = 0; !tm && p && k < 4; p = p.parentElement, k++) { const all = p.querySelectorAll('time[datetime]'); const own = [...all].filter(t => !t.closest('[data-testid="user-message"], [data-testid="assistant-message"]') || t.closest('[data-testid="user-message"], [data-testid="assistant-message"]') === e); if (own.length === 1 && p.querySelectorAll('[data-testid="user-message"], [data-testid="assistant-message"], .font-claude-response').length <= 1) tm = own[0]; }
       const at = tm ? Date.parse(tm.getAttribute('datetime')) : NaN; if (at) m.at = at; }
-    const fl = __FILES__(e); if (fl.length) m.f = fl.map(f => f.name);
+    const fl = __FILES__(e); if (fl.length) { m.f = fl.map(f => f.name); if (fl.some(f => f.u)) m.fu = fl.map(f => f.u || ''); }
     if (!u) { try { m.h = ser(e).replace(/(<div>\s*<\/div>)+/g, '').slice(0, 60000); const d = new DOMParser().parseFromString(m.h.replace(/<\/(p|li|h\d|pre|div|tr|blockquote)>|<br>/g, '\n$&'), 'text/html'); const tx = clean(d.body.textContent || ''); if (tx) m.t = tx.slice(0, 12000); else if (e.querySelector('[class~="group/status"], [data-testid*="TurnStatus" i]')) m.t = ''; else m.t = m.t.replace(/(tray-quest\s*)?\{\s*"v"\s*:\s*1[\s\S]*$/, '').trim(); } catch (x) { } }
     return m;
   });
@@ -1890,7 +1913,7 @@ $webScript = {
                                 try {
                                     $cj2 = $msgJs.Replace('__FILES__', "($fileJs)").Replace('__N__', '80')
                                     $nw2 = @(([string](Cdp $ws 'Runtime.evaluate' @{ expression = $cj2; returnByValue = $true }).result.result.value | ConvertFrom-Json) | ForEach-Object { $_ })
-                                    $cm.Msgs = & $mergeMsgs $cm $nw2 $true; $res += " (read $($nw2.Count) rows)"
+                                    $cm.Msgs = & $mergeMsgs $cm $nw2 $true $id; $res += " (read $($nw2.Count) rows)"
                                 } catch { $res += " (read failed: $($_.Exception.Message))" }
                                 try { [void](Cdp $ws 'Runtime.evaluate' @{ expression = "($moreJs)('down', 0)"; returnByValue = $true; awaitPromise = $true }) } catch { }
                             }
@@ -1938,7 +1961,9 @@ $webScript = {
                             # a file Claude attached: fetch it with the page's own session (link) or click its download button
                             New-Item -ItemType Directory -Path $cmd.Dir -Force | Out-Null
                             [void](Cdp $ws 'Page.setDownloadBehavior' @{ behavior = 'allow'; downloadPath = [string]$cmd.Dir })
-                            $dj = "(async (x, k) => { const els = Array.from(document.querySelectorAll('[data-testid=""user-message""], [data-testid=""assistant-message""], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e))); const e = els[x]; if (!e) return 'no-message'; const fl = ($fileJs)(e); const f = fl[k]; if (!f) return 'no-file'; const a = f.el.closest('a[href]') || f.el.querySelector('a[href]'); if (a) { try { const r = await fetch(a.href, { credentials: 'include' }); if (r.ok) { const b = await r.blob(); const s = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(b); }); window.__ctdl = s; return 'fetched:' + s.length + ':' + (a.getAttribute('download') || f.name); } } catch (z) { } } const btn = Array.from(f.el.querySelectorAll('button, a')).find(b => /download|télécharg/i.test((b.getAttribute('aria-label') || '') + ' ' + (b.innerText || ''))) || f.el; btn.click(); await new Promise(ok => setTimeout(ok, 900)); const dg = Array.from(document.querySelectorAll('[role=""dialog""]')).pop(); if (dg) { const b2 = Array.from(dg.querySelectorAll('a[href], button')).find(x => /download|télécharg/i.test((x.getAttribute('aria-label') || '') + ' ' + (x.innerText || '') + ' ' + (x.getAttribute('download') != null ? 'download' : ''))); if (b2 && b2.href && !/^javascript:/i.test(b2.href)) { try { const r2 = await fetch(b2.href, { credentials: 'include' }); if (r2.ok) { const bl = await r2.blob(); const s2 = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(bl); }); window.__ctdl = s2; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 'fetched:' + s2.length + ':' + f.name; } } catch (z) { } } if (b2) { b2.click(); await new Promise(ok => setTimeout(ok, 300)); } document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 'clicked:' + f.name + (b2 ? ' (preview download)' : ' (preview, no download button)'); } return 'clicked:' + f.name; })($([int]$cmd.X), $([int]$cmd.K))"
+                            if ($cmd.U) { $dj = "(async (u) => { const p = u.split('/'); try { const r0 = await fetch('/api/organizations/' + p[0] + '/files/' + p[1] + '/contents', { credentials: 'include' }); if (!r0.ok) return 'http ' + r0.status; const b0 = await r0.blob(); const s0 = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(b0); }); const cd0 = r0.headers.get('content-disposition') || ''; const n0 = decodeURIComponent((cd0.match(/filename\*=utf-8''([^;]+)/i) || [])[1] || '') || (cd0.match(/filename=""?([^"";]+)/i) || [])[1] || 'file'; window.__ctdl = s0; return 'fetched:' + s0.length + ':' + n0; } catch (z) { return 'error: ' + z.message; } })('$([string]$cmd.U)')" } else {
+                            $dj = "(async (x, k) => { const els = Array.from(document.querySelectorAll('[data-testid=""user-message""], [data-testid=""assistant-message""], .font-claude-response')).filter((e, i, a) => !a.some(o => o !== e && o.contains(e))); const e = els[x]; if (!e) return 'no-message'; const fl = ($fileJs)(e); const f = fl[k]; if (!f) return 'no-file'; const tl = f.el.closest('[data-testid^=delivered-]') || f.el; const fm = Array.from([tl].concat(Array.from(tl.querySelectorAll('img[src], a[href]')))).map(x => (x.getAttribute && (x.getAttribute('src') || x.getAttribute('href'))) || '').map(u => u.match(/\/api\/([0-9a-f-]{36})\/files\/([0-9a-f-]{36})/)).find(Boolean); if (fm) { try { const r0 = await fetch('/api/organizations/' + fm[1] + '/files/' + fm[2] + '/contents', { credentials: 'include' }); if (r0.ok) { const b0 = await r0.blob(); const s0 = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(b0); }); const cd0 = r0.headers.get('content-disposition') || ''; const n0 = decodeURIComponent((cd0.match(/filename\*=utf-8''([^;]+)/i) || [])[1] || '') || (cd0.match(/filename=""?([^"";]+)/i) || [])[1] || f.name; window.__ctdl = s0; return 'fetched:' + s0.length + ':' + n0; } } catch (z) { } } const a = f.el.closest('a[href]') || f.el.querySelector('a[href]'); if (a) { try { const r = await fetch(a.href, { credentials: 'include' }); if (r.ok) { const b = await r.blob(); const s = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(b); }); window.__ctdl = s; return 'fetched:' + s.length + ':' + (a.getAttribute('download') || f.name); } } catch (z) { } } const btn = Array.from(f.el.querySelectorAll('button, a')).find(b => /download|télécharg/i.test((b.getAttribute('aria-label') || '') + ' ' + (b.innerText || ''))) || f.el; const pre = new Set(document.querySelectorAll('a, button')); btn.click(); await new Promise(ok => setTimeout(ok, 1200)); const nw = Array.from(document.querySelectorAll('a, button')).filter(x => !pre.has(x)); const DLR = /download|télécharg|save|enregistr/i; const lab = x => (x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '') + ' ' + (x.innerText || '').slice(0, 40) + ' ' + (x.getAttribute('download') != null ? 'download' : ''); const dg = Array.from(document.querySelectorAll('[role=""dialog""]')).pop() || (nw.some(x => DLR.test(lab(x))) ? { querySelectorAll: () => nw } : null); if (!dg) return 'clicked:' + f.name + ' (nothing opened; new controls: ' + nw.slice(0, 12).map(x => x.tagName.toLowerCase() + '[' + ((x.getAttribute('aria-label') || x.getAttribute('title') || '').slice(0, 30)) + '|' + (x.getAttribute('data-testid') || '') + ']').join(' ') + ')'; if (dg) { const b2 = Array.from(dg.querySelectorAll('a[href], button')).find(x => DLR.test(lab(x))); if (b2 && b2.href && !/^javascript:/i.test(b2.href)) { try { const r2 = await fetch(b2.href, { credentials: 'include' }); if (r2.ok) { const bl = await r2.blob(); const s2 = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(bl); }); window.__ctdl = s2; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 'fetched:' + s2.length + ':' + f.name; } } catch (z) { } } if (b2) { b2.click(); await new Promise(ok => setTimeout(ok, 300)); } document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 'clicked:' + f.name + (b2 ? ' (preview download)' : ' (preview, no download button)'); } return 'clicked:' + f.name; })($([int]$cmd.X), $([int]$cmd.K))"
+                            }
                             $res = [string](Cdp $ws 'Runtime.evaluate' @{ expression = $dj; returnByValue = $true; awaitPromise = $true }).result.result.value
                             if ($res -match '^fetched:(\d+):(.*)$') {
                                 $len = [int]$Matches[1]; $fnm = ($Matches[2] -replace '[\/:*?"<>|]', '_').Trim(); if (-not $fnm) { $fnm = 'file' }
@@ -1978,7 +2003,7 @@ $webScript = {
                         $mr = Cdp $ws 'Runtime.evaluate' @{ expression = $cj; returnByValue = $true }; $cc0 = $Web.Chats[$id]
                         if ($cc0) {
                             $arr = [string]$mr.result.result.value | ConvertFrom-Json; $nw = @($arr | ForEach-Object { $_ })
-                            $cc0.Msgs = & $mergeMsgs $cc0 $nw
+                            $cc0.Msgs = & $mergeMsgs $cc0 $nw $false $id
                         }
                     } catch { WL "conv read: $($_.Exception.Message)" }
                 }
@@ -4154,13 +4179,14 @@ function On-WebMsg($m) {
         }
         'dl' {
             if ($q) {
-                $key = "{0}|{1}|{2}" -f $q.id, [int]$m.x, [int]$m.k; $dl = $UI.Dl[$key]
+                $fu = [string]$m.u; if ($fu -notmatch '^[0-9a-f-]{36}/[0-9a-f-]{36}$') { $fu = '' }
+                $key = $(if ($fu) { "{0}|u|{1}" -f $q.id, $fu } else { "{0}|{1}|{2}" -f $q.id, [int]$m.x, [int]$m.k }); $dl = $UI.Dl[$key]
                 if ($dl -and $dl.Path -and (Test-Path $dl.Path)) {     # already here: open its folder / copy again
                     if ([string]$m.mode -eq 'copy') { $sc = New-Object System.Collections.Specialized.StringCollection; [void]$sc.Add($dl.Path); [System.Windows.Forms.Clipboard]::SetFileDropList($sc); $dl.St = 'copied' } elseif ([string]$m.mode -eq 'open') { Open-Downloaded $dl.Path; $dl.St = 'opened'; Push-WebState } else { Start-Process explorer.exe "/select,`"$($dl.Path)`"" }
                 } elseif (-not $dl -or $dl.St -ne 'working') {
                     $ck = [guid]::NewGuid().ToString('N'); $dir = Join-Path $env:LOCALAPPDATA ('ClaudeTray\dl\' + $ck.Substring(0, 8))
                     $UI.Dl[$key] = @{ Id = [string]$q.id; St = 'working'; Mode = [string]$m.mode; Dir = $dir; Cmd = $ck; At = (Get-Date); Res = $null; Path = $null }
-                    [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'dl'; X = [int]$m.x; K = [int]$m.k; Dir = $dir; Key = $ck; At = (Get-Date) })
+                    [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'dl'; X = [int]$m.x; K = [int]$m.k; U = $fu; Dir = $dir; Key = $ck; At = (Get-Date) })
                 }
             }
         }

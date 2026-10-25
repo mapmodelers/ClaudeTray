@@ -81,6 +81,7 @@ history.
 
 - The quest costs ~100-200 output tokens: no extra prose in it, no narration about writing it.
 - `answer` = 1-2 lines (the tray also shows your full reply live). Labels under ~40 characters.
+- No widget cards (message drafts, charts, comparison cards...): the tray shows text only. Write drafts as plain text.
 - Read the results file only on "check"; never re-read your own quest.
 - Steps stand alone (full paths). Never put secrets in either file.
 - A `ps` step with several commands: after each command-line tool, `if ($LASTEXITCODE) { throw '<what failed>' }`, so a

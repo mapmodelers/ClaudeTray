@@ -712,11 +712,12 @@ function roundHtml(c){
 }
 let curChat = null;
 function filesHtml(m){
-  if (!m.f || !m.f.length || m.x < 0) return '';      // x < 0: kept by the tray after claude.ai unloaded it - no longer fetchable
+  if (!m.f || !m.f.length) return '';
+  const fu = m.fu || [], ok = k => m.x >= 0 || fu[k];      // x < 0: claude.ai unloaded that message - only files with their claude.ai id can still be fetched
   const dl = (curChat && curChat.dl) || {};
-  return '<div class="files">' + m.f.map((n, k) => { const st = dl[m.x + '#' + k] || '';
+  return '<div class="files">' + m.f.map((n, k) => { if (!ok(k)) return ''; const da = fu[k] ? ' data-u="' + esc(fu[k]) + '"' : ''; const st = dl[fu[k] ? 'u#' + fu[k] : m.x + '#' + k] || '';
     const lab = st === 'working' ? '<span class="fs">…</span>' : st === 'failed' ? '<span class="fs bad" title="Could not get it - open the chat on claude.ai">failed</span>' : st === 'saved' ? '<span class="fs ok">saved</span>' : st === 'copied' ? '<span class="fs ok">copied</span>' : st === 'opened' ? '<span class="fs ok">opened</span>' : '';
-    return '<span class="fch">' + I.file + '<span class="fo" data-a="dl" data-x="' + m.x + '" data-k="' + k + '" data-mode="open" title="Open ' + esc(n) + '">' + esc(n) + '</span>' + lab + '<button class="ib" data-a="dl" data-x="' + m.x + '" data-k="' + k + '" data-mode="save" title="' + (st === 'saved' || st === 'copied' ? 'Show in Downloads' : 'Save to Downloads') + '">' + I.dl + '</button><button class="ib" data-a="dl" data-x="' + m.x + '" data-k="' + k + '" data-mode="copy" title="Copy the file (paste it anywhere)">' + I.copy + '</button></span>'; }).join('') + '</div>';
+    return '<span class="fch">' + I.file + '<span class="fo" data-a="dl" data-x="' + m.x + '" data-k="' + k + '"' + da + ' data-mode="open" title="Open ' + esc(n) + '">' + esc(n) + '</span>' + lab + '<button class="ib" data-a="dl" data-x="' + m.x + '" data-k="' + k + '"' + da + ' data-mode="save" title="' + (st === 'saved' || st === 'copied' ? 'Show in Downloads' : 'Save to Downloads') + '">' + I.dl + '</button><button class="ib" data-a="dl" data-x="' + m.x + '" data-k="' + k + '"' + da + ' data-mode="copy" title="Copy the file (paste it anywhere)">' + I.copy + '</button></span>'; }).join('') + '</div>';
 }
 function situation(c){                                    // compact view: Claude's gist (quest answer), else the first sentence of its last reply
   if (c.gist) return String(c.gist).replace(/\s+/g, ' ').trim();
@@ -997,7 +998,7 @@ document.addEventListener('click', e => {
     case 'unattall': { const cd = cards.get(id); cd.files = []; drawAtts(cd); break; }
     case 'attach': if (String(id).startsWith('local/')) post({ type: 'addfolder', id: id }); else cards.get(id).fin.click(); break;     // local chats: files or a folder, given to the session by path
     case 'unatt': { const cd = cards.get(id); cd.files.splice(+b.dataset.i, 1); drawAtts(cd); break; }
-    case 'dl': post({ type: 'dl', id: id, x: +b.dataset.x, k: +b.dataset.k, mode: b.dataset.mode }); break;
+    case 'dl': post({ type: 'dl', id: id, x: +b.dataset.x, k: +b.dataset.k, u: b.dataset.u || '', mode: b.dataset.mode }); break;
     case 'press': post({ type: 'press', id: id, i: +b.dataset.i, label: b.dataset.label }); b.disabled = true; setTimeout(() => { b.disabled = false; }, 3000); break;
     case 'retry': post({ type: 'retry', id: id }); break;
     case 'jump': { const cd = cards.get(id); cd.conv.scrollTop = cd.conv.scrollHeight; cd.jump.classList.remove('on', 'new'); break; }
