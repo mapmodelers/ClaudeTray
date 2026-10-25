@@ -59,7 +59,8 @@ Claude plan. No installer and no admin rights.
 | Slash commands | Type `/` in a reply box |
 | Attach files | Paste, drop, or use the clip button |
 | Pin, move, hide a chat, open it on claude.ai | Right-click its title |
-| Open a chat | Click its dot (one at a time). Right-click the dot to keep the others open. |
+| Open a chat | Click its dot, or double-click its line (one at a time). Right-click the dot to keep the others open. |
+| Close a chat | Click its title, or double-click around its messages |
 | Update | Settings > Check for updates (a git clone updates with `git`, a zip install from the release) |
 
 ## Commands

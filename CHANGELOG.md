@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.10
+
+- Double-click a chat's line to open it. Double-click an open chat's title, or the space around its messages, to
+  close it. A double-click on a message's text still selects the word, and on a line with text typed in it, the text.
+- A chat no longer opens and closes again when its dot is double-clicked.
+
 ## 0.3.9
 
 - A chat just opened (from the recent list or BROWSE) shows the syncing mark and "Loading the conversation" instead

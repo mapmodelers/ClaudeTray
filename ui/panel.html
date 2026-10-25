@@ -849,7 +849,9 @@ function cycle(id){                                       // the small view butt
   if (!opened.has(id)) opened.add(id); else if (!big.has(id)) big.add(id); else { opened.delete(id); big.delete(id); }
   render(); const cd = cards.get(id); if (opened.has(id)) reveal(cd.el);
 }
+const togAt = {};     // last open / close per chat: a double-click must not open and close it again
 function toggle(id, keep){                                // click: opens this chat and closes the others (one at a time); right-click on its dot (keep): opens it next to the open ones
+  if (Date.now() - (togAt[id] || 0) < 450) return; togAt[id] = Date.now();
   if (!opened.has(id) || !big.has(id)) { if (!keep) { opened.clear(); big.clear(); } openCard(id); } else { opened.delete(id); big.delete(id); }
   render(); const cd = cards.get(id); if (opened.has(id)) reveal(cd.el);
   setTimeout(() => { if (big.has(id)) cd.ta.focus({ preventScroll: true }); else if (!document.body.classList.contains('compact')) cd.mi.focus({ preventScroll: true }); }, 0);     // compact: focusing the field would hide the title
@@ -904,6 +906,15 @@ document.addEventListener('mousedown', e => { downIn = e.target; userAt = Date.n
 document.addEventListener('mouseup', () => { if (downIn) { downIn = null; setTimeout(render, 0); } }, true);
 document.addEventListener('keydown', () => { userAt = Date.now(); }, true);
 document.addEventListener('mousedown', e => { if (LAY && LAY.browse && e.button === 0 && !(e.target.closest && e.target.closest('#brwbox, #brwb, #pmenu, #tip'))) { LAY.browse = false; saveLay(); render(); } }, true);     // BROWSE folds back when you click anywhere else in the panel
+document.addEventListener('dblclick', e => {           // double-click: on a chat's line opens it, on an open conversation's empty space closes it (a double-click on text still selects the word)
+  const card = e.target.closest && e.target.closest('.card'); if (!card || e.target.closest('button, a, [data-a], [data-a2], .cvz, textarea, .qz, .acts, .sh')) return;
+  const id = card.dataset.id, isOpen = opened.has(id) && big.has(id);
+  if (!isOpen) { const inp = e.target.closest('input'); if (inp && inp.value.trim()) return; e.preventDefault(); toggle(id); return; }
+  if (e.target.closest('input, [contenteditable=true]')) return;
+  if (e.target.closest('.conv')) { if (e.target.closest('.m, .empty, .files, pre, code')) return; try { getSelection().removeAllRanges(); } catch (x) { } }     // on a message: selects the word as usual; between / around messages: closes
+  else if (!e.target.closest('.head')) return;
+  toggle(id);
+});
 let cvDrag = null;
 document.addEventListener('mousedown', e => { const z = e.target.closest && e.target.closest('.cvz'); if (!z || e.button !== 0) return; e.preventDefault(); e.stopPropagation();
   const card = z.closest('.card'), i = fitOC.findIndex(c => c.el === card), a = fitOC[i], b = fitOC[i + 1]; if (!a || !b) return;
