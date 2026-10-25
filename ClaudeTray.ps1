@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.11'
+$Version = '0.3.12'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1110,7 +1110,7 @@ $QuitEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threadi
 function Exit-Tray([string]$why) { Write-Heartbeat 'exit'; Log "Exit: $why"; try { if ($script:Park) { Undo-DesktopPark $false } } catch { }; if ($why -notmatch 'restart') { Stop-OurBrowser }; try { $Probe.Stop = $true } catch { }; try { $uiTimer.Stop(); $pollTimer.Stop(); $questTimer.Stop(); $animTimer.Stop() } catch { }; try { $pop.Hide() } catch { }; $tray.Visible = $false; $tray.Dispose(); [System.Windows.Forms.Application]::Exit() }
 
 # ---------------------------------------------------------------- quests: read / state / results
-$QS = @{ List = @(); Prev = @{}; Running = @{}; Hidden = @{}; Pins = [ordered]@{}; Layout = $null; Proj = @{}; Anchor = @{}; Bells = @{}; Dock = $null; DockB = $null; Titles = @{}; DeskOnly = @{}; Alerts = @{}; Read = @{} }
+$QS = @{ List = @(); Hist = @{}; Prev = @{}; Running = @{}; Hidden = @{}; Pins = [ordered]@{}; Layout = $null; Proj = @{}; Anchor = @{}; Bells = @{}; Dock = $null; DockB = $null; Titles = @{}; DeskOnly = @{}; Alerts = @{}; Read = @{} }
 if (Test-Path $StateFile) { try { $stj = [IO.File]::ReadAllText($StateFile) | ConvertFrom-Json; if ($stj.hidden) { $stj.hidden.PSObject.Properties | ForEach-Object { $QS.Hidden[$_.Name] = [string]$_.Value } }; if ($stj.bells) { $stj.bells.PSObject.Properties | ForEach-Object { $QS.Bells[$_.Name] = [bool]$_.Value } }; if ($stj.pins) { foreach ($pk in @($stj.pins)) { $QS.Pins[[string]$pk] = $true } }; if ($stj.layout) { $QS.Layout = $stj.layout }; if ($stj.alias) { $QS.AliasIn = @{}; $stj.alias.PSObject.Properties | ForEach-Object { $QS.AliasIn[$_.Name] = [string]$_.Value } }; if ($stj.anchor) { $stj.anchor.PSObject.Properties | ForEach-Object { $QS.Anchor[$_.Name] = @{ U = [string]$_.Value.U; T = [string]$_.Value.T; L = [string]$_.Value.L } } }; if ($stj.proj) { $stj.proj.PSObject.Properties | ForEach-Object { $QS.Proj[$_.Name] = [string]$_.Value } }; if ($stj.alerts) { foreach ($ak in @($stj.alerts)) { $QS.Alerts[[string]$ak] = $true } }; if ($stj.read) { $stj.read.PSObject.Properties | ForEach-Object { $QS.Read[$_.Name] = @{ K = [string]$_.Value.k; At = $(try { [DateTimeOffset]::Parse([string]$_.Value.at, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime } catch { $null }) } } }; if ($stj.docked) { $UI.RestoreDock = $true }; if ($stj.deskonly) { $stj.deskonly.PSObject.Properties | ForEach-Object { $QS.DeskOnly[$_.Name] = $true } }; if ($stj.titles) { $stj.titles.PSObject.Properties | ForEach-Object { $QS.Titles[$_.Name] = [string]$_.Value } }; if ($stj.dock -and @($stj.dock).Count -eq 2) { $QS.Dock = @([int]$stj.dock[0], [int]$stj.dock[1]); $UI.DockPos = New-Object System.Drawing.Point $QS.Dock[0], $QS.Dock[1] }; if ($null -ne $stj.dockb) { $QS.DockB = [int]$stj.dockb } } catch { } }
 function Get-ReadForSave { $o = @{}; foreach ($rk in @($QS.Read.Keys)) { $o[$rk] = @{ k = $QS.Read[$rk].K; at = $(if ($QS.Read[$rk].At) { Get-Iso $QS.Read[$rk].At } else { '' }) } }; return $o }
 function Save-State { try { [IO.File]::WriteAllText($StateFile, (@{ hidden = $QS.Hidden; pins = @($QS.Pins.Keys); layout = $QS.Layout; proj = $QS.Proj; anchor = $QS.Anchor; alias = $(if ($Web -and $Web.Alias) { $Web.Alias } else { @{} }); bells = $QS.Bells; dock = $QS.Dock; dockb = $QS.DockB; titles = $QS.Titles; deskonly = $QS.DeskOnly; docked = [bool]($UI.Docked -or $UI.RestoreDock); alerts = @($QS.Alerts.Keys | Select-Object -Last 40); read = $(Get-ReadForSave) } | ConvertTo-Json -Compress -Depth 8), (New-Object Text.UTF8Encoding $false)) } catch { Log "state save: $($_.Exception.Message)" 'WARN' } }
@@ -1163,6 +1163,29 @@ function Set-StepResult($q, [int]$n, [hashtable]$fields) {
     foreach ($fk in $fields.Keys) { $rec | Add-Member -NotePropertyName $fk -NotePropertyValue $fields[$fk] -Force }
     Save-Results $q $r
 }
+# earlier step lists of a chat (kept when Claude writes a new one): shown read-only above the message you sent after them
+function Get-RoundHist($q) {
+    $id = [string]$q.id
+    if (-not $QS.Hist.ContainsKey($id)) {
+        $hf = Join-Path $q.Root ('results\' + (Get-FileId $id) + '.hist.json'); $hl = @()
+        if (Test-Path $hf) { try { $hl = @(([IO.File]::ReadAllText($hf) | ConvertFrom-Json) | ForEach-Object { $_ }) } catch { Log "round history parse: $($_.Exception.Message)" 'WARN' } }
+        $QS.Hist[$id] = $hl
+    }
+    return @($QS.Hist[$id])
+}
+function Save-RoundHist($q) {     # the quest changed: keep the previous list, with what you did, before its results are replaced
+    $raw = Read-Results $q
+    if (-not $raw -or [string]$raw.quest_updated -eq [string]$q.updated -or -not @($raw.sent).Count) { return }     # nothing sent after it: nowhere to show it
+    $pq = @($QS.List | Where-Object { $_.File -eq $q.File -and [string]$_.updated -eq [string]$raw.quest_updated }) | Select-Object -First 1
+    if (-not $pq -or -not @($pq.steps).Count) { return }
+    $hl = @(Get-RoundHist $q); if (@($hl | Where-Object { [string]$_.u -eq [string]$raw.quest_updated }).Count) { return }
+    $st = @(foreach ($s0 in @($pq.steps)) { $r0 = @($raw.steps) | Where-Object { [int]$_.n -eq [int]$s0.n } | Select-Object -First 1
+        [pscustomobject]@{ n = [int]$s0.n; kind = [string]$s0.kind; label = [string]$s0.label; status = $(if ($r0) { [string]$r0.status } else { 'pending' }); exit = $(if ($r0) { $r0.exit } else { $null }); answer = $(if ($r0) { [string]$r0.answer } else { '' }) } })
+    $sx = [string](@($raw.sent)[0].text); if ($sx.Length -gt 80) { $sx = $sx.Substring(0, 80) }
+    $hl = @(@($hl) + [pscustomobject]@{ u = [string]$raw.quest_updated; sent = $sx; steps = $st }); if ($hl.Count -gt 10) { $hl = @($hl[($hl.Count - 10)..($hl.Count - 1)]) }
+    $QS.Hist[[string]$q.id] = $hl
+    try { [IO.File]::WriteAllText((Join-Path $q.Root ('results\' + (Get-FileId $q.id) + '.hist.json')), (ConvertTo-Json @($hl) -Depth 6 -Compress), (New-Object Text.UTF8Encoding $false)) } catch { Log "round history save: $($_.Exception.Message)" 'WARN' }
+}
 function Read-Quests {
     $out = @()
     foreach ($qroot in $QuestRoots) {
@@ -1178,6 +1201,7 @@ function Read-Quests {
                 if ($claimed -and [Math]::Abs(($claimed - $upd).TotalMinutes) -gt 5 -and -not $UI.ClockWarned.ContainsKey([string]$q.id)) { $UI.ClockWarned[[string]$q.id] = $true; Log ("quest {0}: 'updated' {1:HH:mm} differs from the file time {2:HH:mm} - using the file time" -f $q.id, $claimed, $upd) 'WARN' }
                 $q | Add-Member -NotePropertyName Upd -NotePropertyValue $upd -Force
                 if ($null -eq $q.steps) { $q | Add-Member -NotePropertyName steps -NotePropertyValue @() -Force }
+                try { Save-RoundHist $q } catch { Log "round history: $($_.Exception.Message)" 'WARN' }
                 $res = Get-Results $q
                 $q | Add-Member -NotePropertyName Res -NotePropertyValue $res -Force
                 # derived state: working = something was sent back after this quest version
@@ -3831,6 +3855,7 @@ function Get-WebUiChat($q) {
         $ch.lastSent = [string](@($q.Res.sent) | Select-Object -Last 1).text
         $dls = [ordered]@{}; foreach ($dk in @($UI.Dl.Keys | Where-Object { $_ -like "$id|*" })) { $dls[($dk -split '\|')[1] + '#' + ($dk -split '\|')[2]] = $UI.Dl[$dk].St }; $ch.dl = $dls
         $ch.locked = (Test-StepsLocked $q)
+        $ch.hist = @(Get-RoundHist $q | Select-Object -Last 6)
         $ch.steps = @(foreach ($qs0 in @($q.steps)) {
             $rec = @($q.Res.steps) | Where-Object { [int]$_.n -eq [int]$qs0.n } | Select-Object -First 1
             [ordered]@{ n = [int]$qs0.n; options = @(@($qs0.options) | Where-Object { $_ } | Select-Object -First 4 | ForEach-Object { [string]$_ }); kind = [string]$qs0.kind; label = [string]$qs0.label; cmd = [string]$qs0.cmd; path = [string]$qs0.path; url = [string]$qs0.url; admin = [bool]$qs0.admin
@@ -3903,7 +3928,7 @@ function Push-WebState([bool]$force = $false) {
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible -and -not ([string]$_.id).StartsWith('local/') -or (-not $_.Visible -and $Caps.Local) } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd); at = ([datetime]$qh.Upd).ToUniversalTime().ToString('o') } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
                              modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ keepApp = [bool]$Cfg.keepClaudeApp; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
-        $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
+        $json = ConvertTo-Json -InputObject $state -Depth 8 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
             $UI.WebJson = $json; $UI.WebPushes++

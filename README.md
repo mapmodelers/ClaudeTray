@@ -93,6 +93,7 @@ Claude plan. No installer and no admin rights. Updates: Settings > Check for upd
 | Mark a manual step done, add a note | Tick button, pencil button |
 | Answer a step's question | Type in its box and press Enter, or pick a choice |
 | Tell Claude you're done | Enter in the chat's empty line once all steps are done: it sends "check" |
+| Run a step you skipped before replying | Its button above your message, then "Run anyway?" |
 | Answer a question card | Pick a choice, or type in Other. Next / Back between parts, Skip to skip. |
 | Allow or deny a permission | The buttons under the chat |
 

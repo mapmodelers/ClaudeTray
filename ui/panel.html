@@ -129,7 +129,7 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
 .mf{display:inline-flex;align-items:center;color:var(--mu);font-size:9.5px;gap:1px}.mf svg{width:10px;height:10px}
 .okm{color:var(--mu);margin-top:2px}.chs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}.chb{border:1px solid var(--acc);color:var(--tx);border-radius:6px;padding:0 9px;height:19px;font-size:10.5px}.chb:hover{background:var(--acc);color:#fff}
-.m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}.ps1 .prun{width:16px;height:16px;flex:none;opacity:.7}.ps1 .prun svg{width:10px;height:10px}.ps1 .prun:hover{opacity:1}.ps1 .prun.arm{opacity:1;color:#fff;background:var(--acc);border-radius:4px}.ps1 .prun.arm::after{content:'Run anyway?';font-size:9.5px;margin-left:3px;white-space:nowrap}.ps1 .prun.arm{width:auto;padding:0 5px}
+.m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}.run1{color:var(--acc)!important;white-space:nowrap}.run1 .sync i{background:var(--acc)}.ps1 .prun{width:16px;height:16px;flex:none;opacity:.7}.ps1 .prun svg{width:10px;height:10px}.ps1 .prun:hover{opacity:1}.ps1 .prun:disabled{opacity:.3;cursor:default}.ps1 .prun.arm{opacity:1;color:#fff;background:var(--acc);border-radius:4px}.ps1 .prun.arm::after{content:'Run anyway?';font-size:9.5px;margin-left:3px;white-space:nowrap}.ps1 .prun.arm{width:auto;padding:0 5px}
 .trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
 #slp{position:fixed;z-index:45;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:min(150px,calc(100vh - 8px));overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -360,7 +360,8 @@ function secMenu(sid, x, y){
     { t: 'Move down', off: i === LAY.sec.length - 1, f: () => { LAY.sec.splice(i + 1, 0, LAY.sec.splice(i, 1)[0]); saveLay(); render(); } },
     { t: sid === 'main' ? 'Delete (the main section stays)' : 'Delete (its chats go back to the main section)', off: sid === 'main', f: () => { for (const k of Object.keys(LAY.at)) if (LAY.at[k] === sid) delete LAY.at[k]; LAY.sec.splice(i, 1); dirtyView = true; saveLay(); render(); } }]));
 }
-const SYNC = '<span class="sync" title="Syncing with claude.ai"><i></i><i></i><i></i></span>';     // subtle 'still loading' mark
+const SYNC = '<span class="sync" title="Syncing with claude.ai"><i></i><i></i><i></i></span>';
+const RUNM = '<span class="sync"><i></i><i></i><i></i></span>';     // a step running     // subtle 'still loading' mark
 const agoTxt = iso => { const t0 = Date.parse(iso || ''); if (!t0) return ''; const m = Math.round((Date.now() - t0) / 60000); return m < 60 ? Math.max(1, m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
 function renderBrowse(L){                           // BROWSE: claude.ai + Claude Desktop local chats and projects, unified like the Desktop app
   let b = $('#brw');
@@ -670,7 +671,11 @@ function convItems(c, cd){
   let ki = -1; if (c.readKey) for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a' && hash(msgs[i].t) === c.readKey) { ki = i; break; }
   let lastA = -1; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'a') { lastA = i; break; }
   const sbI = c.stepsBefore != null ? c.stepsBefore : -1;     // a past round's steps: right before the message you sent after them (they scroll away like the app)
-  msgs.forEach((m, i) => { if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
+  const histAt = {};                                  // older step lists: each above the message you sent after it (newest first, so repeated 'check's pair up right)
+  { let lim = sbI >= 0 && (c.steps || []).length ? sbI : msgs.length; const hs = c.hist || [];
+    for (let h = hs.length - 1; h >= 0; h--) { const hp = norm(hs[h].sent).replace(/\u2026$/, '').slice(0, 40); if (!hp) continue;
+      for (let i = lim - 1; i >= 0; i--) if (msgs[i].r === 'u' && norm(msgs[i].t).startsWith(hp)) { histAt[i] = pastSteps(c, hs[h].steps || [], true); lim = i; break; } } }
+  msgs.forEach((m, i) => { if (histAt[i]) it.push(histAt[i]); if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
   if (pend) it.push('<div class="m u sending"><div class="b">' + esc(pend) + '</div>' + rnd + '<span class="sst">' + (isLoc ? 'via Claude Desktop \u2013 if it is not there, paste it (Ctrl+V)' : 'sending…') + '</span></div>');
   const lastM = msgs[msgs.length - 1];
   const actL = String(c.act || '').split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 160);     // what Claude is doing: one grey line next to the animation
@@ -691,10 +696,10 @@ function qHtml(c){                                    // Claude Code's question 
   return '<div class="ask qz"><div class="qhd"><span class="qtx">' + (arm ? '<b>Click \u00ab' + esc(arm) + '\u00bb again to confirm</b> \u2013 ' : '') + esc(q.t || 'Claude asks') + '</span>' + nav + '</div>' + rows + (q.gen ? '' : oth) + ft + '</div>';     // gen = a Desktop request card (buttons only)
 }
 const RUNK = ['cmd', 'ps', 'exe', 'dir', 'file', 'url'], runArm = {};
-function pastSteps(c){                                 // read-only, one line per step
+function pastSteps(c, steps, old){                     // old = an earlier step list (its results are gone): shown, can't be run; one line per step, read-only
   const ic = { cmd: I.cmd, ps: I.cmd, exe: I.run, dir: I.dir, file: I.file, url: I.web, observe: I.eye, manual: I.ok };
-  return '<div class="m a pst"><div class="b">' + c.steps.map(s => { const ok = s.status === 'done', sk = s.status === 'skipped', bad = s.status === 'failed' || (s.exit != null && s.exit !== '' && s.exit != 0);
-    return '<div class="ps1' + (ok || sk ? ' d' : '') + '" title="' + esc(s.cmd || s.path || s.url || s.label) + '"><span class="k">' + (ic[s.kind] || I.cmd) + '</span><span class="l">' + esc(s.label) + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</span>' + (bad ? '<span class="x bad">✗</span>' : ok ? '<span class="okm">' + I.ok + '</span>' : sk ? '<span class="x">–</span>' : '') + (!ok && !sk && !c.locked && RUNK.includes(s.kind) ? '<button class="ib prun" data-a="runold" data-n="' + s.n + '" title="From an earlier round - Claude may have moved on. Click, then click again to run it anyway">' + (s.kind === 'url' ? I.web : s.kind === 'dir' || s.kind === 'file' ? I.dir : I.run) + '</button>' : '') + '</div>'; }).join('') + '</div></div>';
+  return '<div class="m a pst' + (old ? ' old' : '') + '"><div class="b">' + (steps || c.steps).map(s => { const ok = s.status === 'done', sk = s.status === 'skipped', bad = s.status === 'failed' || (s.exit != null && s.exit !== '' && s.exit != 0);
+    return '<div class="ps1' + (ok || sk ? ' d' : '') + '" title="' + esc(s.cmd || s.path || s.url || s.label) + '"><span class="k">' + (ic[s.kind] || I.cmd) + '</span><span class="l">' + esc(s.label) + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</span>' + (s.running ? '<span class="x run1" title="Running (hidden)">' + RUNM + 'running</span>' : bad ? '<span class="x bad">✗</span>' : ok ? '<span class="okm">' + I.ok + '</span>' : sk ? '<span class="x">–</span>' : '') + (old ? (!ok && !sk && RUNK.includes(s.kind) ? '<button class="ib prun" disabled title="From an older step list - ask Claude to give it again">' + I.run + '</button>' : '') : !s.running && !ok && !sk && !c.locked && RUNK.includes(s.kind) ? '<button class="ib prun" data-a="runold" data-n="' + s.n + '" title="From an earlier round - Claude may have moved on. Click, then click again to run it anyway">' + (s.kind === 'url' ? I.web : s.kind === 'dir' || s.kind === 'file' ? I.dir : I.run) + '</button>' : '') + '</div>'; }).join('') + '</div></div>';
 }
 function roundHtml(c){
   const done = (c.steps || []).filter(s => s.status === 'done' || s.status === 'skipped' || s.status === 'failed');
@@ -733,7 +738,7 @@ function actsHtml(c, cd){
     const done = s.status === 'done', sk = s.status === 'skipped', bad = s.status === 'failed';
     const left = s.kind === 'manual' ? '<span class="chk' + (done ? ' on' : '') + '" data-a="tick" data-n="' + s.n + '" title="' + (done ? 'Done - click to undo' : 'Mark done') + '"></span>' : '<span class="k" title="' + esc(s.kind) + '">' + (ic[s.kind] || I.cmd) + '</span>';
     let right = '';
-    if (s.running) right = '<span class="x">running…</span>';
+    if (s.running) right = '<span class="x run1" title="Running (hidden)">' + RUNM + 'running</span>';
     else if (sk) right = '<span class="x">skipped</span>';
     else if (s.exit != null && s.exit !== '' && s.exit != 0) right = '<span class="x bad">exit ' + esc(s.exit) + '</span>';
     else if (s.exit != null && s.exit !== '') right = '<span class="k okm" title="Done (exit 0)">' + I.ok + '</span>';

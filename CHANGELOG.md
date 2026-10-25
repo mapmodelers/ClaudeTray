@@ -2,6 +2,14 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.12
+
+- A running step shows an animated "running" mark, in the current round and in an earlier one (an earlier step run
+  with "Run anyway?" showed nothing until it was done).
+- Earlier step lists stay in the conversation when Claude writes a new one, each above the message you sent after
+  it, with what you did. Their steps can't be run any more (the run button is greyed): ask Claude to give them
+  again. Kept next to the results file (`results\<chat>.hist.json`, last 10 lists).
+
 ## 0.3.11
 
 - Tray icon: while Claude works, large orange dots turn inside the ring, in place of the number (the ring still

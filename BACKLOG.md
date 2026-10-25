@@ -65,3 +65,5 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - 2026-10-25: 0.3.10 released; README rewritten (every shortcut by topic, new images: code session, eBay research, permission, BROWSE, recent chats), published.
 - 2026-10-25: icon showed "1 need you" with nothing to do (all steps done, 'check' not sent yet) → no longer counts; hollow dot in the panel. Working animation bigger on the icon (inside the ring) → 0.3.11.
 - 2026-10-25: release step couldn't be run once a reply was sent (past round = read-only) → past undone steps get a run button with a confirm (second click, not a Windows popup: no focus steal); the skill re-issues undone steps in the next quest. In 0.3.11.
+- 2026-10-25: 0.3.11 released (Run anyway worked: release ran from the earlier round). No running mark while it ran, looked frozen → animated 'running' mark → 0.3.12.
+- 2026-10-25: older step lists disappeared from the conversation once Claude wrote a new one → kept (last 10, next to the results), shown above the message sent after them, run button greyed. In 0.3.12.
