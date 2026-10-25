@@ -59,6 +59,7 @@ Claude plan. No installer and no admin rights. Updates: Settings > Check for upd
 | Collapse all chats, bring them back | Click the grip, or the arrows button on the toolbar |
 | Resize | Drag any edge. Settings > Reset panel size goes back to automatic. |
 | Zoom | Ctrl + mouse wheel |
+| Report a bug | Bug button on the toolbar: with or without the log (cleaned, ready to drag into the page) |
 
 **Chats**
 
@@ -164,7 +165,8 @@ To remove everything: run `-Uninstall`, then delete the folder and `%LOCALAPPDAT
 - "claude.ai not reachable": the panel greys out and reconnects by itself. The Reconnect button does it at once.
 - "Running scripts is disabled": use the full command shown above. `-ExecutionPolicy Bypass` only applies to that
   run.
-- Anything else: turn on Settings > Debug logs, reproduce the problem and attach `logs\claudetray.log` to an issue.
+- Anything else: turn on Settings > Debug logs, reproduce the problem, then click the bug button and choose "with the
+  log". The page opens on GitHub with the versions filled in; drag the cleaned log into it.
 
 See also: [changelog](CHANGELOG.md), [backlog](BACKLOG.md), [quest protocol](docs/PROTOCOL.md),
 [notes for maintainers](AGENTS.md).

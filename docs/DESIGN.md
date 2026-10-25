@@ -45,14 +45,14 @@ replace pasted logs.
 
 ## Tray icon
 
-One icon, readable at 16 px. The ring = plan usage (binding limit) and always stays; the number shows inside it except
-while Claude works. The other chat states are a badge in the top-right quarter (about half the icon, on a disc in the
-taskbar colour so it reads on light and dark taskbars). Priority for the badge: asks you > needs you > new reply.
-"Asks you" also stops the working dots. Only "working" moves - nothing pulses.
+One icon, readable at 16 px. The ring + number = plan usage (binding limit). While Claude works, the icon shows only
+the turning dots; the ring comes back after. The other chat states are a badge in the top-right quarter (about half the
+icon, on a disc in the taskbar colour so it reads on light and dark taskbars). Priority: asks you > working > needs you
+> new reply. Only "working" moves - nothing pulses.
 
 | State | Trigger | Look |
 | --- | --- | --- |
-| Working | Claude is generating in a visible chat (browser tab / app watcher) | large 2x2 orange dots inside the ring, in place of the number, one lit, going round (~1 s per turn) |
+| Working | Claude is generating in a visible chat (browser tab / app watcher) | only large 2x2 orange dots (whole icon, no ring), one lit, going round (~1 s per turn) |
 | Asks you | a visible chat's page waits on you: Allow / Deny / Continue / Send now, or a question card (beats working) | blue ring + blue disc with "?" |
 | Needs you | a visible chat has steps left to do (not all done or skipped) | blue ring + blue dot |
 | New reply | Claude finished or rewrote the quest after you last looked at that chat | purple dot |

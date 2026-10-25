@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.13'
+$Version = '0.3.14'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -578,6 +578,16 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
     # state (see docs/DESIGN.md "Tray icon"): needs you > working > unread reply > idle; the number (usage) always stays
     if (-not $flags) { $flags = @{ Ask = ($badge -eq 'ask'); Needs = ($badge -eq 'act' -or $badge -eq 'ask'); Working = ($badge -eq 'working'); Unread = ($badge -eq 'done') } }
     $cBlue = C 78 150 230; $cOrange = C 232 128 90; $cPurple = C 150 120 230
+    if ($flags.Working -and -not $err -and -not $flags.Ask) {     # Claude working: only the 2x2 dots, as big as the icon, one lit, going round TL > TR > BR > BL (ring and number come back after)
+        $r0 = [single]($isz * 0.17); $o0 = [single]($isz * 0.24); $cx = [single]($isz / 2); $cy = [single]($isz / 2)
+        $pos = @(@(-1, -1), @(1, -1), @(1, 1), @(-1, 1)); $lit = $phase % 4
+        for ($i = 0; $i -lt 4; $i++) {
+            $al = if ($i -eq $lit) { 255 } elseif ($i -eq (($lit + 3) % 4)) { 170 } else { 90 }
+            $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
+            $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
+        }
+        $g.Dispose(); return , $bmp
+    }
     if ($flags.Needs -and -not $err) { $track = [System.Drawing.Color]::FromArgb(200, $cBlue) }        # needs you: blue ring (still)
     $pt = New-Object System.Drawing.Pen ($track, $w); $g.DrawEllipse($pt, $rect); $pt.Dispose()
     $show = (-not $err) -and ($null -ne $used)
@@ -588,16 +598,7 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
         if ($u -lt 100) { $pa.StartCap = [System.Drawing.Drawing2D.LineCap]::Round; $pa.EndCap = [System.Drawing.Drawing2D.LineCap]::Round }
         $g.DrawArc($pa, $rect, [single]-90, [single](360 * $u / 100.0)); $pa.Dispose()
     }
-    $spin = $flags.Working -and -not $err -and -not $flags.Ask
-    if ($spin) {                                      # Claude working: big 2x2 dots inside the ring, one lit, going round TL > TR > BR > BL (the ring still shows usage)
-        $inner = [single]($isz - 2 * ($m + $w)); $r0 = [single]($inner * 0.2); $o0 = [single]($inner * 0.25); $cx = [single]($isz / 2); $cy = [single]($isz / 2)
-        $pos = @(@(-1, -1), @(1, -1), @(1, 1), @(-1, 1)); $lit = $phase % 4
-        for ($i = 0; $i -lt 4; $i++) {
-            $al = if ($i -eq $lit) { 255 } elseif ($i -eq (($lit + 3) % 4)) { 170 } else { 90 }
-            $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
-            $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
-        }
-    } elseif ($show -and $isz -ge 20) {
+    if ($show -and $isz -ge 20) {
         $txt = if ([double]$used -ge 100) { '!' } else { [string][int][Math]::Round([double]$used) }
         $inner = [single]($isz - 2 * ($m + $w))
         $sf = [System.Drawing.StringFormat]::GenericTypographic
@@ -3644,6 +3645,29 @@ function Save-Upload($f) {                            # a file pasted / dropped 
     $dir = Join-Path $env:TEMP ('claudetray_up\' + [guid]::NewGuid().ToString('N').Substring(0, 8)); New-Item -ItemType Directory -Path $dir -Force | Out-Null
     $fp = Join-Path $dir $nm; [IO.File]::WriteAllBytes($fp, [Convert]::FromBase64String([string]$f.b64)); return $fp
 }
+function Open-BugReport([bool]$withLog) {     # GitHub's new-issue page with the versions filled in; with the log: a cleaned copy (no user name, paths, chat ids, emails) shown in its folder
+    $dp0 = 100; try { $gx = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero); $dp0 = [Math]::Round($gx.DpiX / 96 * 100); $gx.Dispose() } catch { }
+    $env0 = "Tray for Claude $Version - Windows $([Environment]::OSVersion.Version) - PowerShell $($PSVersionTable.PSVersion) - display scale $dp0%"
+    $body = "**What happened**`n`n`n**What you expected**`n`n`n**Steps to reproduce**`n1. `n`n---`n$env0"
+    if ($withLog -and (Test-Path $LogFile)) {
+        try {
+            $ln = @(Get-Content $LogFile -Tail 400 -Encoding UTF8)
+            $rx = @(@([regex]::Escape($Root), '<tray folder>'))
+            foreach ($qr0 in @($QuestRoots)) { if ($qr0) { $rx += , @([regex]::Escape([string]$qr0), '<quest folder>') } }
+            $rx += , @([regex]::Escape($env:LOCALAPPDATA), '%LOCALAPPDATA%'); $rx += , @([regex]::Escape($env:TEMP), '%TEMP%'); $rx += , @([regex]::Escape($env:USERPROFILE), '%USERPROFILE%')     # longest first
+            if ($env:USERNAME) { $rx += , @(('\b' + [regex]::Escape($env:USERNAME) + '\b'), '<user>') }
+            $rx += , @('[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', '<id>'); $rx += , @('session_[A-Za-z0-9]+', 'session_<id>'); $rx += , @('[\w.+-]+@[\w-]+\.[\w.]+', '<email>'); $rx += , @('sk-ant-[\w-]+', '<key>')
+            $ln = @($ln | ForEach-Object { $t0 = [string]$_; foreach ($r1 in $rx) { $t0 = [regex]::Replace($t0, $r1[0], $r1[1], 'IgnoreCase') }; $t0 })
+            $rd = Join-Path $env:TEMP 'ClaudeTray-report'; New-Item -ItemType Directory -Path $rd -Force | Out-Null
+            $rf = Join-Path $rd 'claudetray-report.log'; [IO.File]::WriteAllLines($rf, [string[]]$ln, (New-Object Text.UTF8Encoding $false))
+            $sc = New-Object System.Collections.Specialized.StringCollection; [void]$sc.Add($rf); [System.Windows.Forms.Clipboard]::SetFileDropList($sc)
+            Start-Process explorer.exe "/select,`"$rf`""
+            $body += "`n`n**Log:** claudetray-report.log, attached below (cleaned by the tray: no user name, paths, chat ids or emails - check it before sending)."
+            Log "bug report: cleaned log ready ($($ln.Count) lines), page opened"
+        } catch { Log "bug report log: $($_.Exception.Message)" 'WARN' }
+    } else { Log 'bug report: page opened (no log)' }
+    Start-Process ("https://github.com/$UpdRepo/issues/new?title=" + [Uri]::EscapeDataString('Bug: ') + '&body=' + [Uri]::EscapeDataString($body))
+}
 function Open-Downloaded([string]$path) {             # one click on a file Claude made: open it with its app - never run a program or script (those are shown in their folder)
     $ext = [IO.Path]::GetExtension($path).ToLowerInvariant()
     $risky = '.exe', '.com', '.bat', '.cmd', '.msi', '.msp', '.ps1', '.psm1', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.hta', '.lnk', '.scr', '.pif', '.reg', '.cpl', '.jar', '.msc', '.appx', '.msix', '.appinstaller', '.application', '.inf', '.url', '.scf', '.dll', '.sys', '.iso', '.vhd', '.vhdx'
@@ -4106,6 +4130,7 @@ function On-WebMsg($m) {
                 'refresh' { Invoke-Poll }
                 'weblogin' { Start-Process $PsExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -WebLogin" -WorkingDirectory $Root }
                 'logs' { Start-Process explorer.exe $LogDir }
+                'bug' { Open-BugReport ([string]$m.v -eq 'log') }
                 'quests' { $d = $QuestRoots[0]; if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path (Join-Path $d 'quests') -Force | Out-Null }; Start-Process explorer.exe $d }
                 'restart' { Restart-Tray 'panel menu' }
                 'keepapp' { Save-CfgKey 'keepClaudeApp' (-not [bool]$Cfg.keepClaudeApp); $UI.AppGoneAt = $null; $UI.AppTryAt = $null; Log ("Menu: keep the Claude app running {0}" -f $(if ($Cfg.keepClaudeApp) { 'ON' } else { 'off' })) }

@@ -2,6 +2,14 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.14
+
+- Bug button on the toolbar: opens a new GitHub issue with the versions filled in. With the log, the tray makes a
+  cleaned copy of its last 400 lines (no user name, folders, chat ids or emails), shows it in its folder and puts it
+  on the clipboard, ready to drag or paste into the page. Check it before sending.
+- Tray icon: while Claude works, only the turning dots show, as big as the icon. The usage ring and the number come
+  back when it's done.
+
 ## 0.3.13
 
 - Fix: files Claude sends as tiles (images from a Claude Code session) stayed on "..." and never opened. The tray now

@@ -203,7 +203,7 @@ body.rsz,body.rsz *{cursor:ns-resize!important;user-select:none!important}#brw .
   <div id="pins"></div>
   <div id="list"></div>
   <div id="brwbox"></div>
-  <div id="tb"><button class="ib" id="pin" title="Pin here (stays on top)"></button><button class="ib" id="fold" title="Collapse all chats"></button><button class="ib" id="plus" title="New chat, sections, browse, sort"></button><button class="ib" id="brwb" title="Browse your chats and projects (claude.ai + Claude Desktop local) - + brings one into the tray"></button><button class="ib" id="rctb" title="Recent chats: also show the ones active in the last 24 h that are not in the tray (greyed - usable; + keeps one)"></button><button class="ib" id="gear" title="Settings"></button></div>
+  <div id="tb"><button class="ib" id="pin" title="Pin here (stays on top)"></button><button class="ib" id="fold" title="Collapse all chats"></button><button class="ib" id="plus" title="New chat, sections, browse, sort"></button><button class="ib" id="brwb" title="Browse your chats and projects (claude.ai + Claude Desktop local) - + brings one into the tray"></button><button class="ib" id="rctb" title="Recent chats: also show the ones active in the last 24 h that are not in the tray (greyed - usable; + keeps one)"></button><button class="ib" id="bugb" title="Report a bug on GitHub"></button><button class="ib" id="gear" title="Settings"></button></div>
   <div id="usage"></div><div id="tip"></div>
 </div></div>
 <script>
@@ -212,6 +212,7 @@ const $ = s => document.querySelector(s);
 const post = m => window.chrome.webview.postMessage(m);
 const I = {
   dot0:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/></svg>',
+  bug:'<svg viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="11" rx="4"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0M12 11v8M8 12H4M20 12h-4M8 16.5l-3.5 2M16 16.5l3.5 2M8 9.5 5 7M16 9.5l3-2.5"/></svg>',
   clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   folder:'<svg viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>',
   pin:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-4 4h12l-4-4V3M12 13v8"/></svg>',
@@ -253,7 +254,7 @@ const I = {
 let S = null, firstState = true, prevH = 0, lastExp = '', hoverT = null, leaveT = null, hotEl = null;
 const col = { L: { open: false, pinned: false, id: null, i: -1, html: '', el: null }, R: { open: false, pinned: false, id: null, i: -1, html: '', el: null } };
 const opened = new Set(), big = new Set(), cards = new Map(), lastSt = {}, lastQ = {}, drafts = {}, draftSeen = {}, sugSeen = {}, localSend = {}, moreBusy = {};
-$('#gear').innerHTML = I.gear; $('#brwb').innerHTML = I.folder; $('#rctb').innerHTML = I.clock; const JUMP = '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>'; $('#plus').innerHTML = I.plus; $('#fold').innerHTML = I.fold; $('#nfX').innerHTML = I.x; $('#nfTrack').innerHTML = I.plus;
+$('#gear').innerHTML = I.gear; $('#bugb').innerHTML = I.bug; $('#brwb').innerHTML = I.folder; $('#rctb').innerHTML = I.clock; const JUMP = '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>'; $('#plus').innerHTML = I.plus; $('#fold').innerHTML = I.fold; $('#nfX').innerHTML = I.x; $('#nfTrack').innerHTML = I.plus;
 const trayArm = {}; let slp = null;
 let newSeen = '', hidOpen = false, rootCss = '', usageH = '', LAY = null, layT = null, dirtyView = true, dragId = null, brQ = '';
 const secEls = new Map(), views = {}, brOpen = new Set(), brAsked = new Set();
@@ -942,6 +943,8 @@ const brMax = () => Math.round((S && (S.fixedH || S.maxH) || innerHeight) * 0.7)
 document.addEventListener('mousedown', e => { const rz = e.target.closest && e.target.closest('.rz'); if (rz && e.button === 0) { e.preventDefault(); post({ type: 'rsz', e: rz.dataset.e }); return; } post({ type: 'focus', kb: !!(e.target.closest && (e.target.closest('input, textarea, [contenteditable=true]') || (e.target.closest('.conv') && !e.target.closest('button, a, [data-a], [data-href], .ib, .qr')))) }); if (e.button === 0 && e.target.closest('#top') && !e.target.closest('button')) { e.preventDefault(); if (e.target.closest('#gripz')) gripDown = { x: e.screenX, y: e.screenY }; post({ type: 'drag' }); } });
 document.addEventListener('mouseup', e => { const g = gripDown; gripDown = null; if (g && e.button === 0 && Math.abs(e.screenX - g.x) < 4 && Math.abs(e.screenY - g.y) < 4 && e.target.closest('#gripz')) foldAll(); });
 document.addEventListener('click', e => {
+  if (e.target.closest('#bugb')) { const r = $('#bugb').getBoundingClientRect(); const a = v => () => post({ type: 'menuact', k: 'bug', v: v });
+    popMenu(r.left, r.top, [{ t: 'Report a bug, with the log (cleaned, to drag into the page)', f: a('log') }, { t: 'Report a bug, without the log', f: a('nolog') }], true); return; }
   if (e.target.id === 'gear' || e.target.closest('#gear')) { const r = $('#gear').getBoundingClientRect(); setMenu(r.left, r.top, true); return; }
   if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
   if (e.target.closest('[data-a2="reconnect"]')) { post({ type: 'menuact', k: 'reconnect' }); const rb = e.target.closest('button'); rb.disabled = true; setTimeout(() => { rb.disabled = false; }, 5000); return; }
