@@ -49,16 +49,27 @@ const catalog = { recent: [{ id: '00000000-0000-0000-0000-00000000a001', name: '
   // 3. hero: the panel in context, above the clock - a dev session open, a shopping research running, a permission waiting, recent chats greyed
   p = await panel(DARK, [perm, dev, ebay, invoices, contract], { expanded: [dev.id], big: [dev.id], layout: { v: 1, sec: [], recent: true } }, 360);
   await p.click('.card[data-id="' + dev.id + '"] .head'); await p.waitForTimeout(500);                         // collapsed: all rows + the recent ones show
-  await p.click('.card[data-id="' + dev.id + '"] .mdot'); await p.waitForTimeout(300); await p.fit();       // the dev session open again (recent rows: only active ones)
+  await p.click('.card[data-id="' + dev.id + '"] .mdot'); await p.waitForTimeout(300);       // the dev session open again (recent rows: only active ones)
+  // the user is writing back, with two screenshots of the bug attached (made-up images drawn here)
+  await p.evaluate(id => {
+    const shot = (lines, bad) => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const g = c.getContext('2d');
+      g.fillStyle = '#1b1b1d'; g.fillRect(0, 0, 320, 200); g.fillStyle = '#2b2b2e'; g.fillRect(0, 0, 320, 22); ['#e5534b', '#d4a72c', '#57ab5a'].forEach((col, i) => { g.fillStyle = col; g.beginPath(); g.arc(14 + i * 14, 11, 4, 0, 7); g.fill(); });
+      g.font = '12px monospace'; lines.forEach((t, i) => { g.fillStyle = bad.includes(i) ? '#ff6b6b' : '#b9b9b9'; g.fillText(t, 10, 44 + i * 18); }); return c.toDataURL('image/png'); };
+    const a = shot(['$ pytest tests/test_rate_limit.py', 'collected 12 items', 'test_burst ........ ok', 'test_window_reset FAILED', 'AssertionError: 429 != 200', 'redis key: rl:global', '1 failed, 11 passed'], [3, 4, 6]);
+    const b = shot(['CI  api-gateway  #4812', 'job: rate-limit (3/4)', 'status: failed  02:41', 'retry #2 ......... failed', 'TimeoutError: lock held', 'by test_window_reset'], [2, 3, 4]);
+    const cd = cards.get(id); cd.files.push({ name: 'ci-run-4812.png', type: 'image/png', size: 48000, b64: '', thumb: b }, { name: 'pytest-local.png', type: 'image/png', size: 41000, b64: '', thumb: a }); drawAtts(cd);
+    const ta = document.querySelector('.card[data-id="' + id + '"] textarea[placeholder^="Reply"]'); ta.value = 'Still flaky on CI after the push, two runs attached'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+  }, dev.id);
+  await p.waitForTimeout(300); await p.fit();
   const pb = await p.screenshot({ type: 'png' }); const ph = p.viewportSize().height; await p.close();
   const HW = 600, HH = ph + 110;
   const hero = await b.newPage({ viewport: { width: HW, height: HH }, deviceScaleFactor: 2 });
-  const ring = (u) => { const r = 9, c = 2 * Math.PI * r; return `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="${r}" fill="none" stroke="#5a5a58" stroke-width="2.6"/><circle cx="12" cy="12" r="${r}" fill="none" stroke="#f2f2f2" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="${c * u / 100} ${c}" transform="rotate(-90 12 12)"/><text x="12" y="15.2" text-anchor="middle" font-family="Segoe UI,Arial" font-weight="700" font-size="8.5" fill="#f2f2f2">${u}</text><circle cx="19" cy="5" r="5" fill="#1c1c1c"/><circle cx="19" cy="5" r="4" fill="#4e96e6"/><text x="19" y="7.4" text-anchor="middle" font-family="Segoe UI,Arial" font-weight="700" font-size="6.5" fill="#fff">?</text></svg>`; };
+  const ring = () => { const d = [[-1, -1, 1], [1, -1, .35], [1, 1, .35], [-1, 1, .66]].map(([x, y, a]) => `<circle cx="${12 + x * 5.8}" cy="${12 + y * 5.8}" r="4" fill="#e8805a" fill-opacity="${a}"/>`).join(''); return `<svg width="24" height="24" viewBox="0 0 24 24">${d}</svg>`; };     // Claude working: the icon shows only the turning dots
   const glyph = (d, c) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c || '#e8e8e8'}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   await hero.setContent(`<html><body style="margin:0;width:${HW}px;height:${HH}px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#7b7b7b">
     <img src="data:image/png;base64,${pb.toString('base64')}" style="position:absolute;right:16px;bottom:56px;width:360px;border-radius:9px;box-shadow:0 14px 44px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)">
     <div style="position:absolute;left:0;right:0;bottom:0;height:44px;background:rgba(28,28,30,.97);border-top:1px solid #333;display:flex;align-items:center;justify-content:flex-end;gap:14px;padding-right:16px;color:#eee;font-size:11.5px">
-      <span style="color:#ccc">^</span>${ring(34)}${glyph('<path d="M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"/>')}${glyph('<path d="M4 9v6h4l5 4V5L8 9H4zM16 9a4 4 0 0 1 0 6"/>')}
+      <span style="color:#ccc">^</span>${ring()}${glyph('<path d="M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"/>')}${glyph('<path d="M4 9v6h4l5 4V5L8 9H4zM16 9a4 4 0 0 1 0 6"/>')}
       <div style="text-align:right;line-height:1.25"><div>14:32</div><div>25/10/2026</div></div></div></body></html>`);
   await hero.waitForTimeout(200); await hero.screenshot({ path: path.join(docs, 'hero.png') }); await hero.close();
   await b.close();
