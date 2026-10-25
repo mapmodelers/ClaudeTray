@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.16
+
+- Tray icon: back to the usage ring with the turning dots inside it while Claude works (0.3.11 to 0.3.13). The
+  dots-only icon of 0.3.14 is gone.
+- README main image: the taskbar shows the usual usage icon.
+
 ## 0.3.15
 
 - Fix: after a tray restart or a claude.ai reload, a conversation could end with an old message repeated, show a

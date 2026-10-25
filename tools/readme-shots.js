@@ -64,12 +64,12 @@ const catalog = { recent: [{ id: '00000000-0000-0000-0000-00000000a001', name: '
   const pb = await p.screenshot({ type: 'png' }); const ph = p.viewportSize().height; await p.close();
   const HW = 600, HH = ph + 110;
   const hero = await b.newPage({ viewport: { width: HW, height: HH }, deviceScaleFactor: 2 });
-  const ring = () => { const d = [[-1, -1, 1], [1, -1, .35], [1, 1, .35], [-1, 1, .66]].map(([x, y, a]) => `<circle cx="${12 + x * 5.8}" cy="${12 + y * 5.8}" r="4" fill="#e8805a" fill-opacity="${a}"/>`).join(''); return `<svg width="24" height="24" viewBox="0 0 24 24">${d}</svg>`; };     // Claude working: the icon shows only the turning dots
+  const ring = (u) => { const r = 9, c = 2 * Math.PI * r; return `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="${r}" fill="none" stroke="#5a5a58" stroke-width="2.6"/><circle cx="12" cy="12" r="${r}" fill="none" stroke="#f2f2f2" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="${c * u / 100} ${c}" transform="rotate(-90 12 12)"/><text x="12" y="15.2" text-anchor="middle" font-family="Segoe UI,Arial" font-weight="700" font-size="8.5" fill="#f2f2f2">${u}</text></svg>`; };     // the usual icon: usage ring + number
   const glyph = (d, c) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c || '#e8e8e8'}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   await hero.setContent(`<html><body style="margin:0;width:${HW}px;height:${HH}px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#7b7b7b">
     <img src="data:image/png;base64,${pb.toString('base64')}" style="position:absolute;right:16px;bottom:56px;width:360px;border-radius:9px;box-shadow:0 14px 44px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)">
     <div style="position:absolute;left:0;right:0;bottom:0;height:44px;background:rgba(28,28,30,.97);border-top:1px solid #333;display:flex;align-items:center;justify-content:flex-end;gap:14px;padding-right:16px;color:#eee;font-size:11.5px">
-      <span style="color:#ccc">^</span>${ring()}${glyph('<path d="M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"/>')}${glyph('<path d="M4 9v6h4l5 4V5L8 9H4zM16 9a4 4 0 0 1 0 6"/>')}
+      <span style="color:#ccc">^</span>${ring(34)}${glyph('<path d="M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01"/>')}${glyph('<path d="M4 9v6h4l5 4V5L8 9H4zM16 9a4 4 0 0 1 0 6"/>')}
       <div style="text-align:right;line-height:1.25"><div>14:32</div><div>25/10/2026</div></div></div></body></html>`);
   await hero.waitForTimeout(200); await hero.screenshot({ path: path.join(docs, 'hero.png') }); await hero.close();
   await b.close();

@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.15'
+$Version = '0.3.16'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -578,16 +578,6 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
     # state (see docs/DESIGN.md "Tray icon"): needs you > working > unread reply > idle; the number (usage) always stays
     if (-not $flags) { $flags = @{ Ask = ($badge -eq 'ask'); Needs = ($badge -eq 'act' -or $badge -eq 'ask'); Working = ($badge -eq 'working'); Unread = ($badge -eq 'done') } }
     $cBlue = C 78 150 230; $cOrange = C 232 128 90; $cPurple = C 150 120 230
-    if ($flags.Working -and -not $err -and -not $flags.Ask) {     # Claude working: only the 2x2 dots, as big as the icon, one lit, going round TL > TR > BR > BL (ring and number come back after)
-        $r0 = [single]($isz * 0.17); $o0 = [single]($isz * 0.24); $cx = [single]($isz / 2); $cy = [single]($isz / 2)
-        $pos = @(@(-1, -1), @(1, -1), @(1, 1), @(-1, 1)); $lit = $phase % 4
-        for ($i = 0; $i -lt 4; $i++) {
-            $al = if ($i -eq $lit) { 255 } elseif ($i -eq (($lit + 3) % 4)) { 170 } else { 90 }
-            $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
-            $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
-        }
-        $g.Dispose(); return , $bmp
-    }
     if ($flags.Needs -and -not $err) { $track = [System.Drawing.Color]::FromArgb(200, $cBlue) }        # needs you: blue ring (still)
     $pt = New-Object System.Drawing.Pen ($track, $w); $g.DrawEllipse($pt, $rect); $pt.Dispose()
     $show = (-not $err) -and ($null -ne $used)
@@ -598,7 +588,16 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
         if ($u -lt 100) { $pa.StartCap = [System.Drawing.Drawing2D.LineCap]::Round; $pa.EndCap = [System.Drawing.Drawing2D.LineCap]::Round }
         $g.DrawArc($pa, $rect, [single]-90, [single](360 * $u / 100.0)); $pa.Dispose()
     }
-    if ($show -and $isz -ge 20) {
+    $spin = $flags.Working -and -not $err -and -not $flags.Ask
+    if ($spin) {                                      # Claude working: big 2x2 dots inside the ring, one lit, going round TL > TR > BR > BL (the ring still shows usage)
+        $inner = [single]($isz - 2 * ($m + $w)); $r0 = [single]($inner * 0.2); $o0 = [single]($inner * 0.25); $cx = [single]($isz / 2); $cy = [single]($isz / 2)
+        $pos = @(@(-1, -1), @(1, -1), @(1, 1), @(-1, 1)); $lit = $phase % 4
+        for ($i = 0; $i -lt 4; $i++) {
+            $al = if ($i -eq $lit) { 255 } elseif ($i -eq (($lit + 3) % 4)) { 170 } else { 90 }
+            $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
+            $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
+        }
+    } elseif ($show -and $isz -ge 20) {
         $txt = if ([double]$used -ge 100) { '!' } else { [string][int][Math]::Round([double]$used) }
         $inner = [single]($isz - 2 * ($m + $w))
         $sf = [System.Drawing.StringFormat]::GenericTypographic
