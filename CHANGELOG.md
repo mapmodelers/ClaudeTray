@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.9
+
+- A chat just opened (from the recent list or BROWSE) shows the syncing mark and "Loading the conversation" instead
+  of the tray's own "Tracked from the tray" line.
+- The recent list no longer repeats a chat that is already in the tray under another address (a Claude Code
+  session and its claude.ai chat).
+- Fix: the recent list showed every chat of the last 24 hours, unsorted, and squeezed the open conversation. It
+  shows the 10 newest when all chats are collapsed. While a chat is open, only the recent chats active right now
+  stay (changed in the last 3 minutes, with the working mark), so the space goes to what you opened. Greyed rows are
+  fainter. With recent chats on, the list is read every minute.
+
 ## 0.3.8
 
 - Recent chats (clock button, next to the folder): the claude.ai chats active in the last 24 hours that aren't in

@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.8'
+$Version = '0.3.9'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -4349,7 +4349,8 @@ $questTimer.add_Tick({
         if ($UI.PeekGone) { $UI.PeekGone = $false; Refresh-Quests $true }
         $off = Test-Offline; if ($off -ne [bool]$UI.OffWas) { $UI.OffWas = $off; $UI.OffSince = $(if ($off) { Get-Date } else { $null }); Log ("claude.ai {0}" -f $(if ($off) { 'looks unreachable' } else { 'reachable again' })) 'WARN'; Push-WebState }
         if ($off -and $UI.OffSince -and ((Get-Date) - $UI.OffSince).TotalSeconds -gt 90 -and (-not $UI.RecAt -or ((Get-Date) - $UI.RecAt).TotalMinutes -gt 5)) { Invoke-Reconnect 'automatic' }     # unreachable for a while: reconnect by itself, at most every 5 min
-        if ($webEnabled -and $UI.WebReady -and -not $UI.CatKey -and ((-not $UI.Catalog -and -not $UI.CatNext) -or ($UI.CatNext -and (Get-Date) -gt $UI.CatNext) -or ($UI.Shown -and -not $UI.CatNext -and $UI.Catalog -and $UI.Catalog.at -and ((Get-Date) - (Parse-Iso $UI.Catalog.at)).TotalMinutes -gt 10))) { $UI.CatNext = $null; $UI.CatKey = 'cat-' + [guid]::NewGuid().ToString('N'); if ($UI.Catalog -and $UI.Catalog.recent) { $UI.Catalog.loading = $true } else { $UI.Catalog = [ordered]@{ loading = $true; projects = @() } }; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catalog'; Key = $UI.CatKey; At = (Get-Date) }) }     # the chat list: read once the browser is ready (from the start, not only when BROWSE opens), again after a failure
+        # chat list: once the browser is ready, again after a failure, every 10 min while the panel is shown (every minute with recent chats on: who's active right now)
+        if ($webEnabled -and $UI.WebReady -and -not $UI.CatKey -and ((-not $UI.Catalog -and -not $UI.CatNext) -or ($UI.CatNext -and (Get-Date) -gt $UI.CatNext) -or ($UI.Shown -and -not $UI.CatNext -and $UI.Catalog -and $UI.Catalog.at -and ((Get-Date) - (Parse-Iso $UI.Catalog.at)).TotalMinutes -gt $(if ($QS.Layout -and $QS.Layout.recent) { 1 } else { 10 })))) { $UI.CatNext = $null; $UI.CatKey = 'cat-' + [guid]::NewGuid().ToString('N'); if ($UI.Catalog -and $UI.Catalog.recent) { $UI.Catalog.loading = $true } else { $UI.Catalog = [ordered]@{ loading = $true; projects = @() } }; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catalog'; Key = $UI.CatKey; At = (Get-Date) }) }     # the chat list: read once the browser is ready (from the start, not only when BROWSE opens), again after a failure
         if ($webEnabled -and $UI.WebReady) { Poll-Downloads; Poll-NewChat; Poll-ModelMenu }
         if ($webEnabled -and $Web.Usage -and $Web.Usage.At -ne $UI.UsageSeen) { $UI.UsageSeen = $Web.Usage.At; Update-Usage; Test-UsageAlerts; Update-TrayIcon }     # fresh usage from claude.ai: show it now
         if ($Cfg.debugLog -and (-not $UI.SnapAt -or ((Get-Date) - $UI.SnapAt).TotalSeconds -gt 60)) { $UI.SnapAt = Get-Date; Write-DebugSnapshot }

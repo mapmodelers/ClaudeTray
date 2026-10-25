@@ -171,7 +171,8 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 #pmenu .pmi{padding:3px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}#pmenu .pmi:hover{background:var(--ln)}#pmenu .pmi.off{opacity:.4;cursor:default}#pmenu .pms{height:1px;background:var(--ln);margin:3px 2px}
 #offl{display:none;flex:none;align-items:center;gap:6px;margin:2px 6px 3px;padding:3px 6px;border-radius:6px;background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--mu);font-size:10px}#offl span{flex:1;min-width:0}#offl button{background:transparent;border:1px solid var(--ln);color:var(--tx);border-radius:5px;font:inherit;padding:1px 7px;cursor:pointer}#offl button:hover{border-color:var(--acc)}
 body.offline #offl{display:flex}body.offline #pins,body.offline #list,body.offline #brwbox{opacity:.5;filter:grayscale(.6)}
-#rct .rrow{display:flex;align-items:center;gap:4px;padding:1px 4px;border-radius:6px;font-size:11px;color:var(--mu);margin:0 0 2px}#rct .rrow:hover{background:var(--card)}#rct .rrow .rn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}#rct .rrow .rd{width:14px;height:18px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;opacity:.6}#rct .rrow .age{min-width:18px;text-align:right;font-size:9.5px}
+body.convopen #rct{max-height:94px;overflow-y:auto}     /* a chat is open: the recent list keeps 4 rows (scroll for more), the conversation gets the room */
+#rct .rrow{display:flex;align-items:center;gap:4px;padding:1px 4px;border-radius:6px;font-size:11px;color:var(--mu);margin:0 0 2px;opacity:.6}#rct .rrow:hover{background:var(--card);opacity:1}#rct .rrow .rn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}#rct .rrow .rd{width:14px;height:18px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;opacity:.6}#rct .rrow .age{min-width:18px;text-align:right;font-size:9.5px}
 .card.peek .mph,.card.peek .head b,.card.peek .mi::placeholder{color:var(--mu)!important}.card.peek .mdot,.card.peek .head .dot{opacity:.55}
 .sync{display:inline-flex;gap:2px;align-items:center;vertical-align:middle;margin:0 5px 0 2px}.sync i{width:3px;height:3px;border-radius:50%;background:var(--mu);opacity:.2;animation:syncp 1.2s infinite}.sync i:nth-child(2){animation-delay:.2s}.sync i:nth-child(3){animation-delay:.4s}@keyframes syncp{0%,100%{opacity:.2}40%{opacity:.85}}.spin svg{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 #brwbox{flex:none;padding:0 4px}#brw{border-top:1px solid var(--ln);margin:0 0 2px;padding-top:0;position:relative}#brw.fold{display:none}#brw .bqr{display:flex;align-items:center;gap:2px;margin:3px 4px 3px}#brw .bqr .bq{flex:1;width:auto;margin:0;min-width:0}#brw .bqr .ib{width:16px;height:16px;flex:none}#brw .bh .ib{width:14px;height:14px}#brw .bq{width:calc(100% - 8px);margin:1px 4px 3px;background:var(--field);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font:inherit;font-size:10.5px;height:19px;padding:0 6px;outline:0}#brw .bq:focus{border-color:var(--mu)}
@@ -457,7 +458,7 @@ function render(){
   if (css !== rootCss) { rootCss = css; document.documentElement.style.cssText = css; }
   const sd = S.sides || {};
   for (const [X, on] of [['L', !!sd.l], ['R', !!sd.r]]) if (col[X].open && !on && Date.now() - (col[X].at || 0) > 1500) { col[X].open = false; col[X].pinned = false; }   // the tray closed it (panel hidden / dragged)
-  document.body.classList.toggle('nc', !!S.nc); document.body.classList.toggle('offline', !!S.offline); document.body.classList.add('compact');     // one line per chat: always (no longer a setting)
+  document.body.classList.toggle('nc', !!S.nc); document.body.classList.toggle('offline', !!S.offline); document.body.classList.add('compact'); document.body.classList.toggle('convopen', opened.size > 0);     // one line per chat: always (no longer a setting)
   $('#pin').innerHTML = S.docked ? I.unpin : I.pin; $('#pin').classList.toggle('on', !!S.docked); setTitle($('#pin'), S.docked ? 'Unpin (closes when you click outside)' : 'Pin here (stays on top)');
   const uh = (S.usage || []).map(u => '<div class="u' + (u.used >= 75 ? ' warn' : '') + '" title="' + esc(u.tip) + '"><div class="ul"><span>' + esc(u.label) + '<b>' + Math.round(u.used) + '%</b></span><span title="resets">' + (u.at ? '↻ ' + esc(u.at) + ' · ' + esc(u.left) : '') + '</span></div><div class="bar"><i style="width:' + Math.min(100, Math.max(1, u.used)) + '%"></i></div></div>').join('') + (S.err ? '<div id="err">' + esc(S.err) + '</div>' : '');
   if (uh !== usageH) { usageH = uh; $('#usage').innerHTML = uh; }
@@ -515,15 +516,15 @@ function render(){
 }
 function recentRows(){                               // claude.ai chats active in the last 24 h that are not in the tray (newest first, at most 10)
   if (!LAY || !LAY.recent) return [];
-  const have = new Set((S.chats || []).map(c => c.id)), hid = new Set((S.hidden || []).map(h => h.id)), now = Date.now();
-  return ((S.catalog || {}).recent || []).filter(r => { const t0 = Date.parse(r.at || ''); return t0 && now - t0 < 86400000 && !have.has('chat/' + r.id) && !hid.has('chat/' + r.id); }).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 10);
+  const have = new Set((S.chats || []).map(c => c.id)), hid = new Set((S.hidden || []).map(h => h.id)), now = Date.now(), names = new Set((S.chats || []).map(c => String(c.title || '').trim().toLowerCase()));
+  return ((S.catalog || {}).recent || []).filter(r => { const t0 = Date.parse(r.at || ''); return t0 && now - t0 < 86400000 && !have.has('chat/' + r.id) && !hid.has('chat/' + r.id) && !names.has(String(r.name || '').trim().toLowerCase()); }).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).filter(r => !opened.size || now - Date.parse(r.at) < 180000).slice(0, 10);     // same name as a chat in the tray (a Claude Code session has its own id): not twice. A chat open: only the ones active right now (changed in the last 3 min)
 }
 function renderRecent(L){
   let r = $('#rct'); const rows = recentRows();
   if (!rows.length) { if (r) r.remove(); return; }
   if (!r) { r = document.createElement('div'); r.id = 'rct'; }
   const nf = $('#newf'); if (r.parentElement !== L || r.nextElementSibling !== (nf && nf.parentElement === L ? nf : null)) L.insertBefore(r, nf && nf.parentElement === L ? nf : null);
-  const h = rows.map(x => '<div class="rrow" data-rid="chat/' + esc(x.id) + '" data-t="' + esc(x.name || '') + '" title="' + esc((x.name || '(untitled)') + ' - not in the tray: click to open it here, + to keep it') + '"><span class="rd">' + I.dot0 + '</span><span class="rn">' + esc(x.name || '(untitled)') + '</span><button class="ib" data-a2="rkeep" title="Keep it in the tray">' + I.plus + '</button><span class="age">' + esc(agoTxt(x.at)) + '</span></div>').join('');
+  const h = rows.map(x => '<div class="rrow" data-rid="chat/' + esc(x.id) + '" data-t="' + esc(x.name || '') + '" title="' + esc((x.name || '(untitled)') + ' - not in the tray: click to open it here, + to keep it') + '"><span class="rd">' + (Date.now() - Date.parse(x.at) < 180000 ? '<span class="dots" title="Active right now"><i></i><i></i><i></i><i></i></span>' : I.dot0) + '</span><span class="rn">' + esc(x.name || '(untitled)') + '</span><button class="ib" data-a2="rkeep" title="Keep it in the tray">' + I.plus + '</button><span class="age">' + esc(agoTxt(x.at)) + '</span></div>').join('');
   if (r.dataset.h !== h && !busy(r)) { r.dataset.h = h; r.innerHTML = h; }
 }
 function renderHidden(L){                       // chats you hid: one muted line at the end, click to list them and bring one back
@@ -659,7 +660,8 @@ function convItems(c, cd){
   const msgs = c.msgs || [];
   const isLoc = String(c.id || '').startsWith('local/');     // Desktop local chat - the tray only copies the text, the user pastes it
   const pend = c.sending || (localSend[c.id] && localSend[c.id].t) || (isLoc && c.working && c.lastSent && !msgs.length) || '';
-  if (!msgs.length && !pend) it.push(c.answer ? msgHtml({ r: 'a', t: c.answer }) : '<div class="empty">' + (c.web || !S.webHint ? SYNC + 'Loading the conversation' : esc(S.webHint || 'Conversation not available yet.')) + '</div>');
+  const realAns = c.answer && !/^(Tracked from the tray|New chat - waiting for Claude)$/.test(c.answer);     // the tray's own placeholder text is not Claude's answer: show that it's loading
+  if (!msgs.length && !pend) it.push(realAns ? msgHtml({ r: 'a', t: c.answer }) : '<div class="empty">' + (c.web || !S.webHint ? SYNC + 'Loading the conversation' : esc(S.webHint || 'Conversation not available yet.')) + '</div>');
   // what you sent this round (ticks / answers) under your matching message, or under the pending one
   const norm = t => String(t || '').replace(/\s+/g, ' ').trim();
   let ri = -1; if (c.lastSent) for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].r === 'u') { if (norm(msgs[i].t).startsWith(norm(c.lastSent).slice(0, 40))) ri = i; break; }
