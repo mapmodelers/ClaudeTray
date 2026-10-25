@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.16'
+$Version = '0.3.17'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -4317,10 +4317,12 @@ $miSignOut.add_Click({ try { foreach ($f in @($OAuthFile, "$OAuthFile.claudetray
 $miExit.add_Click({ Exit-Tray 'menu exit' })
 $miWebIn.add_Click({ try { Log 'Menu: web login'; Start-Process $PsExe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -WebLogin" -WorkingDirectory $Root } catch { Log "web login: $($_.Exception.Message)" 'ERR' } })
 $miRestart.add_Click({ Restart-Tray 'menu' })
-$menu.add_Opening({ try { if ($UI.MenuFromPanel) { $UI.MenuFromPanel = $false; Pin-Pop } elseif ($UI.Shown -and -not $UI.Docked) { Hide-Pop 'menu' } } catch { } })
+function Test-MenuBusy { return ([bool]$menu.Visible -or [System.Windows.Forms.Control]::MouseButtons -eq [System.Windows.Forms.MouseButtons]::Right -or ($UI.MenuClosedAt -and ((Get-Date) - $UI.MenuClosedAt).TotalMilliseconds -lt 800)) }
+$menu.add_Closed({ $UI.MenuClosedAt = Get-Date })
+$menu.add_Opening({ try { if ($UI.MenuFromPanel) { $UI.MenuFromPanel = $false; Pin-Pop } } catch { } })     # the panel stays open; the menu opens over it
 
 # hover / click
-$tray.add_MouseMove({ try { $UI.Anchor = [System.Windows.Forms.Cursor]::Position; if ($UI.Docked -and $UI.ClickHid) { return }; if (-not $UI.Shown -and -not $UI.Pending) { $UI.Pending = $true; $UI.PendSince = Get-Date } } catch { Log "mousemove: $($_.Exception.Message)" 'ERR' } })
+$tray.add_MouseMove({ try { $UI.Anchor = [System.Windows.Forms.Cursor]::Position; if ($UI.Docked -and $UI.ClickHid) { return }; if (Test-MenuBusy) { $UI.Pending = $false; return }; if (-not $UI.Shown -and -not $UI.Pending) { $UI.Pending = $true; $UI.PendSince = Get-Date } } catch { Log "mousemove: $($_.Exception.Message)" 'ERR' } })
 $tray.add_MouseClick({
     param($sender, $e)
     try {
@@ -4328,7 +4330,7 @@ $tray.add_MouseClick({
         # one click = show / hide (pinned or not). A panel the hover just opened stays open (it counts as hidden before).
         $UI.ClickWas = if ($UI.Shown -and ($UI.Pinned -or $UI.Docked)) { 'open' } else { 'closed' }
         if ($UI.ClickWas -eq 'open') { Hide-Pop 'icon click' $true; $UI.ClickHid = [bool]$UI.Docked; return }     # a pinned panel hidden by a click stays hidden until the next click (no hover re-show)
-        $UI.ClickHid = $false
+        $UI.ClickHid = $false; $UI.Pending = $false
         $UI.Anchor = [System.Windows.Forms.Cursor]::Position
         if (((Get-Date) - $UI.LastPollAt).TotalSeconds -gt 20) { $UI.LastPollAt = Get-Date; Update-Usage }
         Refresh-Quests $false; Show-Pop 'click'; Pin-Pop
@@ -4378,6 +4380,7 @@ $uiTimer.add_Tick({
         $near = (Dist $cur $UI.Anchor) -le $tol
         if ($UI.Pending) {
             if (-not $near) { $UI.Pending = $false }
+            elseif ($UI.Shown -or (Test-MenuBusy)) { $UI.Pending = $false }     # already shown (a click got there first): no second show     # the right-click menu is open (or just closed): the hover must not bring the panel back over it
             elseif (((Get-Date) - $UI.PendSince).TotalMilliseconds -ge 150) { $UI.Pending = $false; Refresh-Quests $false; Show-Pop 'hover' }
         }
         elseif ($UI.Shown -and -not $UI.Docked -and -not $UI.Rsz -and -not $UI.Drag) {     # never while you resize / move it (the cursor is outside then)

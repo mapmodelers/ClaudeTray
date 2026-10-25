@@ -2,6 +2,12 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.17
+
+- Fix: the right-click menu of the tray icon could not be used while the panel was open: opening it hid the panel,
+  then the mouse over the icon showed the panel again, over the menu. The panel now stays open and the menu opens
+  over it. A click followed by a hover no longer shows the panel twice.
+
 ## 0.3.16
 
 - Tray icon: back to the usage ring with the turning dots inside it while Claude works (0.3.11 to 0.3.13). The
