@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.14'
+$Version = '0.3.15'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1614,20 +1614,21 @@ $webScript = {
     # conversation rows -> the list the panel shows. claude.ai keeps only some rows of a long chat on the page (around where it is scrolled):
     # each row is kept by claude.ai's row number, and the panel gets the unbroken run that ends at the newest row ever seen.
     # files Claude sent as tiles: claude.ai draws them only in the live session, not after a page reload. Their claude.ai ids are kept
-    # by row number (local, %LOCALAPPDATA%\ClaudeTray\files.json), so the panel can still offer them after a restart.
+    # by message (local, %LOCALAPPDATA%\ClaudeTray\files2.json), so the panel can still offer them after a restart.
     $fileMemo = {
         param([string]$id0, $rows)
-        $mf = Join-Path $env:LOCALAPPDATA 'ClaudeTray\files.json'
-        if ($null -eq $Web.FileMemo) { $Web.FileMemo = @{}; if (Test-Path $mf) { try { $j0 = [IO.File]::ReadAllText($mf) | ConvertFrom-Json; foreach ($p0 in $j0.PSObject.Properties) { $h0 = @{}; foreach ($p1 in $p0.Value.PSObject.Properties) { $h0[[int]$p1.Name] = $p1.Value }; $Web.FileMemo[$p0.Name] = $h0 } } catch { } } }
-        $mm0 = $Web.FileMemo[$id0]; if (-not $mm0) { $mm0 = @{}; $Web.FileMemo[$id0] = $mm0 }; $chg = $false
+        $mf = Join-Path $env:LOCALAPPDATA 'ClaudeTray\files2.json'     # files.json (0.3.13) was keyed by row number: not reliable, ignored
+        if ($null -eq $Web.FileMemo) { $Web.FileMemo = @{}; if (Test-Path $mf) { try { $j0 = [IO.File]::ReadAllText($mf) | ConvertFrom-Json; foreach ($p0 in $j0.PSObject.Properties) { $h0 = [ordered]@{}; foreach ($p1 in $p0.Value.PSObject.Properties) { $h0[$p1.Name] = $p1.Value }; $Web.FileMemo[$p0.Name] = $h0 } } catch { } } }
+        $mm0 = $Web.FileMemo[$id0]; if (-not $mm0) { $mm0 = [ordered]@{}; $Web.FileMemo[$id0] = $mm0 }; $chg = $false
         foreach ($rw in $rows) {
-            $kk = [int]$rw.k
-            if ($rw.fu -and @($rw.fu | Where-Object { $_ }).Count) { $o0 = $mm0[$kk]; if (-not $o0 -or (@($o0.fu) -join ',') -ne (@($rw.fu) -join ',')) { $mm0[$kk] = [pscustomobject]@{ r = [string]$rw.r; f = @($rw.f); fu = @($rw.fu) }; $chg = $true } }
-            elseif (-not $rw.f -and $mm0.ContainsKey($kk) -and [string]$mm0[$kk].r -eq [string]$rw.r) { $rw | Add-Member -NotePropertyName f -NotePropertyValue @($mm0[$kk].f) -Force; $rw | Add-Member -NotePropertyName fu -NotePropertyValue @($mm0[$kk].fu) -Force }
+            $tx0 = (([string]$rw.t) -replace '\s+', ' ').Trim(); if ($tx0.Length -lt 12) { continue }     # a message is known by its role + the start of its text
+            $ck0 = [string]$rw.r + '|' + $tx0.Substring(0, [Math]::Min(120, $tx0.Length))
+            if ($rw.fu -and @($rw.fu | Where-Object { $_ }).Count) { $o0 = $mm0[$ck0]; if (-not $o0 -or (@($o0.fu) -join ',') -ne (@($rw.fu) -join ',')) { $mm0[$ck0] = [pscustomobject]@{ f = @($rw.f); fu = @($rw.fu) }; $chg = $true } }
+            elseif (-not $rw.f -and $mm0.Contains($ck0)) { $rw | Add-Member -NotePropertyName f -NotePropertyValue @($mm0[$ck0].f) -Force; $rw | Add-Member -NotePropertyName fu -NotePropertyValue @($mm0[$ck0].fu) -Force }
         }
         if ($chg) {
-            foreach ($ok1 in @($mm0.Keys | Sort-Object | Select-Object -SkipLast 200)) { $mm0.Remove($ok1) }
-            try { $o1 = [ordered]@{}; foreach ($c1 in $Web.FileMemo.Keys) { $o2 = [ordered]@{}; foreach ($k1 in $Web.FileMemo[$c1].Keys) { $o2[[string]$k1] = $Web.FileMemo[$c1][$k1] }; $o1[$c1] = $o2 }; [IO.File]::WriteAllText($mf, (ConvertTo-Json $o1 -Depth 6 -Compress), (New-Object Text.UTF8Encoding $false)) } catch { }
+            while ($mm0.Count -gt 200) { $mm0.RemoveAt(0) }
+            try { [IO.File]::WriteAllText($mf, (ConvertTo-Json $Web.FileMemo -Depth 6 -Compress), (New-Object Text.UTF8Encoding $false)) } catch { }
         }
     }
     $mergeMsgs = {
@@ -1637,7 +1638,18 @@ $webScript = {
         if ($nk.Count -eq $nw.Count) {
             if ($id0) { try { & $fileMemo $id0 $nk } catch { } }
             $byK = $(if ($cc0.ByK) { $cc0.ByK.Clone() } else { $null }); $top = [int]$cc0.ByKMax; if (-not $byK) { $byK = @{}; $top = -1 }     # a copy: the tray's other thread may be reading the one it holds
-            foreach ($mm in $nk) { $p0 = $byK[[int]$mm.k]; if ($p0 -and $p0.r -ne $mm.r) { $byK = @{}; $top = -1; $cc0.MorePg = 0; break } }     # rows numbered differently (another page): start over
+            # claude.ai numbers rows from the oldest one it has loaded: a reload or older rows loading shift every number. Your own messages
+            # don't change, so they tell the shift: re-number the cache by the most common one before merging.
+            $nt = { param($e) (([string]$e.t) -replace '\s+', ' ').Trim() }
+            if ($byK.Count) {
+                $at = @{}; foreach ($ck1 in $byK.Keys) { $e1 = $byK[$ck1]; if ($e1.r -eq 'u') { $t1 = & $nt $e1; if ($t1.Length -ge 6) { if (-not $at.ContainsKey($t1)) { $at[$t1] = @() }; $at[$t1] += [int]$ck1 } } }
+                $votes = @{}; foreach ($mm in $nk) { if ($mm.r -eq 'u') { $t1 = & $nt $mm; if ($at.ContainsKey($t1)) { foreach ($k1 in $at[$t1]) { $d1 = $k1 - [int]$mm.k; $votes[$d1] = 1 + [int]$votes[$d1] } } } }
+                if ($votes.Count) {
+                    $bd = @($votes.Keys | Sort-Object { -$votes[$_] }, { [Math]::Abs($_) })[0]
+                    if ($bd -ne 0 -and [int]$votes[$bd] -gt [int]$votes[0]) { $nb = @{}; foreach ($ck1 in $byK.Keys) { $e2 = $byK[$ck1].PSObject.Copy(); $e2.k = [int]$ck1 - $bd; $nb[[int]$ck1 - $bd] = $e2 }; $byK = $nb; $top = $top - $bd; WL ("rows renumbered by claude.ai (shift {0}): cache realigned" -f $bd) }
+                }
+            }
+            foreach ($mm in $nk) { $p0 = $byK[[int]$mm.k]; if ($p0 -and ($p0.r -ne $mm.r -or ($mm.r -eq 'u' -and (& $nt $p0) -ne (& $nt $mm)))) { $byK = @{}; $top = -1; $cc0.MorePg = 0; break } }     # still a different message at that number: start over
             foreach ($mm in $nk) { $byK[[int]$mm.k] = $mm; if ([int]$mm.k -gt $top) { $top = [int]$mm.k } }
             foreach ($ok0 in @($byK.Keys | Where-Object { $_ -lt $top - 600 })) { $byK.Remove($ok0) }
             $cc0.ByK = $byK; $cc0.ByKMax = $top

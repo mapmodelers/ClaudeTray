@@ -2,6 +2,15 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.15
+
+- Fix: after a tray restart or a claude.ai reload, a conversation could end with an old message repeated, show a
+  file under the wrong reply, and lose its step lists. claude.ai numbers its rows from the oldest one it has loaded,
+  so the numbers change on every reload; the tray now realigns on your own messages (they never change) before
+  merging. Files Claude sent are remembered by message instead of row number (`files2.json`, replaces `files.json`).
+- Skill: Claude reads the results before pointing you to steps, and every step it mentions is in a new step list.
+  Upload `skill/tray.zip` again to get it.
+
 ## 0.3.14
 
 - Bug button on the toolbar: opens a new GitHub issue with the versions filled in. With the log, the tray makes a

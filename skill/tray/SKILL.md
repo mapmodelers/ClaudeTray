@@ -64,6 +64,9 @@ Kinds: `cmd`/`ps` (run hidden, output captured; field `cmd`) · `exe` · `dir` �
 answer; with `"options": ["Yes", "No"]` (up to 4) it shows buttons) · `manual`. Add `"admin": true` for elevation,
 `"interactive": true` when it prompts. Omit false/empty fields.
 
+Never point the user to steps that aren't in the quest you write this turn: steps from an earlier quest may be done
+already (read the results file first) - give the ones still needed again.
+
 End of a turn with **nothing** to run: write nothing (the tray sees you finished).
 
 ## When the user says "check" (or reports back)
