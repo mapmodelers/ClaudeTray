@@ -2,6 +2,18 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.8
+
+- Recent chats (clock button, next to the folder): the claude.ai chats active in the last 24 hours that aren't in
+  the tray show greyed under yours, newest first (at most 10). Click one to open, read and reply to it right there;
+  + keeps it in the tray. Closed without +, it goes back to the greyed list. The button's state is remembered.
+- BROWSE folds back when you click anywhere else in the panel, or when the panel hides.
+- A small pulsing mark shows what is still syncing with claude.ai: a chat not read yet, a conversation loading,
+  earlier messages coming in, BROWSE's lists (its refresh button turns while the list loads).
+- Settings > Keep the Claude app running: if the Claude app isn't running (after a reboot or an update), the tray
+  starts it minimized, never over a full-screen app, and gives the focus back. Chats linked to this PC (Claude on
+  the web or the phone working with your files) stay reachable. Off by default.
+
 ## 0.3.7
 
 - Chats renamed on claude.ai get their new name in the tray: from the open page's title, and from the chat list

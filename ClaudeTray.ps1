@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.7'
+$Version = '0.3.8'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -884,6 +884,36 @@ $UpdScript = {
         $r.Msg = if ($m0 -match '404') { 'no public release list (private repository?)' } elseif ($m0 -match 'resolve|connect|timed out') { 'GitHub not reachable' } else { 'failed' }
         return $r
     }
+}
+function Test-FullScreenFg {                          # something covers the whole screen (a full-screen video, a game): don't pop a window over it
+    try { $fg = [ClaudeTray.Native]::GetForegroundWindow(); if ($fg -eq [IntPtr]::Zero -or $fg -eq $hPop) { return $false }
+        $rc = New-Object ClaudeTray.Native+RECT; if (-not [ClaudeTray.Native]::GetWindowRect($fg, [ref]$rc)) { return $false }
+        $sb = [System.Windows.Forms.Screen]::FromHandle($fg).Bounds; return ($rc.L -le $sb.Left -and $rc.T -le $sb.Top -and $rc.R -ge $sb.Right -and $rc.B -ge $sb.Bottom) } catch { return $false }
+}
+function Watch-ClaudeApp {                            # setting 'keepClaudeApp': the Claude app running in the background (after a reboot or an app update), so chats linked to this PC stay reachable
+    if (-not $Cfg.keepClaudeApp) { return }
+    if (@(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq 'claude' }).Count) {
+        $UI.AppGoneAt = $null
+        if ($UI.AppMinUntil -and (Get-Date) -lt $UI.AppMinUntil) { $w0 = Get-ClaudeWindow; if ($w0 -and -not [ClaudeTray.Native]::IsIconic($w0.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w0.MainWindowHandle, 6); $UI.AppMinUntil = $null; Log 'keep app: started and minimized' } }     # the window we just started: minimized
+        return
+    }
+    if (-not $UI.AppGoneAt) { $UI.AppGoneAt = Get-Date; return }
+    if (((Get-Date) - $UI.AppGoneAt).TotalSeconds -lt 45 -or ($UI.AppTryAt -and ((Get-Date) - $UI.AppTryAt).TotalMinutes -lt 5) -or (Test-FullScreenFg)) { return }     # not right after it closed (an update restarts it by itself), not over a full-screen app, at most every 5 min
+    $UI.AppTryAt = Get-Date; $UI.AppMinUntil = (Get-Date).AddSeconds(40)
+    $fgWas = [ClaudeTray.Native]::GetForegroundWindow()
+    try {
+        $exe = @("$env:LOCALAPPDATA\AnthropicClaude\claude.exe", "$env:LOCALAPPDATA\Programs\Claude\Claude.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($exe) { Start-Process $exe -WindowStyle Minimized }
+        else { $pk = @(Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue | Where-Object { $_.Publisher -match 'Anthropic' -or $_.Name -match 'Anthropic' })[0]; if (-not $pk) { Log 'keep app: Claude app not found' 'WARN'; return }; $aid = 'Claude'; try { $aid = [string]@((Get-AppxPackageManifest $pk).Package.Applications.Application)[0].Id } catch { }; Start-Process 'explorer.exe' "shell:AppsFolder\$($pk.PackageFamilyName)!$aid" }
+        Log 'keep app: the Claude app was not running - started'
+        if ($fgWas -and $fgWas -ne [IntPtr]::Zero) { [void][ClaudeTray.Native]::SetForegroundWindow($fgWas) }     # give the focus back to what you were using
+    } catch { Log "keep app: $($_.Exception.Message)" 'WARN' }
+}
+function Remove-Peek([string]$pid0) {                 # a chat opened from the recent list and closed without + : out of the tray again (its placeholder files go)
+    $qp = @($QS.List | Where-Object { [string]$_.id -eq $pid0 })[0]; if (-not $qp -or -not $qp.peek) { return }
+    $fid = Get-FileId $pid0
+    foreach ($fx in @((Join-Path $qp.Root ('quests\' + $fid + '.json')), (Join-Path $qp.Root ('results\' + $fid + '.json')))) { try { $j0 = $null; if ($fx -like '*\quests\*') { $j0 = [IO.File]::ReadAllText($fx) | ConvertFrom-Json; if (-not $j0.peek) { continue } }; if (Test-Path $fx) { Remove-Item $fx -Force } } catch { } }
+    Log "peek: $pid0 closed, out of the tray"
 }
 function Sync-ChatTitles($rows) {                     # names from claude.ai (chat list, a project's chats): a chat renamed there gets its new name here too
     $chg = $false; $ids = @{}; foreach ($q0 in @($QS.List)) { $ids[[string]$q0.id] = $true }
@@ -3602,10 +3632,11 @@ function Poll-Downloads {                             # called by the quest time
     }
     foreach ($dk in @($Web.Results.Keys | Where-Object { $_ -like 'diag-*' -or $_ -like 'diagq-*' })) { if ([string]$Web.Results[$dk].Res -ne 'skip') { Log ("web diag (structure only): {0}" -f $Web.Results[$dk].Res) 'DEBUG' }; $Web.Results.Remove($dk) }
 }
-function Write-Placeholder([string]$nid, [string]$ttl, [string]$sentText) {     # makes a chat visible in the tray before (or without) Claude writing a quest
+function Write-Placeholder([string]$nid, [string]$ttl, [string]$sentText, [bool]$peek = $false) {     # makes a chat visible in the tray before (or without) Claude writing a quest
     $qroot = $QuestRoots[0]; $qd = Join-Path $qroot 'quests'; if (-not (Test-Path $qd)) { New-Item -ItemType Directory -Path $qd -Force | Out-Null }
     $qf = Join-Path $qd ((Get-FileId $nid) + '.json'); if (Test-Path $qf) { return }
     $qph = [ordered]@{ v = 1; id = $nid; title = $ttl; state = 'done'; tracked = $true; summary = $(if ($sentText) { 'New chat - waiting for Claude' } else { 'Tracked from the tray' }); updated = (Get-Iso (Get-Date)); steps = @() }
+    if ($peek) { $qph.peek = $true }     # opened from the recent list: not kept yet (greyed, leaves when closed)
     [IO.File]::WriteAllText($qf, ($qph | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
     if ($sentText) { $qo = [pscustomobject]@{ id = $nid; updated = $qph.updated; Root = $qroot }; $rs = New-Results $qo; $rs.sent = @([pscustomobject]@{ at = (Get-Iso (Get-Date).AddSeconds(2)); text = $sentText }); Save-Results $qo $rs }
 }
@@ -3768,7 +3799,7 @@ function Get-WebUiChat($q) {
     $sbr = if (@($q.steps).Count) { Get-StepsBefore $q $msgs $raw } else { @{ Sb = -1; Ans = $false } }; $sb = [int]$sbr.Sb
     if ($wst -eq 'act' -and $sbr.Ans) { $wst = 'done' }; $UI.Answered[$id] = [bool]$sbr.Ans                       # you already answered (maybe in the app): the steps are history
     if ($wc -and $wc.DocT -and $wc.DocT -notmatch '^(claude|claude code|new chat|nouvelle (conversation|discussion)|untitled|sans titre)$' -and $wc.DocT.Length -le 200 -and [string]$QS.Titles[$id] -cne [string]$wc.DocT -and -not $id.StartsWith('local/')) { $QS.Titles[$id] = [string]$wc.DocT; $UI.TitlesDirty = $true }     # renamed on claude.ai: the open page says so
-    $ch = [ordered]@{ id = $id; trayCmd = $(if ($id.StartsWith('local/')) { $(if ($Cfg.localTrayCommand) { [string]$Cfg.localTrayCommand } else { '/tray' }) } else { '/tray' }); title = $(if ($QS.Titles[$id]) { [string]$QS.Titles[$id] } elseif ($id.StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }); st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
+    $ch = [ordered]@{ id = $id; peek = [bool]$q.peek; trayCmd = $(if ($id.StartsWith('local/')) { $(if ($Cfg.localTrayCommand) { [string]$Cfg.localTrayCommand } else { '/tray' }) } else { '/tray' }); title = $(if ($QS.Titles[$id]) { [string]$QS.Titles[$id] } elseif ($id.StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }); st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
                       age = (Format-Age $q.Upd); preview = $pv.Trim(); web = [bool]$wc; sending = $(if ($pend) { [string]$pend.Text } else { $null })
                       unread = (Test-Unread $q); readKey = $(if ($QS.Read[$id]) { [string]$QS.Read[$id].K } else { $null })
                       act = $(if ($wc -and $wc.Working) { [string]$wc.Act } else { '' }); prompts = @($(if ($wc) { $wc.Prompts } else { @() })); q = $(if ($wc -and $wc.Q) { $wc.Q } elseif ($lq = Get-LocalQ $q) { $lq } else { $null }); askRes = $(if ($script:AskRes -and $script:AskRes[$id] -and ((Get-Date) - $script:AskRes[$id].At).TotalSeconds -lt 12) { @{ l = [string]$script:AskRes[$id].l; ok = [bool]$script:AskRes[$id].ok; k = [string]$script:AskRes[$id].k } } else { $null }); model = $(if ($wc) { [string]$wc.Model } elseif ($lsx) { [string]$lsx.Model } else { '' }); effort = $(if ($lsx) { [string]$lsx.Effort } else { '' }); retry = [bool]($wc -and $wc.Retry); pin = [bool]$QS.Pins.Contains($id); bridge = [bool]$q.bridge; skill = (Test-TraySkill $q $msgs); stepsBefore = $sb
@@ -3867,7 +3898,7 @@ function Push-WebState([bool]$force = $false) {
                              err = $werr; usage = $us; catalog = $UI.Catalog; desklocal = @(if (($QS.Layout -and $QS.Layout.browse) -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count) { try { Get-DesktopLocal } catch { } }); deskSeen = [bool](@($script:DeskLocalCache).Count -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count); deskOnly = @($QS.DeskOnly.Keys); seen = $(try { $sm = @{}; foreach ($sq in @($QS.List)) { $sl = Get-LastActivity $sq; $sr = $(if ($QS.Read[[string]$sq.id]) { $QS.Read[[string]$sq.id].At } else { $null }); $sv = $(if ($sr -is [datetime]) { $sr } elseif ($sq.LastSent -is [datetime]) { $sq.LastSent } else { $sq.Upd }); if ($sv) { $sm[[string]$sq.id] = ([datetime]$sv).ToUniversalTime().ToString('o') } }; $sm } catch { @{} }); newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)     # seen = when you last saw each tracked chat (Browse dot)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible -and -not ([string]$_.id).StartsWith('local/') -or (-not $_.Visible -and $Caps.Local) } | Select-Object -First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd); at = ([datetime]$qh.Upd).ToUniversalTime().ToString('o') } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ keepApp = [bool]$Cfg.keepClaudeApp; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 6 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -4023,6 +4054,7 @@ function On-WebMsg($m) {
                 'logs' { Start-Process explorer.exe $LogDir }
                 'quests' { $d = $QuestRoots[0]; if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path (Join-Path $d 'quests') -Force | Out-Null }; Start-Process explorer.exe $d }
                 'restart' { Restart-Tray 'panel menu' }
+                'keepapp' { Save-CfgKey 'keepClaudeApp' (-not [bool]$Cfg.keepClaudeApp); $UI.AppGoneAt = $null; $UI.AppTryAt = $null; Log ("Menu: keep the Claude app running {0}" -f $(if ($Cfg.keepClaudeApp) { 'ON' } else { 'off' })) }
                 'reconnect' { Invoke-Reconnect 'panel' }
                 'update' { Start-Update $(if ([string]$m.v -eq 'apply') { 'apply' } else { 'check' }) }
                 'exit' { Exit-Tray 'panel menu exit' }
@@ -4038,7 +4070,7 @@ function On-WebMsg($m) {
         'pin' { if ($UI.Docked) { $UI.Docked = $false; Save-State } else { $UI.Docked = $true; Pin-Pop; Set-DockMemo; Save-State } }
         'copy' { if ($m.text) { Set-Clipboard -Value ([string]$m.text) } }
         'log' { Log ("webui page: {0}" -f $m.text) 'WARN' }
-        'expand' { $wasOpen = @($UI.WebOpen).Count; $faWas = [bool]$UI.FoldAll; $UI.FoldAll = [bool]$m.all; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in @($newIds | Where-Object { -not ([string]$_).StartsWith('local/') })) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0) -or $faWas -ne $UI.FoldAll) { Fit-WebPop } }
+        'expand' { foreach ($pq in @($QS.List | Where-Object { $_.peek -and @($m.ids) -notcontains [string]$_.id })) { Remove-Peek ([string]$pq.id); $UI.PeekGone = $true }; $wasOpen = @($UI.WebOpen).Count; $faWas = [bool]$UI.FoldAll; $UI.FoldAll = [bool]$m.all; $UI.WebBig = @(@($m.big) | Where-Object { $_ } | ForEach-Object { [string]$_ }); $newIds = @(@($m.ids) | Where-Object { $_ -and $UI.WebOpen -notcontains [string]$_ }); $UI.WebOpen = @(@($m.ids) | Where-Object { $_ } | ForEach-Object { [string]$_ }); if ($webEnabled) { $Web.MsgFor = @($UI.WebOpen); foreach ($ni in @($newIds | Where-Object { -not ([string]$_).StartsWith('local/') })) { [void]$Web.Cmds.Add(@{ Id = [string]$ni; Kind = 'diag'; Key = 'diag-' + [guid]::NewGuid().ToString('N'); At = (Get-Date) }) } }; $UI.ShotAt = (Get-Date).AddMilliseconds(900); $UI.ShotWhy = 'web-expand' ; if (($wasOpen -eq 0) -ne (@($UI.WebOpen).Count -eq 0) -or $faWas -ne $UI.FoldAll) { Fit-WebPop } }
         'more' { if ($q) { $Web.MsgN[[string]$q.id] = [int]$(if ($Web.MsgN.ContainsKey([string]$q.id)) { $Web.MsgN[[string]$q.id] } else { 20 }) + 15; [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'more'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log ("chat[{0}]: load earlier (now {1} messages)" -f $q.id, $Web.MsgN[[string]$q.id]) 'DEBUG' } }
         'open' { if ($q) { Open-Chat $q ([bool]$m.web) } }
         'bell' { if ($q) { $kb = [string]$q.id; $QS.Bells[$kb] = ($QS.Bells.ContainsKey($kb) -and -not $QS.Bells[$kb]); Save-State } }
@@ -4075,6 +4107,8 @@ function On-WebMsg($m) {
         'slash' { if ($q -and $webEnabled -and -not $UI.SlashKey -and -not ($UI.Slash -and ((Get-Date) - $UI.Slash.At).TotalMinutes -lt 10 -and @($UI.Slash.Items).Count)) { $UI.SlashKey = 'sl-' + [guid]::NewGuid().ToString('N'); [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'slash'; Key = $UI.SlashKey; At = (Get-Date) }) } }
         'retry' { if ($q) { [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'retry'; Key = [guid]::NewGuid().ToString('N'); At = (Get-Date) }); Log "retry[$($q.id)]" } }
         'openurl' { $u0 = [string]$m.url; if ($u0 -match '^https?://[^\s"<>]+$') { Start-Process $u0; Log ("open link {0}" -f ($u0 -replace '\?.*$', '?...')) } else { Log 'open link: refused (not http/https)' 'WARN' } }
+        'peek' { $tid = [string]$m.id; if (@($QS.List | Where-Object { [string]$_.id -eq $tid }).Count) { $QS.Hidden.Remove($tid); Save-State; Refresh-Quests $true } elseif ($tid -match '^chat/[0-9a-f-]{36}$') { try { Write-Placeholder $tid ([string]$m.title) '' $true; $QS.Read[$tid] = @{ K = ''; At = (Get-Date) }; $UI.WebOpen = @(@($UI.WebOpen) + $tid); Log "peek: $tid"; Refresh-Quests $true } catch { Log "peek: $($_.Exception.Message)" 'WARN' } } }
+        'keep' { if ($q -and $q.peek) { try { $fq = Join-Path $q.Root ('quests\' + (Get-FileId ([string]$q.id)) + '.json'); $jq = [IO.File]::ReadAllText($fq) | ConvertFrom-Json; $jq.PSObject.Properties.Remove('peek'); [IO.File]::WriteAllText($fq, ($jq | ConvertTo-Json -Compress -Depth 8), (New-Object Text.UTF8Encoding $false)); Log "keep: $($q.id)"; Refresh-Quests $true } catch { Log "keep: $($_.Exception.Message)" 'WARN' } } }
         'track' { $tid = [string]$m.id; if (@($QS.List | Where-Object { [string]$_.id -eq $tid }).Count) { if ($null -eq $script:CoolTouch) { $script:CoolTouch = @{} }; $script:CoolTouch[$tid] = Get-Date; $QS.Hidden.Remove($tid); Save-State; Refresh-Quests $true; Log "track: $tid already known - shown again" } elseif ($tid -match '^chat/[0-9a-f-]{36}$' -or ($Caps.Local -and $tid -match '^local/[A-Za-z0-9_-]{6,80}$')) { try { Write-Placeholder $tid ([string]$m.title) ''; $QS.Read[$tid] = @{ K = ''; At = (Get-Date) }; $UI.WebOpen = @(@($UI.WebOpen) + $tid); Log "track: $tid"; Refresh-Quests $true } catch { Log "track: $($_.Exception.Message)" 'WARN' } } }
         'catproj' { $cp0 = [string]$m.pid; if ($webEnabled -and $UI.Org -and $cp0 -match '^[0-9a-f-]{36}$' -and -not $UI.CatProj.ContainsKey($cp0)) { $UI.CatProj[$cp0] = 'cp-' + [guid]::NewGuid().ToString('N'); [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catproj'; Org = $UI.Org; Pid = $cp0; Key = $UI.CatProj[$cp0]; At = (Get-Date) }) } }
         'layout' { $QS.Layout = $m.layout; $UI.LayoutDirty = Get-Date }
@@ -4310,7 +4344,9 @@ $questTimer.add_Tick({
             }
         }
         if ($UI.UpdPs) { Poll-Update }
+        if (-not $UI.AppWatchAt -or ((Get-Date) - $UI.AppWatchAt).TotalSeconds -ge 10) { $UI.AppWatchAt = Get-Date; Watch-ClaudeApp }
         if ($UI.TitlesDirty) { $UI.TitlesDirty = $false; Save-State; Refresh-Quests $true }
+        if ($UI.PeekGone) { $UI.PeekGone = $false; Refresh-Quests $true }
         $off = Test-Offline; if ($off -ne [bool]$UI.OffWas) { $UI.OffWas = $off; $UI.OffSince = $(if ($off) { Get-Date } else { $null }); Log ("claude.ai {0}" -f $(if ($off) { 'looks unreachable' } else { 'reachable again' })) 'WARN'; Push-WebState }
         if ($off -and $UI.OffSince -and ((Get-Date) - $UI.OffSince).TotalSeconds -gt 90 -and (-not $UI.RecAt -or ((Get-Date) - $UI.RecAt).TotalMinutes -gt 5)) { Invoke-Reconnect 'automatic' }     # unreachable for a while: reconnect by itself, at most every 5 min
         if ($webEnabled -and $UI.WebReady -and -not $UI.CatKey -and ((-not $UI.Catalog -and -not $UI.CatNext) -or ($UI.CatNext -and (Get-Date) -gt $UI.CatNext) -or ($UI.Shown -and -not $UI.CatNext -and $UI.Catalog -and $UI.Catalog.at -and ((Get-Date) - (Parse-Iso $UI.Catalog.at)).TotalMinutes -gt 10))) { $UI.CatNext = $null; $UI.CatKey = 'cat-' + [guid]::NewGuid().ToString('N'); if ($UI.Catalog -and $UI.Catalog.recent) { $UI.Catalog.loading = $true } else { $UI.Catalog = [ordered]@{ loading = $true; projects = @() } }; [void]$Web.Cmds.Add(@{ Id = '__new__'; Kind = 'catalog'; Key = $UI.CatKey; At = (Get-Date) }) }     # the chat list: read once the browser is ready (from the start, not only when BROWSE opens), again after a failure

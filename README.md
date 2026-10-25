@@ -54,6 +54,7 @@ Claude plan. No installer and no admin rights.
 | More room for one of two open chats | Drag the line between them (double-click: even) |
 | Browse your chats and projects | Folder button on the toolbar, next to + |
 | BROWSE taller or shorter | Drag the line above it |
+| Recent chats not in the tray | Clock button, next to the folder (greyed; + keeps one) |
 | Send, new line | Enter, Shift + Enter |
 | Slash commands | Type `/` in a reply box |
 | Attach files | Paste, drop, or use the clip button |
