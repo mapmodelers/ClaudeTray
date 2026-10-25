@@ -26,7 +26,7 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 .card.open .head{border-radius:8px 8px 0 0}
 .card.open>.head{position:sticky;top:0;z-index:6;background:var(--bg)}.card.open>.head:hover{background:var(--card)}     /* an open chat keeps its title in view while you scroll */
 .dot{width:5px;height:5px;border-radius:50%;flex:none;background:var(--mu);margin:0 3px}
-.dot.act{background:var(--acc)}.askm{width:11px;height:11px;border-radius:50%;background:var(--acc);color:#fff;font:700 8.5px/11px Segoe UI,sans-serif;text-align:center;flex:none;margin:0 1px}.mph .ak{color:var(--acc)}.dot.done{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mu) 55%,transparent)}
+.dot.act{background:var(--acc)}.dot.act.ok{background:transparent;box-shadow:inset 0 0 0 1.2px var(--acc)}.askm{width:11px;height:11px;border-radius:50%;background:var(--acc);color:#fff;font:700 8.5px/11px Segoe UI,sans-serif;text-align:center;flex:none;margin:0 1px}.mph .ak{color:var(--acc)}.dot.done{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mu) 55%,transparent)}
 .dots{width:11px;height:11px;flex:none;position:relative}
 .dots i{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--acc);opacity:.3;animation:dd 1s infinite steps(1)}
 .dots i:nth-child(1){left:1px;top:1px}.dots i:nth-child(2){right:1px;top:1px;animation-delay:.25s}
@@ -129,7 +129,7 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
 .mf{display:inline-flex;align-items:center;color:var(--mu);font-size:9.5px;gap:1px}.mf svg{width:10px;height:10px}
 .okm{color:var(--mu);margin-top:2px}.chs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}.chb{border:1px solid var(--acc);color:var(--tx);border-radius:6px;padding:0 9px;height:19px;font-size:10.5px}.chb:hover{background:var(--acc);color:#fff}
-.m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}
+.m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}.ps1 .prun{width:16px;height:16px;flex:none;opacity:.7}.ps1 .prun svg{width:10px;height:10px}.ps1 .prun:hover{opacity:1}.ps1 .prun.arm{opacity:1;color:#fff;background:var(--acc);border-radius:4px}.ps1 .prun.arm::after{content:'Run anyway?';font-size:9.5px;margin-left:3px;white-space:nowrap}.ps1 .prun.arm{width:auto;padding:0 5px}
 .trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
 #slp{position:fixed;z-index:45;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:min(150px,calc(100vh - 8px));overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -422,7 +422,8 @@ const askTxt = c => c.q && c.q.t ? c.q.t : (c.prompts || []).join(' / ');
 function marker(c){
   if (asks(c)) return '<span class="askm" title="Claude is waiting for you: ' + esc(askTxt(c)) + '">?</span>';     // before "working": its turn is still running while it waits on you
   if (c.working) return '<span class="dots" title="Claude is working"><i></i><i></i><i></i><i></i></span>';
-  return '<span class="dot ' + c.st + (c.unread ? ' new' : '') + '" title="' + (c.st === 'act' ? 'Steps for you' : c.unread ? 'New from Claude' : c.st === 'done' ? 'Seen' : 'Sent') + '"></span>';
+  const ok = c.st === 'act' && c.allDone;     // every step done: only 'check' is left to send
+  return '<span class="dot ' + c.st + (ok ? ' ok' : '') + (c.unread ? ' new' : '') + '" title="' + (ok ? 'Steps done - Enter in its line sends check' : c.st === 'act' ? 'Steps for you' : c.unread ? 'New from Claude' : c.st === 'done' ? 'Seen' : 'Sent') + '"></span>';
 }
 const hash = t => { let h = 5381; const s0 = String(t || '').slice(0, 300); for (let i = 0; i < s0.length; i++) h = ((h << 5) + h + s0.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 function chatOf(id){ return (S && S.chats || []).find(c => c.id === id); }
@@ -689,10 +690,11 @@ function qHtml(c){                                    // Claude Code's question 
   const ft = q.sub || q.multi ? '<div class="qft"><button class="qs" data-a="qsub"' + (q.subOk === false ? ' disabled title="Pick at least one first (or write one under Other)"' : ' title="Send your answers to Claude"') + '>Send answers</button></div>' : '';
   return '<div class="ask qz"><div class="qhd"><span class="qtx">' + (arm ? '<b>Click \u00ab' + esc(arm) + '\u00bb again to confirm</b> \u2013 ' : '') + esc(q.t || 'Claude asks') + '</span>' + nav + '</div>' + rows + (q.gen ? '' : oth) + ft + '</div>';     // gen = a Desktop request card (buttons only)
 }
+const RUNK = ['cmd', 'ps', 'exe', 'dir', 'file', 'url'], runArm = {};
 function pastSteps(c){                                 // read-only, one line per step
   const ic = { cmd: I.cmd, ps: I.cmd, exe: I.run, dir: I.dir, file: I.file, url: I.web, observe: I.eye, manual: I.ok };
   return '<div class="m a pst"><div class="b">' + c.steps.map(s => { const ok = s.status === 'done', sk = s.status === 'skipped', bad = s.status === 'failed' || (s.exit != null && s.exit !== '' && s.exit != 0);
-    return '<div class="ps1' + (ok || sk ? ' d' : '') + '" title="' + esc(s.cmd || s.path || s.url || s.label) + '"><span class="k">' + (ic[s.kind] || I.cmd) + '</span><span class="l">' + esc(s.label) + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</span>' + (bad ? '<span class="x bad">✗</span>' : ok ? '<span class="okm">' + I.ok + '</span>' : sk ? '<span class="x">–</span>' : '') + '</div>'; }).join('') + '</div></div>';
+    return '<div class="ps1' + (ok || sk ? ' d' : '') + '" title="' + esc(s.cmd || s.path || s.url || s.label) + '"><span class="k">' + (ic[s.kind] || I.cmd) + '</span><span class="l">' + esc(s.label) + (s.answer ? ' <span class="ans">→ ' + esc(s.answer) + '</span>' : '') + '</span>' + (bad ? '<span class="x bad">✗</span>' : ok ? '<span class="okm">' + I.ok + '</span>' : sk ? '<span class="x">–</span>' : '') + (!ok && !sk && !c.locked && RUNK.includes(s.kind) ? '<button class="ib prun" data-a="runold" data-n="' + s.n + '" title="From an earlier round - Claude may have moved on. Click, then click again to run it anyway">' + (s.kind === 'url' ? I.web : s.kind === 'dir' || s.kind === 'file' ? I.dir : I.run) + '</button>' : '') + '</div>'; }).join('') + '</div></div>';
 }
 function roundHtml(c){
   const done = (c.steps || []).filter(s => s.status === 'done' || s.status === 'skipped' || s.status === 'failed');
@@ -999,6 +1001,12 @@ document.addEventListener('click', e => {
     case 'stop': post({ type: 'stop', id: id }); break;
     case 'auto': post({ type: 'auto', id: id }); break;
     case 'run': post({ type: 'run', id: id, n: n }); break;
+    case 'runold': {                                   // an earlier round's step: first click asks, second click (within 5 s) runs it
+      const k = id + '#' + n;
+      if (runArm[k] && Date.now() - runArm[k] < 5000) { delete runArm[k]; post({ type: 'run', id: id, n: n, old: true }); b.classList.remove('arm'); b.disabled = true; unstick(b); break; }
+      runArm[k] = Date.now(); b.classList.add('arm'); b.dataset.tt = b.title; b.title = 'Click again to run this earlier step';
+      setTimeout(() => { if (b.isConnected && runArm[k] && Date.now() - runArm[k] >= 5000) { delete runArm[k]; b.classList.remove('arm'); b.title = b.dataset.tt; } }, 5100); break;
+    }
     case 'copycmd': { const s = ((chatOf(id) || {}).steps || []).find(x => x.n === n); post({ type: 'copy', text: s ? (s.cmd || s.path || s.url || '') : '' }); break; }
     case 'autostep': post({ type: 'autostep', id: id, n: n }); break;
     case 'tick': post({ type: 'tick', id: id, n: n }); break;

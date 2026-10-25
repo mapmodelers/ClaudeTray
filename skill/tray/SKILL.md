@@ -61,7 +61,8 @@ claude.ai path with `/` → `__`: `code__session_…` or `chat__<uuid>`):
 ```
 
 Kinds: `cmd`/`ps` (run hidden, output captured; field `cmd`) · `exe` · `dir` · `file` (field `path`) · `url` (field `url`) (open) · `observe` (one-line
-answer; with `"options": ["Yes", "No"]` it shows buttons) · `manual`. Add `"admin": true` for elevation, `"interactive": true` when it prompts. Omit false/empty fields.
+answer; with `"options": ["Yes", "No"]` (up to 4) it shows buttons) · `manual`. Add `"admin": true` for elevation,
+`"interactive": true` when it prompts. Omit false/empty fields.
 
 End of a turn with **nothing** to run: write nothing (the tray sees you finished).
 
@@ -72,6 +73,9 @@ Read `<root>\results\<id>.json` first: per step `status` (`done`/`failed`/`skipp
 the user to paste anything. Missing or `quest_updated` ≠ your quest → use the chat. In bridge mode the
 user's message ends with a `[tray]` line instead: `n ✓/✗/– exit / "answer" / last output` per step.
 Its `style` (bridge mode: `style ...` in the `[tray]` line) is the user's "Short replies" setting: see the top section.
+Steps the user hasn't done yet (no result, or `skipped`) that still matter: put them in your next quest again
+(numbered from 1), even when nothing else is new. Once the user replies, the tray shows that round's steps as
+history.
 
 ## Keep it cheap
 
@@ -80,4 +84,5 @@ Its `style` (bridge mode: `style ...` in the `[tray]` line) is the user's "Short
 - Read the results file only on "check"; never re-read your own quest.
 - Steps stand alone (full paths). Never put secrets in either file.
 - A `ps` step with several commands: after each command-line tool, `if ($LASTEXITCODE) { throw '<what failed>' }`, so a
-  failure shows as failed in the tray (only the last command sets the exit code).
+  failure shows as failed in the tray (only the last command sets the exit code). Don't name helpers after built-in
+  PowerShell aliases (`rp`, `gc`, `sc`...).

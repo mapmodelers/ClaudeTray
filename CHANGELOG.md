@@ -2,6 +2,19 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.11
+
+- Tray icon: while Claude works, large orange dots turn inside the ring, in place of the number (the ring still
+  shows usage). The top-right corner stays free for the other states, so "needs you" or a new reply shows at the same
+  time.
+- Fix: a chat whose steps were all done still counted as "needs you" (blue ring and dot, "1 need you" in the
+  tooltip) until you sent "check". It no longer does. In the panel its dot turns hollow: only "check" is left to send.
+- The tooltip and the icon count chats that need you the same way.
+- A step from an earlier round that wasn't done (you replied first) can still be run: its button asks "Run anyway?"
+  and runs on the second click, since Claude may have moved on.
+- Skill (`skill/tray.zip`): Claude puts steps you haven't done yet in its next step list again. Upload the zip again
+  to get it.
+
 ## 0.3.10
 
 - Double-click a chat's line to open it. Double-click an open chat's title, or the space around its messages, to

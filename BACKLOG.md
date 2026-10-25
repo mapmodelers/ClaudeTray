@@ -44,3 +44,24 @@ What's asked, planned and still open. Done work moves to [CHANGELOG.md](CHANGELO
 - 2026-10-21: blank area from the start = the chat was pinned (pinned chats sit outside the list, the fit measured the empty list and grew without end). Fixed: pins + list share the space.
 - 2026-10-20: answers - last line after the title: yes; toolbar: own bar above usage; compact mode: off by default.
 - 2026-10-21: status words ("Déchiffrage…", "En cours d'exécution", "Exécutant une commande") must be one grey line on the animation line, not in the reply. Then version 0.3.1 + README known issues / limits (local sessions).
+- 2026-10-21: released 0.3.0 + 0.3.1 + 0.3.2 (update check fix). BROWSE header merged into the toolbar as a folder button at the right; pin first on the toolbar (0.3.3, to test).
+- 2026-10-21: version only once a change is done and tested; Settings > Check for updates (from git).
+- 2026-10-22: conversation mixes old replies above the latest one (must match Claude exactly); tool rows ('Lu b1.png', 'Enregistrant les fichiers…') still white in the reply. Auto-load of earlier messages removed; structure dump (debug) to find how claude.ai holds messages and tool rows.
+- 2026-10-22: row-number fix OK; folder button next to + (left side); release 0.3.3.
+- 2026-10-22: 0.3.3 released. Closing a chat must not shrink the panel (only collapse all does) → 0.3.4.
+- 2026-10-22: BROWSE search found nothing: 'claude.ai error: timeout Runtime.evaluate' (catalog read capped at 8 s). Fix: 45 s for the catalog, 30 s per project, one automatic retry, the last list kept. Search covers the 300 most recent chats + every project.
+- 2026-10-22: chat list must show from the start (even after a reboot); double-click the icon must open Claude even when closed; grey out + Reconnect (or automatic) when claude.ai is unreachable; [ADMIN] chat showed no earlier messages (critical) → 0.3.5.
+- 2026-10-22: one chat open at a time (click its dot); right-click the dot opens it next to the others; Compact mode no longer a setting (always one line per chat). Added to 0.3.5 (not released yet).
+- 2026-10-22: clicking the pinned panel (grip etc.) brings back the hidden taskbar (full-screen video) → the panel takes the focus only for typing / selecting. In 0.3.5.
+- 2026-10-22: 0.3.5 released. Grip OK, but buttons (run a step...) still brought the taskbar back → check every button: 0.3.6 (no focus for any button, steps run with no window).
+- 2026-10-24: chats / projects renamed on claude.ai kept their old names in the tray (titles were fixed at tracking time) → 0.3.7. Asked about other architectures: recommended reading claude.ai's own data instead of the page (option A), a compiled app later.
+- 2026-10-25: BROWSE folds back on a click elsewhere; recent toggle (clock): chats active in 24 h not in the tray, greyed under the tracked ones, no heading; usable (open/read/reply), + keeps; off by default, remembered → 0.3.8.
+- 2026-10-25: the link to the PC drops (Claude app closed or restarted: reboot this morning, app updated 3.1623 to 3.6556) → setting 'Keep the Claude app running' (started minimized, never over full screen). In 0.3.8.
+- 2026-10-25: keep-app relaunch works (log 09:29). Subtle syncing mark for anything not loaded yet → in 0.3.8. Noted: each chat's 'this PC' link has to be set again in Claude (not the tray's).
+- 2026-10-25: 0.3.8 released. A just-opened chat showed 'Tracked from the tray' instead of loading; ClaudeTray listed twice (tracked Code session + recent claude.ai chat) → 0.3.9.
+- 2026-10-25: recent list took the whole panel (a comment had swallowed the 10-row limit and the sort) → fixed; 4 rows while a chat is open. In 0.3.9.
+- 2026-10-25: recent chats only when all chats are collapsed; while one is open, only recent chats active right now (working mark), greyed; fainter rows. In 0.3.9.
+- 2026-10-25: 0.3.9 released. Double-click: line opens, open chat closes (title or around messages; text keeps word selection) → 0.3.10.
+- 2026-10-25: 0.3.10 released; README rewritten (every shortcut by topic, new images: code session, eBay research, permission, BROWSE, recent chats), published.
+- 2026-10-25: icon showed "1 need you" with nothing to do (all steps done, 'check' not sent yet) → no longer counts; hollow dot in the panel. Working animation bigger on the icon (inside the ring) → 0.3.11.
+- 2026-10-25: release step couldn't be run once a reply was sent (past round = read-only) → past undone steps get a run button with a confirm (second click, not a Windows popup: no focus steal); the skill re-issues undone steps in the next quest. In 0.3.11.

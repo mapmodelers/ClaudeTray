@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.10'
+$Version = '0.3.11'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -588,7 +588,16 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
         if ($u -lt 100) { $pa.StartCap = [System.Drawing.Drawing2D.LineCap]::Round; $pa.EndCap = [System.Drawing.Drawing2D.LineCap]::Round }
         $g.DrawArc($pa, $rect, [single]-90, [single](360 * $u / 100.0)); $pa.Dispose()
     }
-    if ($show -and $isz -ge 20) {
+    $spin = $flags.Working -and -not $err -and -not $flags.Ask
+    if ($spin) {                                      # Claude working: big 2x2 dots inside the ring, one lit, going round TL > TR > BR > BL (the ring still shows usage)
+        $inner = [single]($isz - 2 * ($m + $w)); $r0 = [single]($inner * 0.2); $o0 = [single]($inner * 0.25); $cx = [single]($isz / 2); $cy = [single]($isz / 2)
+        $pos = @(@(-1, -1), @(1, -1), @(1, 1), @(-1, 1)); $lit = $phase % 4
+        for ($i = 0; $i -lt 4; $i++) {
+            $al = if ($i -eq $lit) { 255 } elseif ($i -eq (($lit + 3) % 4)) { 170 } else { 90 }
+            $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
+            $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
+        }
+    } elseif ($show -and $isz -ge 20) {
         $txt = if ([double]$used -ge 100) { '!' } else { [string][int][Math]::Round([double]$used) }
         $inner = [single]($isz - 2 * ($m + $w))
         $sf = [System.Drawing.StringFormat]::GenericTypographic
@@ -614,19 +623,11 @@ function New-TrayIcon([int]$isz, $used, [bool]$err, [bool]$light, [string]$badge
     }
     $bd = [single][Math]::Max(6, $isz * 0.42)           # top-right badge: the most urgent state (small enough to keep the number readable)
     $bx = [single]($isz - $bd); $by = [single]0
-    if (-not $err -and ($flags.Working -or $flags.Needs -or $flags.Unread -or $flags.Ask)) {
+    if (-not $err -and ($flags.Needs -or $flags.Unread -or $flags.Ask)) {
         $hb = New-Object System.Drawing.SolidBrush ($(if ($light) { C 250 250 250 } else { C 22 22 22 }))
         $g.FillEllipse($hb, [single]($bx - 1), [single]($by - 1), [single]($bd + 2), [single]($bd + 2)); $hb.Dispose()
     }
-    if ($flags.Working -and -not $err) {             # Claude working: 2x2 dots, one lit, going round TL > TR > BR > BL (big, high contrast)
-        $r0 = [single]($bd * 0.21); $o0 = [single]($bd * 0.25); $cx = $bx + $bd / 2; $cy = $by + $bd / 2
-        $pos = @(@(-1, -1), @(1, -1), @(1, 1), @(-1, 1)); $lit = $phase % 4
-        for ($i = 0; $i -lt 4; $i++) {
-            $al = if ($i -eq $lit) { 255 } elseif ($i -eq (($lit + 3) % 4)) { 170 } else { 95 }
-            $db = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($al, $cOrange))
-            $g.FillEllipse($db, [single]($cx + $pos[$i][0] * $o0 - $r0), [single]($cy + $pos[$i][1] * $o0 - $r0), [single](2 * $r0), [single](2 * $r0)); $db.Dispose()
-        }
-    } elseif ($flags.Ask -and -not $err) {             # Claude asks you (Allow / Deny, a question): blue disc with a "?" - stands out from the plain dot
+    if ($flags.Ask -and -not $err) {             # Claude asks you (Allow / Deny, a question): blue disc with a "?" - stands out from the plain dot
         $bb = New-Object System.Drawing.SolidBrush $cBlue; $g.FillEllipse($bb, $bx, $by, $bd, $bd); $bb.Dispose()
         if ($bd -ge 7) { $qf = New-NumFont ([single]($bd * 0.78)); $qsz = $g.MeasureString('?', $qf, [System.Drawing.PointF]::Empty, [System.Drawing.StringFormat]::GenericTypographic); $wb = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
             $g.DrawString('?', $qf, $wb, [single]($bx + ($bd - $qsz.Width) / 2), [single]($by + ($bd - $qsz.Height) / 2), [System.Drawing.StringFormat]::GenericTypographic); $wb.Dispose(); $qf.Dispose() }
@@ -1183,6 +1184,8 @@ function Read-Quests {
                 $lastSent = $null; foreach ($sx in @($res.sent)) { $ts = Parse-Iso $sx.at; if ($ts -and (-not $lastSent -or $ts -gt $lastSent)) { $lastSent = $ts } }
                 $st = if ($lastSent -and $lastSent -gt $upd) { 'working' } elseif ([string]$q.state -eq 'act' -and @($q.steps).Count -gt 0) { 'act' } else { 'done' }
                 $q | Add-Member -NotePropertyName St -NotePropertyValue $st -Force
+                $dn = @{}; foreach ($rs0 in @($res.steps)) { if ([string]$rs0.status -in 'done', 'skipped') { $dn[[int]$rs0.n] = $true } }
+                $q | Add-Member -NotePropertyName AllDone -NotePropertyValue ([bool](@($q.steps).Count -and -not @($q.steps | Where-Object { -not $dn[[int]$_.n] }).Count)) -Force     # every step done or skipped: what's left is sending 'check'
                 $q | Add-Member -NotePropertyName LastSent -NotePropertyValue $lastSent -Force
                 $q | Add-Member -NotePropertyName Visible -NotePropertyValue (Get-QVisible $q) -Force     # pinned = always shown; idle chats leave the tray after the cooldown
                 $out += $q
@@ -1200,11 +1203,12 @@ function Read-Quests {
 function Get-IconFlags {
     $v = @($QS.List | Where-Object { $_.Visible })
     $ask = [bool]($v | Where-Object { Test-ChatAsks $_ })      # Claude waits on you inside the chat (Allow / Deny, a question): first, even while its turn is still running
-    $needs = $ask -or [bool]($v | Where-Object { $_.St -eq 'act' -and -not $UI.Answered[[string]$_.id] })
+    $needs = $ask -or [bool]($v | Where-Object { Test-ChatNeeds $_ })
     $working = (-not $ask) -and [bool]($v | Where-Object { Test-ChatWorking $_ })
     $unread = [bool]($v | Where-Object { Test-Unread $_ })
     return @{ Ask = $ask; Needs = $needs; Working = $working; Unread = $unread }
 }
+function Test-ChatNeeds($q) { return ($q.St -eq 'act' -and -not $UI.Answered[[string]$q.id] -and -not $q.AllDone) }     # steps left to do (not answered yet)
 function Test-ChatAsks($q) { if (Get-LocalAsk $q) { return $true }; $wc = $Web.Chats[[string]$q.id]; return [bool]($wc -and (@($wc.Prompts).Count -or $wc.Q)) }
 function Get-Badge { $fl = Get-IconFlags; if ($fl.Ask) { return 'ask' }; if ($fl.Needs) { return 'act' }; if ($fl.Working) { return 'working' }; if ($fl.Unread) { return 'done' }; return '' }
 function Format-Age($dt) { if (-not $dt) { return '' }; $sp = (Get-Date) - $dt; if ($sp.TotalMinutes -lt 1) { return 'now' }; if ($sp.TotalHours -lt 1) { return ('{0}m' -f [int]$sp.TotalMinutes) }; if ($sp.TotalDays -lt 1) { return ('{0}h' -f [int]$sp.TotalHours) }; return ('{0}d' -f [int]$sp.TotalDays) }
@@ -3430,7 +3434,7 @@ function Update-TrayIcon {
     } else { 'Tray for Claude' }
     $vis0 = @($QS.List | Where-Object { $_.Visible })
     $pre = @()
-    $nNeed = @($vis0 | Where-Object { $_.St -eq 'act' -or ($Web.Chats[[string]$_.id] -and (@($Web.Chats[[string]$_.id].Prompts).Count -or $Web.Chats[[string]$_.id].Q)) }).Count; if ($nNeed) { $pre += "$nNeed need you" }
+    $nNeed = @($vis0 | Where-Object { (Test-ChatNeeds $_) -or (Test-ChatAsks $_) }).Count; if ($nNeed) { $pre += "$nNeed need you" }
     $nWork = @($vis0 | Where-Object { Test-ChatWorking $_ }).Count; if ($nWork) { $pre += "$nWork working" }
     $nNew = @($vis0 | Where-Object { Test-Unread $_ }).Count; if ($nNew) { $pre += "$nNew new" }
     if ($pre.Count) { $txt = ($pre -join ', ') + ' - ' + ($txt -replace '^ClaudeTray - ', '') }
@@ -3799,7 +3803,7 @@ function Get-WebUiChat($q) {
     $sbr = if (@($q.steps).Count) { Get-StepsBefore $q $msgs $raw } else { @{ Sb = -1; Ans = $false } }; $sb = [int]$sbr.Sb
     if ($wst -eq 'act' -and $sbr.Ans) { $wst = 'done' }; $UI.Answered[$id] = [bool]$sbr.Ans                       # you already answered (maybe in the app): the steps are history
     if ($wc -and $wc.DocT -and $wc.DocT -notmatch '^(claude|claude code|new chat|nouvelle (conversation|discussion)|untitled|sans titre)$' -and $wc.DocT.Length -le 200 -and [string]$QS.Titles[$id] -cne [string]$wc.DocT -and -not $id.StartsWith('local/')) { $QS.Titles[$id] = [string]$wc.DocT; $UI.TitlesDirty = $true }     # renamed on claude.ai: the open page says so
-    $ch = [ordered]@{ id = $id; peek = [bool]$q.peek; trayCmd = $(if ($id.StartsWith('local/')) { $(if ($Cfg.localTrayCommand) { [string]$Cfg.localTrayCommand } else { '/tray' }) } else { '/tray' }); title = $(if ($QS.Titles[$id]) { [string]$QS.Titles[$id] } elseif ($id.StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }); st = $wst; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
+    $ch = [ordered]@{ id = $id; peek = [bool]$q.peek; trayCmd = $(if ($id.StartsWith('local/')) { $(if ($Cfg.localTrayCommand) { [string]$Cfg.localTrayCommand } else { '/tray' }) } else { '/tray' }); title = $(if ($QS.Titles[$id]) { [string]$QS.Titles[$id] } elseif ($id.StartsWith('local/')) { Get-LocalTitle $q } else { [string]$q.title }); st = $wst; allDone = [bool]$q.AllDone; working = [bool]((Test-ChatWorking $q) -or $UI.Queue.ContainsKey($id)); bell = -not ($QS.Bells.ContainsKey($id) -and -not $QS.Bells[$id])
                       age = (Format-Age $q.Upd); preview = $pv.Trim(); web = [bool]$wc; sending = $(if ($pend) { [string]$pend.Text } else { $null })
                       unread = (Test-Unread $q); readKey = $(if ($QS.Read[$id]) { [string]$QS.Read[$id].K } else { $null })
                       act = $(if ($wc -and $wc.Working) { [string]$wc.Act } else { '' }); prompts = @($(if ($wc) { $wc.Prompts } else { @() })); q = $(if ($wc -and $wc.Q) { $wc.Q } elseif ($lq = Get-LocalQ $q) { $lq } else { $null }); askRes = $(if ($script:AskRes -and $script:AskRes[$id] -and ((Get-Date) - $script:AskRes[$id].At).TotalSeconds -lt 12) { @{ l = [string]$script:AskRes[$id].l; ok = [bool]$script:AskRes[$id].ok; k = [string]$script:AskRes[$id].k } } else { $null }); model = $(if ($wc) { [string]$wc.Model } elseif ($lsx) { [string]$lsx.Model } else { '' }); effort = $(if ($lsx) { [string]$lsx.Effort } else { '' }); retry = [bool]($wc -and $wc.Retry); pin = [bool]$QS.Pins.Contains($id); bridge = [bool]$q.bridge; skill = (Test-TraySkill $q $msgs); stepsBefore = $sb
@@ -4138,7 +4142,7 @@ function On-WebMsg($m) {
         'stop' { if ($q) { Stop-Chat $q } }
         'auto' { if ($q) { [void](Send-ToChat $q 'do it yourself' 'auto') } }
         'autostep' { if ($wstep) { [void](Send-ToChat $q ("do step {0} yourself: {1}" -f $wstep.n, $wstep.label) 'step-auto') } }
-        'run' { if ($wstep -and (Test-StepsLocked $q)) { Log "run[$($q.id)#$($wstep.n)]: refused - Claude is working / the round was sent" 'DEBUG' } elseif ($wstep) { Start-Step $q $wstep; Refresh-Quests $true } }
+        'run' { if ($wstep -and (Test-StepsLocked $q)) { Log "run[$($q.id)#$($wstep.n)]: refused - Claude is working / the round was sent" 'DEBUG' } elseif ($wstep) { if ($m.old) { Log "run[$($q.id)#$($wstep.n)]: earlier round's step, confirmed" }; Start-Step $q $wstep; Refresh-Quests $true } }
         'tick' { if ($wstep -and -not (Test-StepsLocked $q)) { Toggle-Manual @{ q = $q; st = $wstep } } }
         'skip' { if ($wstep) { $rec = @($q.Res.steps) | Where-Object { [int]$_.n -eq [int]$wstep.n } | Select-Object -First 1; if ($rec -and $rec.status -eq 'skipped') { Set-StepResult $q ([int]$wstep.n) @{ status = 'pending'; ended = $null } } else { Set-StepResult $q ([int]$wstep.n) @{ status = 'skipped'; ended = (Get-Iso (Get-Date)) } }; Refresh-Quests $true } }
         'answer' { if ($wstep -and -not (Test-StepsLocked $q)) { Set-StepResult $q ([int]$wstep.n) @{ status = 'done'; answer = [string]$m.text; ended = (Get-Iso (Get-Date)) }; Refresh-Quests $true } }
