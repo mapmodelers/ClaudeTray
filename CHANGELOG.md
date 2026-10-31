@@ -2,6 +2,16 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.19
+
+- Fix: a reply sent in the first seconds after the tray starts (its tab for that chat still loading) went through the
+  Claude app and could fail. The tray now shows it as "sending..." and waits for its tab (25 s at most), then sends
+  it there; only if the tab never gets ready does it go through the app.
+- Fix: a hover label could stay on screen (its button re-drawn under the pointer, the pointer leaving the panel
+  without the page noticing, the panel hidden). Labels now go away in all those cases, and after 6 s at most.
+- Claude's last answer in a chat shows in full by default (it was folded to two lines when long). A click still
+  folds it; the next answer opens in full again.
+
 ## 0.3.18
 
 - "Tray for Claude" in the Start menu, so Windows search finds it, with its own icon. The tray also keeps a shortcut

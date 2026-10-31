@@ -676,7 +676,7 @@ function convItems(c, cd){
   { let lim = sbI >= 0 && (c.steps || []).length ? sbI : msgs.length; const hs = c.hist || [];
     for (let h = hs.length - 1; h >= 0; h--) { const hp = norm(hs[h].sent).replace(/\u2026$/, '').slice(0, 40); if (!hp) continue;
       for (let i = lim - 1; i >= 0; i--) if (msgs[i].r === 'u' && norm(msgs[i].t).startsWith(hp)) { histAt[i] = pastSteps(c, hs[h].steps || [], true); lim = i; break; } } }
-  msgs.forEach((m, i) => { if (histAt[i]) it.push(histAt[i]); if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, cd && cd.full.has(i), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });
+  msgs.forEach((m, i) => { if (histAt[i]) it.push(histAt[i]); if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, i === lastA ? !(cd && cd.fold && cd.fold.has(hash(m.t))) : !!(cd && cd.full.has(i)), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });     // Claude's last answer: open in full unless you folded it
   if (pend) it.push('<div class="m u sending"><div class="b">' + esc(pend) + '</div>' + rnd + '<span class="sst">' + (isLoc ? 'via Claude Desktop \u2013 if it is not there, paste it (Ctrl+V)' : 'sending…') + '</span></div>');
   const lastM = msgs[msgs.length - 1];
   const actL = String(c.act || '').split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 160);     // what Claude is doing: one grey line next to the animation
@@ -962,7 +962,8 @@ document.addEventListener('click', e => {
   if (b && b.dataset.copy != null) { post({ type: 'copy', text: b.dataset.copy }); return; }
   const lk = e.target.closest('a[data-href]'); if (lk) { e.preventDefault(); post({ type: 'openurl', url: lk.getAttribute('data-href') }); return; }
   const mb = e.target.closest('.m.a .b');
-  if (mb && card && !e.target.closest('[data-a]') && !String(window.getSelection())) { const cd = cards.get(id), i = +mb.parentElement.dataset.i; if (cd.full.has(i)) cd.full.delete(i); else cd.full.add(i); render(); return; }
+  if (mb && card && !e.target.closest('[data-a]') && !String(window.getSelection())) { const cd = cards.get(id), i = +mb.parentElement.dataset.i, ms0 = (chatOf(id) || {}).msgs || []; let la = -1; for (let j = ms0.length - 1; j >= 0; j--) if (ms0[j].r === 'a') { la = j; break; }
+    if (i === la) { const hk = hash(ms0[i].t); if (!cd.fold) cd.fold = new Set(); if (cd.fold.has(hk)) cd.fold.delete(hk); else cd.fold.add(hk); } else if (cd.full.has(i)) cd.full.delete(i); else cd.full.add(i); render(); return; }
   if (!b) { if (e.target.closest('.head')) toggle(id); return; }
   const a = b.dataset.a, n = b.dataset.n != null ? +b.dataset.n : null;
   if (S && S.settings && S.settings.debug) post({ type: 'log', text: 'ui: ' + a + (id ? ' ' + id : '') + (n != null ? '#' + n : '') });
@@ -1109,19 +1110,25 @@ window.chrome.webview.addEventListener('message', e => {
   }
 });
 // hover labels: drawn by the page (the panel never takes the focus, so Windows' own tooltips don't show)
-let tipEl = null, tipT = null;
+let tipEl = null, tipT = null, tipAt = 0, tipX = -1, tipY = -1;
 function setTitle(el, t){ if (!el) return; if (el.dataset.tt != null) { if (el.dataset.tt !== t) { el.dataset.tt = t; if (el === tipEl) $('#tip').textContent = t; } } else if (el.title !== t) el.title = t; }     // the label code moves title into data-tt while hovered
-const tipHide = () => { clearTimeout(tipT); const tp = $('#tip'); tp.classList.remove('on'); if (tipEl && tipEl.dataset.tt != null) { if (!tipEl.hasAttribute('title')) tipEl.setAttribute('title', tipEl.dataset.tt); delete tipEl.dataset.tt; } tipEl = null; };
+const tipHide = () => { clearTimeout(tipT); tipAt = 0; const tp = $('#tip'); tp.classList.remove('on'); if (tipEl && tipEl.dataset.tt != null) { if (!tipEl.hasAttribute('title')) tipEl.setAttribute('title', tipEl.dataset.tt); delete tipEl.dataset.tt; } tipEl = null; };
 document.addEventListener('mouseover', e => {
   if (e.buttons || document.body.classList.contains('rsz')) return;     // dragging: no labels
   const el = e.target.closest && e.target.closest('[title]:not(#top):not(.head):not(.card)'); if (el === tipEl) return;
   tipHide(); if (!el || !el.getAttribute('title') || e.target.closest('#pmenu, #slp')) return;
   tipEl = el; el.dataset.tt = el.getAttribute('title'); el.removeAttribute('title');
-  tipT = setTimeout(() => { if (tipEl !== el || !el.isConnected) return; const tp = $('#tip'); tp.textContent = el.dataset.tt; tp.classList.add('on');
+  tipT = setTimeout(() => { if (tipEl !== el || !el.isConnected) return; const tp = $('#tip'); tp.textContent = el.dataset.tt; tp.classList.add('on'); tipAt = Date.now();
     const r = el.getBoundingClientRect(), w = tp.offsetWidth, h = tp.offsetHeight; let y = r.bottom + 3; if (y + h > innerHeight - 2) y = r.top - h - 3;
     tp.style.left = Math.max(2, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 2)) + 'px'; tp.style.top = Math.max(2, y) + 'px'; }, 400);
 });
 document.addEventListener('mousedown', tipHide, true); document.addEventListener('wheel', tipHide, { passive: true, capture: true });
-document.documentElement.addEventListener('mouseleave', tipHide);
+document.documentElement.addEventListener('mouseleave', tipHide); addEventListener('blur', tipHide); document.addEventListener('visibilitychange', tipHide);
+document.addEventListener('mousemove', e => { tipX = e.clientX; tipY = e.clientY; }, { passive: true, capture: true });
+setInterval(() => {     // a label must never stay behind: its element re-drawn or gone, the pointer elsewhere (left the panel without an event), the panel hidden, or shown for 6 s
+  if (!tipEl && !$('#tip').classList.contains('on')) return;
+  const under = tipX >= 0 ? document.elementFromPoint(tipX, tipY) : null;
+  if (!tipEl || !tipEl.isConnected || !under || !tipEl.contains(under) || (S && S.shown === false) || (tipAt && $('#tip').classList.contains('on') && Date.now() - tipAt > 6000)) tipHide();
+}, 400);
 post({ type: 'ready' });
 </script></body></html>

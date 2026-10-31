@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.18'
+$Version = '0.3.19'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -2097,6 +2097,16 @@ if ($webEnabled) {
     $webPs = [powershell]::Create(); $webPs.Runspace = $webRs; [void]$webPs.AddScript($webScript).AddArgument($Web)
     $webHandle = $webPs.BeginInvoke()
 }
+function Poll-WebWait {                              # sends held until the chat's tab is ready: send them through it, or after 25 s through the Claude app
+    if (-not $UI.WebWait -or -not $UI.WebWait.Count) { return }
+    foreach ($wid in @($UI.WebWait.Keys)) {
+        $ww = $UI.WebWait[$wid]; $ready = [bool](Get-WebChat $ww.Q); $late = ((Get-Date) - $ww.At).TotalSeconds -gt 25
+        if (-not $ready -and -not $late) { continue }
+        $UI.WebWait.Remove($wid); $UI.LastSend = $null; $UI.Sending.Remove($wid)
+        Log ("send[{0}] {1} after {2:N1} s" -f $wid, $(if ($ready) { 'tab ready' } else { 'tab still not ready - through the Claude app' }), ((Get-Date) - $ww.At).TotalSeconds)
+        try { [void](Send-ToChat $ww.Q $ww.Text $ww.Via $ww.Force $ww.Files (-not $ready)) } catch { Log "send[$wid] after wait: $($_.Exception.Message)" 'ERR' }
+    }
+}
 function Get-WebChat($q) {                       # live tab data: fresh (< 4 s), or the browser loop is busy on a long step (upload, new chat): trust it up to 90 s
     if (-not $webEnabled) { return $null }; $c = $Web.Chats[[string]$q.id]; if (-not ($c -and $c.Ok)) { return $null }
     $age = ((Get-Date) - $c.At).TotalSeconds; if ($age -lt 4) { return $c }
@@ -2481,7 +2491,7 @@ function Restore-Focus($ctx) {                 # put the user's world back after
         else { [void][ClaudeTray.Native]::SetForegroundWindow($ctx.PrevFg) }
     } catch { Log "restore focus: $($_.Exception.Message)" 'WARN' }
 }
-function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $false, [string[]]$Files = @()) {
+function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $false, [string[]]$Files = @(), [bool]$NoWait = $false) {
     # SAFE ORDER: make sure the right chat is the open page -> paste -> Enter -> restore focus -> verify (async, watcher)
     if (-not $text -and -not @($Files).Count) { return $false }
     if ($UI.LastSend -and ((Get-Date) - $UI.LastSend.At).TotalSeconds -lt 5 -and $UI.LastSend.Text -eq $text -and $UI.LastSend.Id -eq [string]$q.id -and -not @($Files).Count) { Log "send: ignored duplicate within 5 s ($via)" 'DEBUG'; return $true }
@@ -2502,6 +2512,12 @@ function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $
     $short = if ($text.Length -gt 60) { $text.Substring(0, 60) + '...' } else { $text }
     Log ("send[{0}] start via={1} working={2}: {3}" -f $q.id, $via, (Test-ChatWorking $q), (Mask $text))
     $wc = Get-WebChat $q
+    if (-not $wc -and -not $NoWait -and $webEnabled -and [string]$Cfg.sendVia -ne 'app') {     # the tray's tab for this chat isn't ready yet (just started, page loading): wait for it (25 s max) rather than go through the Claude app
+        if (-not $UI.WebWait) { $UI.WebWait = @{} }
+        $UI.WebWait[[string]$q.id] = @{ Q = $q; Text = $text; Via = $via; Force = $Force; Files = @($Files); At = (Get-Date) }
+        $UI.Sending[[string]$q.id] = @{ Text = $(if ($text) { $text } else { '(' + (@($Files | ForEach-Object { Split-Path $_ -Leaf }) -join ', ') + ')' }); At = (Get-Date) }
+        Log ("send[{0}] waiting for the chat's tab (up to 25 s)" -f $q.id); return $true
+    }
     if ($wc -and [string]$Cfg.sendVia -ne 'app') {      # through the hidden browser tab: the desktop app is never touched
         $key = [guid]::NewGuid().ToString('N')
         [void]$Web.Cmds.Add(@{ Id = [string]$q.id; Kind = 'send'; Text = $text; Files = @($Files); Key = $key; At = (Get-Date) })
@@ -4422,6 +4438,7 @@ $questTimer = New-Object System.Windows.Forms.Timer
 $questTimer.Interval = 700
 $questTimer.add_Tick({
     try {
+        Poll-WebWait
         $UI.CoolN = [int]$UI.CoolN + 1
         if ($script:Park -or ($Cfg.parkDesktop -and $Caps.Park)) { Update-DesktopPark }     # off unless the capability is on
         if ($script:Ghost -and ((Get-Date) - $script:Ghost.At).TotalSeconds -gt 20) { Log 'ghost: safety net - Claude Desktop made visible again' 'WARN'; Set-DesktopGhost $script:Ghost.H $false }
