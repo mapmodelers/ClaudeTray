@@ -40,6 +40,9 @@ second-hand listings in the background, a permission to approve for a script, a 
 
    A browser window opens on claude.ai. Sign in and close it. The icon then appears next to the clock and the
    tray starts with Windows.
+
+   To start it again later: type "Tray for Claude" in Windows search, or double-click the "Tray for Claude"
+   shortcut (or `Start Tray for Claude.cmd`) in its folder.
 3. Optional, for steps: upload `skill/tray.zip` as a skill in Claude and start a chat with `/tray`. The `/tray`
    chip in a reply box adds it to your next message.
 

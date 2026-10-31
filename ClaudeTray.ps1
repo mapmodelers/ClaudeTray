@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.17'
+$Version = '0.3.18'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -831,9 +831,21 @@ function Save-DocImages {
 
 # ---------------------------------------------------------------- shortcuts
 $PsExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$LnkStart = Join-Path ([Environment]::GetFolderPath('Programs')) "$AppName.lnk"
-$LnkBoot  = Join-Path ([Environment]::GetFolderPath('Startup')) "$AppName.lnk"
-$LegacyLnks = @('Claude Usage.lnk', 'ClaudePlus.lnk') | ForEach-Object { (Join-Path ([Environment]::GetFolderPath('Programs')) $_); (Join-Path ([Environment]::GetFolderPath('Startup')) $_) }
+$LnkName = 'Tray for Claude'                     # Start menu (= Windows search), Windows startup, and one in the tray's folder to double-click
+$LnkStart = Join-Path ([Environment]::GetFolderPath('Programs')) "$LnkName.lnk"
+$LnkBoot  = Join-Path ([Environment]::GetFolderPath('Startup')) "$LnkName.lnk"
+$LnkHere  = Join-Path $Root "$LnkName.lnk"
+$LegacyLnks = @('Claude Usage.lnk', 'ClaudePlus.lnk', 'ClaudeTray.lnk') | ForEach-Object { (Join-Path ([Environment]::GetFolderPath('Programs')) $_); (Join-Path ([Environment]::GetFolderPath('Startup')) $_) }
+function Sync-Shortcuts {                          # every start: the shortcuts carry the app icon and the current name (older ones are replaced)
+    try {
+        $hadBoot = (Test-Path $LnkBoot) -or [bool]@($LegacyLnks | Where-Object { $_ -like "$([Environment]::GetFolderPath('Startup'))*" -and (Test-Path $_) }).Count
+        $hadStart = (Test-Path $LnkStart) -or [bool]@($LegacyLnks | Where-Object { $_ -like "$([Environment]::GetFolderPath('Programs'))*" -and (Test-Path $_) }).Count
+        Remove-LegacyLnks
+        New-Lnk $LnkHere
+        if ($hadStart -or -not (Test-Path $LnkStart)) { New-Lnk $LnkStart }
+        if ($hadBoot) { New-BootLnk }
+    } catch { Log "shortcuts: $($_.Exception.Message)" 'WARN' }
+}
 function Remove-LegacyLnks { foreach ($f in $LegacyLnks) { if (Test-Path $f) { Remove-Item $f -Force; Log "Removed pre-rename shortcut $f" } } }
 function Restart-Tray([string]$from) {            # a fresh instance: it signals this one to quit, then takes over
     Log "restart (from the $from)"
@@ -964,7 +976,8 @@ function New-Lnk([string]$path, [string]$extra = '') {
     $l.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Script`" -Run$extra"
     $l.WorkingDirectory = $Root
     $l.WindowStyle = 7
-    $l.Description = 'ClaudeTray - Claude in your tray'
+    $l.Description = 'Tray for Claude - your Claude chats next to the clock'
+    $ico = Join-Path $Root 'ui\app.ico'; if (Test-Path $ico) { $l.IconLocation = "$ico,0" }
     $l.Save()
 }
 function Stop-Others {
@@ -1000,7 +1013,7 @@ function Stop-OurBrowser {                           # the tray's own headless E
 Log ("==== ClaudeTray v{0} | args: {1} | PS {2} | dpi {3} | light taskbar {4}" -f $Version, (($PSBoundParameters.Keys | ForEach-Object { "-$_" }) -join ' '), $PSVersionTable.PSVersion, $k, $LightTaskbar)
 try {
     if ($Uninstall) {
-        foreach ($f in @($LnkStart, $LnkBoot)) { if (Test-Path $f) { Remove-Item $f -Force; Log "Removed $f" } }
+        foreach ($f in @($LnkStart, $LnkBoot, $LnkHere) + @($LegacyLnks)) { if (Test-Path $f) { Remove-Item $f -Force; Log "Removed $f" } }
         Remove-LegacyLnks
         Stop-Others; Stop-OurBrowser
         Write-Host 'Uninstalled: shortcuts removed and the tray stopped. Your login (oauth.json) is kept - use -Logout to remove it.'
@@ -1069,6 +1082,7 @@ Stop-Others
 $created = $false
 $mutex = New-Object System.Threading.Mutex($true, 'Local\ClaudeTray', [ref]$created)
 if (-not $created) { Log 'Another tray is already running; exiting (use -Restart)' 'WARN'; return }
+Sync-Shortcuts
 if ($WaitClaude) {                                 # "start with the Claude app": asleep, no icon, one cheap process check every 3 s
     Log 'waiting for the Claude app (start mode: with Claude)'
     while (-not @(Get-Process -Name 'claude' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }).Count) { Start-Sleep -Seconds 3 }
@@ -1827,6 +1841,8 @@ $webScript = {
             }
             foreach ($id in @($Web.Want)) {
                 $key = ($id -split '/')[-1]                     # session_... / uuid: survives claude.ai's URL rewrites
+                if (-not $Web.Alias) { $Web.Alias = @{} }
+                $navU = if ($Web.Alias[$id]) { 'https://claude.ai' + [string]$Web.Alias[$id] } else { "https://claude.ai/$id" }     # a session opened as a chat: its chat address
                 $tg = $null
                 if ($tabOf[$id]) { $tg = @($pages | Where-Object { $_.id -eq $tabOf[$id] })[0] }
                 if (-not $tg) { $ak0 = ([string]$Web.Alias[$id] -split '/')[-1]; $tg = @($pages | Where-Object { $_.url -like "*$key*" -or ($ak0 -and $_.url -like "*$ak0*") })[0]; if ($tg) { $tabOf[$id] = $tg.id } }
@@ -1836,12 +1852,12 @@ $webScript = {
                     $free = @($pages | Where-Object { $pu = [string]$_.url; $pu -like '*claude.ai*' -and @($tabOf.Values) -notcontains $_.id -and -not ($wantKeys | Where-Object { $pu -like "*$_*" }) })[0]
                     if ($free) {
                         $tabOf[$id] = $free.id; $tg = $free
-                        try { $tmpWs = New-Object System.Net.WebSockets.ClientWebSocket; [void]$tmpWs.ConnectAsync([Uri]$free.webSocketDebuggerUrl, [Threading.CancellationToken]::None).Wait(4000); [void](Cdp $tmpWs 'Page.navigate' @{ url = "https://claude.ai/$id" }); $tmpWs.Dispose() } catch { }
+                        try { $tmpWs = New-Object System.Net.WebSockets.ClientWebSocket; [void]$tmpWs.ConnectAsync([Uri]$free.webSocketDebuggerUrl, [Threading.CancellationToken]::None).Wait(4000); [void](Cdp $tmpWs 'Page.navigate' @{ url = $navU }); $tmpWs.Dispose() } catch { }
                         WL "reused tab $($free.id.Substring(0, 8)) for $id"; continue
                     }
                 }
                 if (-not $tg -and (-not $Web.OpenedAt.ContainsKey($id) -or ((Get-Date) - $Web.OpenedAt[$id]).TotalSeconds -gt 20)) {
-                    $nt = $null; try { $nt = Invoke-RestMethod -Method Put "$base/json/new?https://claude.ai/$id" -TimeoutSec 5 } catch { try { $nt = Invoke-RestMethod "$base/json/new?https://claude.ai/$id" -TimeoutSec 5 } catch { } }
+                    $nt = $null; try { $nt = Invoke-RestMethod -Method Put "$base/json/new?$navU" -TimeoutSec 5 } catch { try { $nt = Invoke-RestMethod "$base/json/new?$navU" -TimeoutSec 5 } catch { } }
                     $Web.OpenedAt[$id] = Get-Date; if ($nt) { $tabOf[$id] = $nt.id }
                     WL "tab opened for $id"; continue
                 }
@@ -1866,10 +1882,18 @@ $webScript = {
                 if ($curUrl -notlike "*$key*" -and $Web.NavAt[$id] -and ((Get-Date) - $Web.NavAt[$id]).TotalSeconds -lt 20 -and $curPath -match '^/(chat|code)/[\w-]+$' -and $Web.Alias[$id] -ne $curPath) {
                     $Web.Alias[$id] = $curPath; WL ("{0}: claude.ai opened it at {1} - using that address" -f $id, $curPath)
                 }
-                $okPath = $curUrl -like "*$key*" -or ($Web.Alias[$id] -and $curPath -eq $Web.Alias[$id])
+                if ($id -like 'code/session_*' -and -not $Web.Alias[$id] -and (-not $Web.AliasTry -or -not $Web.AliasTry[$id] -or ((Get-Date) - $Web.AliasTry[$id]).TotalMinutes -gt 10)) {
+                    if (-not $Web.AliasTry) { $Web.AliasTry = @{} }; $Web.AliasTry[$id] = Get-Date
+                    $cse = 'cse_' + ($key -replace '^session_', '')
+                    $aj = "(async (cse) => { const ck = decodeURIComponent((document.cookie.match(/lastActiveOrg=([^;]+)/) || [])[1] || ''); let org = ck; if (!org) { try { const o = await (await fetch('/api/organizations', { credentials: 'include' })).json(); org = (o[0] || {}).uuid; } catch (z) { } } if (!org) return 'no-org'; for (let off = 0; off < 400; off += 100) { let a = []; try { const j = await (await fetch('/api/organizations/' + org + '/chat_conversations_v2?limit=100&offset=' + off + '&archived=false', { credentials: 'include' })).json(); a = Array.isArray(j) ? j : (j.data || j.conversations || []); } catch (z) { return 'error'; } const h = a.find(c => c.workspace_session_id === cse); if (h) return 'chat:' + h.uuid; if (a.length < 100) break; } return 'none'; })('$cse')"
+                    $ar = ''; try { $ar = [string](Cdp $ws 'Runtime.evaluate' @{ expression = $aj; returnByValue = $true; awaitPromise = $true } 20000).result.result.value } catch { $ar = 'error' }
+                    if ($ar -match '^chat:([0-9a-f-]{36})$') { $Web.Alias[$id] = '/chat/' + $Matches[1]; $navU = 'https://claude.ai/chat/' + $Matches[1]; WL ("{0}: opened in the Claude app as a chat - using /chat/{1}" -f $id, $Matches[1].Substring(0, 8)); $Web.NavAt[$id] = Get-Date; try { [void](Cdp $ws 'Page.navigate' @{ url = $navU }) } catch { } }
+                    else { WL ("{0}: chat address lookup -> {1}" -f $id, $ar) }
+                }
+                $okPath = if ($Web.Alias[$id]) { $curPath -eq $Web.Alias[$id] } else { $curUrl -like "*$key*" }     # a known new address wins: the old one can be a page without a message box (a session continued in the app)
                 if (-not $okPath -and -not ($Web.NavAt[$id] -and ((Get-Date) - $Web.NavAt[$id]).TotalSeconds -lt 20)) {
                     $Web.NavAt[$id] = Get-Date; WL ("{0}: tab shows another page ({1}) - back to the chat" -f $id, $curPath)
-                    try { [void](Cdp $ws 'Page.navigate' @{ url = "https://claude.ai/$id" }) } catch { }
+                    try { [void](Cdp $ws 'Page.navigate' @{ url = $navU }) } catch { }
                     $cr0 = $Web.Chats[$id]; if ($cr0) { $cr0.ReloadAt = Get-Date; $cr0.At = Get-Date }
                 }
                 foreach ($cmd in @($Web.Cmds.ToArray() | Where-Object { $_.Id -eq $id })) {
@@ -2445,9 +2469,10 @@ function Open-Chat($q, [bool]$inBrowser) {
     if (-not $inBrowser -and (Test-ChatInFront $q)) {          # already on it: just bring the app forward, no deep link round trip
         $w = Get-ClaudeWindow; if ([ClaudeTray.Native]::IsIconic($w.MainWindowHandle)) { [void][ClaudeTray.Native]::ShowWindow($w.MainWindowHandle, 9) }; [void][ClaudeTray.Native]::SetForegroundWindow($w.MainWindowHandle); Log "open app: already on $($q.id), brought to front"; return
     }
-    $u = if ($inBrowser) { "https://claude.ai/$($q.id)" } else { "claude://claude.ai/$($q.id)" }
+    $u = if ($inBrowser) { "https://claude.ai/$(Get-ChatPath ([string]$q.id))" } else { "claude://claude.ai/$(Get-ChatPath ([string]$q.id))" }
     try { Start-Process $u; Log "open $u" } catch { Log "open $u : $($_.Exception.Message)" 'ERR' }
 }
+function Get-ChatPath([string]$id) { if ($Web.Alias -and $Web.Alias[$id]) { return ([string]$Web.Alias[$id]).TrimStart('/') }; return $id }     # claude.ai address of a chat (a session opened as a chat: its /chat/<uuid>)
 function Restore-Focus($ctx) {                 # put the user's world back after a send/stop
     try {
         if ($ctx.WasFront) { return }
@@ -2502,7 +2527,7 @@ function Send-ToChat($q, [string]$text, [string]$via = 'field', [bool]$Force = $
         $onIt = Test-ChatInFront $q; $ph.detect = $sw.ElapsedMilliseconds
         if (-not $onIt -and ([string]$q.id).StartsWith('local/')) { Restore-Focus $ctx; try { [System.Windows.Forms.Clipboard]::SetText($text) } catch { }; Log "send[$($q.id)]: local chat no longer in front - text copied, nothing pasted" 'WARN'; try { $tray.ShowBalloonTip(4000, 'Copied - paste it in Claude Desktop', 'The chat was no longer the one open in Claude Desktop.', [System.Windows.Forms.ToolTipIcon]::None) } catch { }; return $false }     # no deep link for local chats
         if (-not $onIt) {
-            Start-Process "claude://claude.ai/$($q.id)"
+            Start-Process "claude://claude.ai/$(Get-ChatPath ([string]$q.id))"
             $deadline = (Get-Date).AddSeconds(6)
             do { Start-Sleep -Milliseconds 100 } while ((Get-Date) -lt $deadline -and -not (Test-ChatInFront $q))
             $ph.deeplink = $sw.ElapsedMilliseconds

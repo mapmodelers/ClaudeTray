@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.18
+
+- "Tray for Claude" in the Start menu, so Windows search finds it, with its own icon. The tray also keeps a shortcut
+  with that icon in its folder. Both are refreshed at each start; the older "ClaudeTray" shortcuts are replaced. The
+  Windows-startup shortcut follows your setting, as before.
+- `Start Tray for Claude.cmd` in the folder: double-click it to start the tray when it's closed.
+- Fix: replies sent from the tray to a Claude Code session that you continued in the Claude app went nowhere: the
+  tray fell back to the app, opened the Code window and stopped there. claude.ai no longer forwards such a session's
+  address to its chat, and the session page has no message box. The tray now looks up the chat that holds the session
+  (once, with your claude.ai session) and uses its address, for its hidden tab and for "Open in Claude".
+
 ## 0.3.17
 
 - Fix: the right-click menu of the tray icon could not be used while the panel was open: opening it hid the panel,
