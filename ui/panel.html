@@ -593,8 +593,8 @@ function updateCard(cd, c){
   }
   cd.mstop.style.display = c.working ? 'inline-flex' : 'none'; cd.mfld.classList.toggle('wk', !!c.working);
   const tcmd = c.trayCmd || '/tray', trT = 'Click: put ' + tcmd + ' at the start of your message (turns on one-click steps in this chat)';
-  { const mc = cd.el.querySelector('.mchip'); if (mc) { const mh = c.model ? esc(mShort(c.model)) + effBars(c.effort) : ''; if (mc.innerHTML !== mh) mc.innerHTML = mh; mc.style.display = mh ? '' : 'none'; mc.title = 'Model: ' + (c.model || '?') + (c.effort ? ' - effort: ' + c.effort : '') + ' (click to change)'; } }
-  { const isL = String(c.id || '').startsWith('local/'); for (const ab of cd.el.querySelectorAll('[data-a="attach"]')) { const t0 = isL ? 'Give Claude files or a folder (pick files, or open a folder and click Open with nothing selected)' : 'Attach files (or paste / drop them here)'; if (ab.title !== t0) ab.title = t0; } }
+  { const mc = cd.el.querySelector('.mchip'); if (mc) { const mh = c.model ? esc(mShort(c.model)) + effBars(c.effort) : ''; if (mc.innerHTML !== mh) mc.innerHTML = mh; mc.style.display = mh ? '' : 'none'; setTitle(mc, 'Model: ' + (c.model || '?') + (c.effort ? ' - effort: ' + c.effort : '') + ' (click to change)'); } }
+  { const isL = String(c.id || '').startsWith('local/'); for (const ab of cd.el.querySelectorAll('[data-a="attach"]')) { const t0 = isL ? 'Give Claude files or a folder (pick files, or open a folder and click Open with nothing selected)' : 'Attach files (or paste / drop them here)'; setTitle(ab, t0); } }
   for (const tc of cd.el.querySelectorAll('.trc')) { tc.style.display = c.skill ? 'none' : ''; tc.classList.remove('on'); if ((tc.dataset.tt != null ? tc.dataset.tt : tc.title) !== trT) { setTitle(tc, trT); tc.textContent = '/tray'; } }
   const proj = LAY && c.proj && ((LAY.sec.find(s => s.id === secOf(c)) || {}).sort === 'project');
   // tools float over the end of the title, always in the same slots; the pin (when pinned) and a muted bell stay visible in their own slot
@@ -1014,8 +1014,8 @@ document.addEventListener('click', e => {
     case 'runold': {                                   // an earlier round's step: first click asks, second click (within 5 s) runs it
       const k = id + '#' + n;
       if (runArm[k] && Date.now() - runArm[k] < 5000) { delete runArm[k]; post({ type: 'run', id: id, n: n, old: true }); b.classList.remove('arm'); b.disabled = true; unstick(b); break; }
-      runArm[k] = Date.now(); b.classList.add('arm'); b.dataset.tt = b.title; b.title = 'Click again to run this earlier step';
-      setTimeout(() => { if (b.isConnected && runArm[k] && Date.now() - runArm[k] >= 5000) { delete runArm[k]; b.classList.remove('arm'); b.title = b.dataset.tt; } }, 5100); break;
+      runArm[k] = Date.now(); b.classList.add('arm'); b.dataset.t0 = b.dataset.tt != null ? b.dataset.tt : b.title; setTitle(b, 'Click again to run this earlier step');
+      setTimeout(() => { if (b.isConnected && runArm[k] && Date.now() - runArm[k] >= 5000) { delete runArm[k]; b.classList.remove('arm'); setTitle(b, b.dataset.t0); } }, 5100); break;
     }
     case 'copycmd': { const s = ((chatOf(id) || {}).steps || []).find(x => x.n === n); post({ type: 'copy', text: s ? (s.cmd || s.path || s.url || '') : '' }); break; }
     case 'autostep': post({ type: 'autostep', id: id, n: n }); break;
@@ -1112,12 +1112,14 @@ window.chrome.webview.addEventListener('message', e => {
 // hover labels: drawn by the page (the panel never takes the focus, so Windows' own tooltips don't show)
 let tipEl = null, tipT = null, tipAt = 0, tipX = -1, tipY = -1;
 function setTitle(el, t){ if (!el) return; if (el.dataset.tt != null) { if (el.dataset.tt !== t) { el.dataset.tt = t; if (el === tipEl) $('#tip').textContent = t; } } else if (el.title !== t) el.title = t; }     // the label code moves title into data-tt while hovered
-const tipHide = () => { clearTimeout(tipT); tipAt = 0; const tp = $('#tip'); tp.classList.remove('on'); if (tipEl && tipEl.dataset.tt != null) { if (!tipEl.hasAttribute('title')) tipEl.setAttribute('title', tipEl.dataset.tt); delete tipEl.dataset.tt; } tipEl = null; };
+const tipHide = () => { clearTimeout(tipT); tipAt = 0; const tp = $('#tip'); tp.classList.remove('on');
+  tipEl = null; };     // labels live in data-tt for good: a real title would let Windows draw its own label (which can stay on screen after the panel hides)
 document.addEventListener('mouseover', e => {
-  if (e.buttons || document.body.classList.contains('rsz')) return;     // dragging: no labels
-  const el = e.target.closest && e.target.closest('[title]:not(#top):not(.head):not(.card)'); if (el === tipEl) return;
-  tipHide(); if (!el || !el.getAttribute('title') || e.target.closest('#pmenu, #slp')) return;
-  tipEl = el; el.dataset.tt = el.getAttribute('title'); el.removeAttribute('title');
+  const el = e.target.closest && e.target.closest('[title], [data-tt]'); if (el === tipEl) return;
+  tipHide(); if (!el) return;
+  if (el.hasAttribute('title')) { el.dataset.tt = el.getAttribute('title'); el.removeAttribute('title'); }     // never leave a title under the pointer: only the page's own label shows
+  tipEl = el;
+  if (!el.dataset.tt || e.buttons || document.body.classList.contains('rsz') || el.matches('#top, .head, .card') || e.target.closest('#pmenu, #slp')) return;     // dragging, bars, menus: no label at all
   tipT = setTimeout(() => { if (tipEl !== el || !el.isConnected) return; const tp = $('#tip'); tp.textContent = el.dataset.tt; tp.classList.add('on'); tipAt = Date.now();
     const r = el.getBoundingClientRect(), w = tp.offsetWidth, h = tp.offsetHeight; let y = r.bottom + 3; if (y + h > innerHeight - 2) y = r.top - h - 3;
     tp.style.left = Math.max(2, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 2)) + 'px'; tp.style.top = Math.max(2, y) + 'px'; }, 400);
@@ -1125,6 +1127,11 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('mousedown', tipHide, true); document.addEventListener('wheel', tipHide, { passive: true, capture: true });
 document.documentElement.addEventListener('mouseleave', tipHide); addEventListener('blur', tipHide); document.addEventListener('visibilitychange', tipHide);
 document.addEventListener('mousemove', e => { tipX = e.clientX; tipY = e.clientY; }, { passive: true, capture: true });
+const noTitle = el => { if (el.nodeType !== 1) return; const all = el.hasAttribute('title') ? [el] : []; for (const x of el.querySelectorAll('[title]')) all.push(x);
+  for (const x of all) { x.dataset.tt = x.getAttribute('title'); x.removeAttribute('title'); if (x === tipEl && $('#tip').classList.contains('on')) $('#tip').textContent = x.dataset.tt; } };
+new MutationObserver(ms => { for (const m of ms) { if (m.type === 'attributes') noTitle(m.target); else for (const n of m.addedNodes) noTitle(n); } })     // labels are only drawn by the page (#tip): no title attribute ever stays in the panel
+  .observe(document.documentElement, { attributes: true, attributeFilter: ['title'], subtree: true, childList: true });
+noTitle(document.documentElement);
 setInterval(() => {     // a label must never stay behind: its element re-drawn or gone, the pointer elsewhere (left the panel without an event), the panel hidden, or shown for 6 s
   if (!tipEl && !$('#tip').classList.contains('on')) return;
   const under = tipX >= 0 ? document.elementFromPoint(tipX, tipY) : null;

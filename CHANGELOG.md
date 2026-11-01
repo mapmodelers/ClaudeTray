@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.20
+
+- Fix: a Windows-style hover label (black box) could appear and stay on screen, even with the panel hidden. When the
+  panel's own label went away while the pointer was still on the button, the button got its title back and Windows
+  drew its own label. The panel no longer keeps any Windows-style label text at all, from the moment it loads (one
+  showed briefly at each start) to every update: only the panel's own labels show.
+
 ## 0.3.19
 
 - Fix: a reply sent in the first seconds after the tray starts (its tab for that chat still loading) went through the
