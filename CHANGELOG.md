@@ -2,6 +2,10 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.22
+
+- Claude's last answer is never greyed out once read (earlier answers still are).
+
 ## 0.3.21
 
 - Fix (serious): the tray's memory could grow by gigabytes an hour until Windows ran out of memory (seen: 20 GB

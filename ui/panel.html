@@ -676,7 +676,7 @@ function convItems(c, cd){
   { let lim = sbI >= 0 && (c.steps || []).length ? sbI : msgs.length; const hs = c.hist || [];
     for (let h = hs.length - 1; h >= 0; h--) { const hp = norm(hs[h].sent).replace(/\u2026$/, '').slice(0, 40); if (!hp) continue;
       for (let i = lim - 1; i >= 0; i--) if (msgs[i].r === 'u' && norm(msgs[i].t).startsWith(hp)) { histAt[i] = pastSteps(c, hs[h].steps || [], true); lim = i; break; } } }
-  msgs.forEach((m, i) => { if (histAt[i]) it.push(histAt[i]); if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, i === lastA ? !(cd && cd.fold && cd.fold.has(hash(m.t))) : !!(cd && cd.full.has(i)), !pend && i === ri ? rnd : '', i <= ki, i === lastA && c.retry && !c.working)); });     // Claude's last answer: open in full unless you folded it
+  msgs.forEach((m, i) => { if (histAt[i]) it.push(histAt[i]); if (i === sbI && (c.steps || []).length) it.push(pastSteps(c)); if (m.r === 'u' || m.t || m.h) it.push(msgHtml(m, i, i === lastA ? !(cd && cd.fold && cd.fold.has(hash(m.t))) : !!(cd && cd.full.has(i)), !pend && i === ri ? rnd : '', i <= ki && i !== lastA, i === lastA && c.retry && !c.working)); });     // read replies are greyed, never Claude's last one     // Claude's last answer: open in full unless you folded it
   if (pend) it.push('<div class="m u sending"><div class="b">' + esc(pend) + '</div>' + rnd + '<span class="sst">' + (isLoc ? 'via Claude Desktop \u2013 if it is not there, paste it (Ctrl+V)' : 'sending…') + '</span></div>');
   const lastM = msgs[msgs.length - 1];
   const actL = String(c.act || '').split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 160);     // what Claude is doing: one grey line next to the animation
