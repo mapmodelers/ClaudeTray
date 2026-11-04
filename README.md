@@ -171,6 +171,8 @@ To remove everything: run `-Uninstall`, then delete the folder and `%LOCALAPPDAT
 - Anything else: turn on Settings > Debug logs, reproduce the problem, then click the bug button and choose "with the
   log". The page opens on GitHub with the versions filled in; drag the cleaned log into it.
 
+Questions, ideas or feedback that aren't bugs: [Discussions](https://github.com/mapmodelers/ClaudeTray/discussions).
+
 See also: [changelog](CHANGELOG.md), [backlog](BACKLOG.md), [quest protocol](docs/PROTOCOL.md),
 [notes for maintainers](AGENTS.md).
 

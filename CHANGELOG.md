@@ -2,6 +2,16 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.21
+
+- Fix (serious): the tray's memory could grow by gigabytes an hour until Windows ran out of memory (seen: 20 GB
+  in use after 4 hours, other apps crashing). The likely cause is the Claude app watcher, which reads the whole Claude
+  app window through Windows UI Automation every 1.5 s, and that leaks memory in PowerShell. It now only runs when
+  it's needed: for Desktop local chats, during a send through the app, or when the tray's own browser isn't ready.
+- Memory guard: if the tray ever goes over 1.5 GB, it logs it and restarts itself, so a leak can never take the PC
+  down again. The heartbeat in the log now also shows the private memory and whether the watcher runs.
+- README: a link to Discussions, for questions and feedback that aren't bugs.
+
 ## 0.3.20
 
 - Fix: a Windows-style hover label (black box) could appear and stay on screen, even with the panel hidden. When the

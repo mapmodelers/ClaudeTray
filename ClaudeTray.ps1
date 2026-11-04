@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.20'
+$Version = '0.3.21'
 $Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script  = $MyInvocation.MyCommand.Path
 $LogDir  = Join-Path $Root 'logs'
@@ -1381,7 +1381,7 @@ $probeScript = {
                 $Probe.Page = $page; $Probe.Working = $work; $Probe.StopName = $stopName; $Probe.Buttons = ($names | Select-Object -Unique) -join ' | '; $Probe.At = Get-Date; $Probe.Err = ''
             }
         } catch { $Probe.Err = $_.Exception.Message }
-        $Probe.Ms = $t0.ElapsedMilliseconds
+        $Probe.Ms = $t0.ElapsedMilliseconds; $Probe.Scans = 1 + [int]$Probe.Scans
         $ms = if ($Probe.VerifySnip -or ($Probe.Fast -and $Probe.Working)) { 450 } elseif ($Probe.Fast -or (Get-Date) -lt $Probe.FastUntil) { 800 } else { 1500 }
         Start-Sleep -Milliseconds $ms
     }
@@ -4439,7 +4439,7 @@ $questTimer.Interval = 700
 $questTimer.add_Tick({
     try {
         Poll-WebWait
-        $UI.CoolN = [int]$UI.CoolN + 1
+        $UI.CoolN = [int]$UI.CoolN + 1; if ($UI.CoolN % 40 -eq 0) { Test-MemoryGuard }     # every ~30 s
         if ($script:Park -or ($Cfg.parkDesktop -and $Caps.Park)) { Update-DesktopPark }     # off unless the capability is on
         if ($script:Ghost -and ((Get-Date) - $script:Ghost.At).TotalSeconds -gt 20) { Log 'ghost: safety net - Claude Desktop made visible again' 'WARN'; Set-DesktopGhost $script:Ghost.H $false }
         if ($webEnabled -and $Web.Usage -and [int]$Web.Usage.Code -eq 200 -and $Web.Usage.At -ne $UI.UsageSeen) { $UI.UsageSeen = $Web.Usage.At; try { Update-Usage; Update-TrayIcon; Push-WebState } catch { } }     # show a fresh claude.ai usage at once (not at the next 3-min poll)
@@ -4533,8 +4533,8 @@ $questTimer.add_Tick({
             if (-not (Test-ChatWorking $qq) -and ((Get-Date) - $UI.QueuedAt[$qid]).TotalSeconds -gt 2) { $txt = $UI.Queue[$qid]; $UI.Queue.Remove($qid); Log "queue: Claude idle on $qid, sending now" 'DEBUG'; if (-not (Send-ToChat $qq $txt 'queue')) { $UI.Drafts[$qid] = $txt; Log "queue[$qid]: send failed, text back in the box" 'WARN' }; $changed = $true }
         }
         $Probe.Fast = [bool]($UI.Shown -or $UI.Queue.Count); $Probe.NoLive = [bool]$UI.WebReady
-        $pausePrev = [bool]$Probe.Pause; $Probe.Pause = [bool]($webEnabled -and $Web.Ok -and @($QS.List | Where-Object { $_.Visible -and -not (Get-WebChat $_) }).Count -eq 0)
-        if ($pausePrev -ne $Probe.Pause) { Log ("app watcher {0} (browser engine {1})" -f $(if ($Probe.Pause) { 'paused' } else { 'resumed' }), $(if ($Web.Ok) { 'covers every tracked chat' } else { 'not ready' })) 'DEBUG' }
+        $pausePrev = [bool]$Probe.Pause; $Probe.Pause = [bool]($webEnabled -and $Web.Ok -and -not @($QS.List | Where-Object { $_.Visible -and ([string]$_.id).StartsWith('local/') }).Count -and -not ($Probe.FastUntil -and (Get-Date) -lt $Probe.FastUntil))     # only for Desktop local chats, a send through the app, or no browser: its UI Automation walks leak memory in PowerShell
+        if ($pausePrev -ne $Probe.Pause) { Log ("app watcher {0} (browser engine {1})" -f $(if ($Probe.Pause) { 'paused' } else { 'resumed' }), $(if ($Web.Ok) { 'ready' } else { 'not ready' })) 'DEBUG' }
         $sig = (Get-ChildItem ($QuestRoots | ForEach-Object { Join-Path $_ 'quests' }) -Filter *.json -File -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Name)|$($_.LastWriteTimeUtc.Ticks)" }) -join ';'
         if ($changed -or $sig -ne $UI.QuestSig) { $UI.QuestSig = $sig; Refresh-Quests $true }
     } catch { Log "quest tick: $($_.Exception.Message)" 'ERR' }
@@ -4564,12 +4564,21 @@ function Write-DebugSnapshot([string]$why = 'snapshot') {
         }
     } catch { Log "debug snapshot: $($_.Exception.Message)" 'WARN' }
 }
+function Test-MemoryGuard {                          # safety net: the tray should stay under ~300 MB; far above that something leaks -> restart it before Windows runs out
+    try {
+        $me = [Diagnostics.Process]::GetCurrentProcess(); $me.Refresh(); $mb = [int]($me.PrivateMemorySize64 / 1MB)
+        if ($mb -lt 1500 -or $UI.Rsz -or $UI.Drag -or @($UI.Sending.Keys).Count -or ((Get-Date) - $me.StartTime).TotalMinutes -lt 10) { return }
+        Log ("memory guard: {0} MB private (app watcher {1}, {2} scans) - restarting the tray" -f $mb, $(if ($Probe.Pause) { 'paused' } else { 'running' }), [int]$Probe.Scans) 'WARN'
+        Restart-Tray 'memory guard'
+    } catch { }
+}
 function Write-Heartbeat([string]$why = 'heartbeat') {
     try {
         $me = [Diagnostics.Process]::GetCurrentProcess(); $me.Refresh()
         $gdi = [ClaudeTray.Native]::GetGuiResources($me.Handle, 0); $usr = [ClaudeTray.Native]::GetGuiResources($me.Handle, 1)
         Log ("{0}: mem {1} MB, GDI {2}, USER {3}, handles {4}, quests {5} (visible {6}), running steps {7}, shown {8}, docked {9}, watcher scan {10} ms, page '{11}', anim {12} badge '{13}' phase {14}, web {15} ({16} chats, {17} ms{18})" -f $why, [int]($me.WorkingSet64 / 1MB), $gdi, $usr, $me.HandleCount, @($QS.List).Count, @($QS.List | Where-Object { $_.Visible }).Count, $QS.Running.Count, $UI.Shown, $UI.Docked, $Probe.Ms, (Get-PageLabel $Probe.Page), $animTimer.Enabled, (Get-Badge), $UI.Phase, $(if ($webEnabled) { $Web.Ok } else { 'off' }), $Web.Chats.Count, $Web.Ms, $(if ($Web.Err) { ', ' + $Web.Err } else { '' }))
         if ($gdi -gt 4000 -or $usr -gt 4000) { Log "heartbeat: GDI/USER objects high - leak?" 'WARN' }
+        Log ("{0}: private {1} MB, app watcher {2} ({3} scans so far)" -f $why, [int]($me.PrivateMemorySize64 / 1MB), $(if ($Probe.Pause) { 'paused' } else { 'running' }), [int]$Probe.Scans)
     } catch { Log "heartbeat: $($_.Exception.Message)" 'WARN' }
 }
 function Sync-Anim { $fl1 = Get-IconFlags; if ($fl1.Working -and -not $animTimer.Enabled) { $animTimer.Start() } elseif (-not $fl1.Working) { Update-TrayIcon } }
