@@ -1131,7 +1131,7 @@ function Save-State { try { [IO.File]::WriteAllText($StateFile, (@{ hidden = $QS
 function Get-Iso($dt) { return ([datetime]$dt).ToString('yyyy-MM-ddTHH:mm:ssK') }
 function Parse-Iso($txt) { try { if (-not $txt) { return $null }; if ($txt -is [datetime]) { return $txt }; return ([DateTimeOffset]::Parse([string]$txt, $EN)).LocalDateTime } catch { return $null } }
 function Get-SentText([string]$txt0) { $txt0 = ($txt0 -replace '\s+', ' ').Trim(); if ($txt0.Length -gt 120) { $txt0 = $txt0.Substring(0, 120) + "…" }; return $txt0 }   # Claude has the full text in the chat: the results file only needs to recognise it
-# capabilities that proved unreliable on this setup (Claude Enterprise + Claude Desktop MSIX, Cowork local sessions); code kept, switched off. Author: enable per setup once verified.
+# capabilities that proved unreliable on the test setup (Claude Desktop MSIX, Cowork local sessions); code kept, switched off. Author: enable per setup once verified.
 $Caps = @{ Local = $true; Park = $true; Ghost = $true }     # Claude Desktop local chats: on by themselves when Desktop has some (nothing runs for them until one is tracked); parking / hiding Desktop are settings that only show then
 function Get-HideAfterMin { if ($null -ne $Cfg.hideAfterMin -and "$($Cfg.hideAfterMin)" -ne '') { return [double]$Cfg.hideAfterMin }; return 10 }     # minutes; 0 = never
 function Get-LastActivity($q) {     # latest of quest write, your send, your read, re-show, the chat's own activity (claude.ai tab / local transcript)

@@ -107,7 +107,7 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
 
 ## Lessons from live testing (keep)
 
-- PRIVACY: never log the whole UI tree. The sidebar exposes the user's chat titles (one held a home address).
+- PRIVACY: never log the whole UI tree. The sidebar exposes the user's chat titles, which can hold personal details.
   Diagnostics log composer controls only.
 - WM_SETREDRAW(TRUE) shows a hidden window: only freeze redraw while the flyout is visible.
 - Never trust a writer's clock: quest `updated` was written as fake future times and broke status + preview.
@@ -249,7 +249,7 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   the elements. The `qpick` / `qsub` commands click them (label checked first). A new question queues a `diag` that
   also logs `ZONE` (the composer's surroundings: tags, roles, types, aria-checked - no text).
 - Files: `dl` mode `open` -> `Open-Downloaded` (default app; risky extensions are shown in their folder, never run).
-- claude.ai's question card (captured 2026-10, French UI): `[data-testid=hub-ask-user-question-card]` in the composer
+- claude.ai's question card (captured 2026-10, a non-English UI): `[data-testid=hub-ask-user-question-card]` in the composer
   dock (same fieldset as `[data-testid=chat-input]`), `[data-cds=AskUserQuestion]` role=group with `aria-labelledby`
   (question), a nav span "N sur M" between prev / next buttons, options = `button[aria-pressed]` (`bdi` label +
   description), a `form input[type=text]` "Other" with a skip button. One question per step. Answering: Enter in the
@@ -262,7 +262,7 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   `askTxt(c)` drive the orange "?" marker, the "Claude asks: ..." row text and auto-open. The "N hidden" line is gone:
   Browse (`#brw`, always last, `LAY.browse` = unfolded) lists `S.hidden` first. `Fit-WebPop` ignores `panelHeight`
   while nothing is open. Resizing no longer calls `Set-DockHere` (it pinned the panel).
-- 0.3.0 merged a field test (38 patches, see docs/FIELD-NOTES-2026-10-21.md for what each one does and what failed).
+- 0.3.0 merged a field test (38 patches; the CHANGELOG lists what each one does).
   Claude Desktop local chats (`local/<sessionId>`) are always on but idle until one is tracked (Desktop's files are read only while BROWSE is open or a local chat is tracked): `Get-DesktopLocal`
   (Browse), `Get-LocalState` (transcript), `Enter-LocalChat` / `Exit-LocalChat` (switch Desktop in the background),
   `Send-LocalNoFocus`, `Invoke-LocalAsk`; parking / hiding Desktop (`parkDesktop`, `ghostDesktop`) are settings shown only when Desktop has local chats (`deskSeen`).

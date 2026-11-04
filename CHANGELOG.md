@@ -218,9 +218,8 @@ Versions follow [semver](https://semver.org): 0.x = preview, things still move. 
 
 ## 0.3.0
 
-A field test on another PC (Claude Enterprise, Windows 11, Claude Desktop with Cowork) produced 38 fixes and
-features. Nothing in the tray broke because of Enterprise. This version takes them in, with the merge fixes below.
-Field notes: [docs/FIELD-NOTES-2026-10-21.md](docs/FIELD-NOTES-2026-10-21.md).
+A field test on a second setup (Windows 11, Claude Desktop with Cowork) produced 38 fixes and features. This
+version takes them in, with the merge fixes below.
 
 - Usage keeps updating when no claude.ai chat is open in the tray. It used to stop until a chat tab existed.
 - When claude.ai answers the tray's browser with a Cloudflare check (HTTP 403), the panel says so.

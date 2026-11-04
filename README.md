@@ -152,7 +152,7 @@ To remove everything: run `-Uninstall`, then delete the folder and `%LOCALAPPDAT
   in the last 3 minutes.
 - Claude Desktop local (Cowork) chats are experimental. They rely on Desktop's own files and window, which are not
   documented and can change with any Desktop update. Tested on one setup only (Desktop from the Microsoft Store,
-  Windows 11, French UI, one organization).
+  Windows 11, one UI language, one organization).
   - No live view from claude.ai: messages and status come from the session's file on disk, so they can lag.
   - Steps need the quest folder connected to that Cowork session. Bridge mode does not apply.
   - Sending, stopping and answering go through Desktop's window in the background. Permission prompts need two
