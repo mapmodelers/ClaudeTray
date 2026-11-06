@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tray for Claude – Windows tray panel for Claude chats and Claude Code</title>
+<meta name="description" content="Free, open-source Windows system tray panel for claude.ai chats and Claude Code sessions: status, notifications, replies, one-click steps and usage limits.">
+<meta name="keywords" content="Claude, Claude Code, claude.ai, Windows, system tray, tray app, notifications, usage limits, Anthropic, AI assistant, productivity, PowerShell, WebView2, free, open source">
+<meta name="author" content="MapModelers">
+<link rel="canonical" href="https://mapmodelers.github.io/ClaudeTray/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23d97757' stroke-width='5'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#0d1117">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mapmodelers.github.io/ClaudeTray/">
+<meta property="og:title" content="Tray for Claude">
+<meta property="og:description" content="Your Claude chats and Claude Code sessions next to the Windows clock. Free and open source.">
+<meta property="og:image" content="https://mapmodelers.github.io/ClaudeTray/hero.png">
+<meta property="og:image:alt" content="The Tray for Claude panel open above the Windows clock">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Tray for Claude",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Windows 10, Windows 11",
+  "description": "Windows system tray panel for claude.ai chats and Claude Code sessions: status, notifications, replies, one-click steps and usage limits.",
+  "url": "https://mapmodelers.github.io/ClaudeTray/",
+  "downloadUrl": "https://github.com/mapmodelers/ClaudeTray/releases/latest/download/ClaudeTray.zip",
+  "license": "https://opensource.org/licenses/MIT",
+  "image": "https://mapmodelers.github.io/ClaudeTray/hero.png",
+  "author": { "@type": "Organization", "name": "MapModelers" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<style>
+  :root { --bg:#0d1117; --box:#151b23; --head:#1c2129; --ln:#3d444d; --tx:#f0f6fc; --mu:#9198a1; --link:#4493f8; --green:#238636; --green2:#29903b; --acc:#d97757; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--tx); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif; }
+  a { color:var(--link); text-decoration:none; } a:hover { text-decoration:underline; }
+  .top { border-bottom:1px solid var(--ln); background:#010409; }
+  .wrap { max-width:900px; margin:0 auto; padding:0 16px; }
+  .top .wrap { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; min-height:56px; }
+  .brand { display:flex; align-items:center; gap:10px; color:var(--tx); font-weight:600; font-size:16px; }
+  .brand:hover { text-decoration:none; }
+  .ring { width:20px; height:20px; border-radius:50%; border:4px solid var(--acc); }
+  .nav { display:flex; gap:18px; font-size:14px; } .nav a { color:var(--mu); } .nav a:hover { color:var(--tx); text-decoration:none; }
+  main.wrap { padding-top:40px; padding-bottom:24px; }
+  h1 { font-size:32px; font-weight:600; margin:0 0 8px; letter-spacing:-.4px; }
+  .lead { color:var(--mu); font-size:18px; margin:0 0 20px; max-width:680px; }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 16px; border-radius:6px; font-weight:600; font-size:14px;
+         color:var(--tx); background:#212830; border:1px solid var(--ln); }
+  .btn:hover { background:#262c36; text-decoration:none; }
+  .btn.main { background:var(--green); border-color:rgba(240,246,252,.1); color:#fff; }
+  .btn.main:hover { background:var(--green2); }
+  .btn svg { fill:currentColor; }
+  .meta { color:var(--mu); font-size:12px; margin:0 0 32px; }
+  .box { border:1px solid var(--ln); border-radius:6px; background:var(--box); overflow:hidden; }
+  .bh { background:var(--head); border-bottom:1px solid var(--ln); padding:10px 16px; font-weight:600; font-size:14px; }
+  .demo { display:flex; justify-content:center; padding:24px 16px; background:var(--bg); }
+  .demo img { width:100%; max-width:540px; height:auto; border-radius:6px; border:1px solid var(--ln); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+  .bb { padding:14px 16px 16px; }
+  ul, ol { margin:0; padding-left:20px; } li { margin:6px 0; } li b { font-weight:600; }
+  code { font:12px ui-monospace,SFMono-Regular,Consolas,monospace; background:rgba(101,108,118,.25); border-radius:6px; padding:2px 6px; }
+  .req { color:var(--mu); font-size:12px; margin:12px 0 0; }
+  footer { border-top:1px solid var(--ln); margin-top:32px; padding:20px 0 32px; color:var(--mu); font-size:12px; }
+  footer a { color:var(--mu); } footer p { margin:6px 0 0; }
+  @media (max-width:700px) { .two { grid-template-columns:1fr; } h1 { font-size:26px; } .lead { font-size:16px; } main.wrap { padding-top:28px; } .top .wrap { padding-top:10px; padding-bottom:10px; } .nav { gap:14px; } }
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap">
+  <a class="brand" href="./"><span class="ring"></span>Tray for Claude</a>
+  <nav class="nav">
+    <a href="https://github.com/mapmodelers/ClaudeTray#readme">Docs</a>
+    <a href="https://github.com/mapmodelers/ClaudeTray/discussions">Discussions</a>
+    <a href="https://github.com/mapmodelers/ClaudeTray/releases">Releases</a>
+    <a href="https://github.com/mapmodelers/ClaudeTray">GitHub</a>
+  </nav>
+</div></div>
+<main class="wrap">
+  <h1>Tray for Claude</h1>
+  <p class="lead">Your claude.ai chats and Claude Code sessions next to the Windows clock: status, notifications, replies, one-click steps and usage limits.</p>
+  <div class="btns">
+    <a class="btn main" href="https://github.com/mapmodelers/ClaudeTray/releases/latest/download/ClaudeTray.zip"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .14.11.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.69V1.75a.75.75 0 0 1 1.5 0v5.94l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.78a.75.75 0 0 1 1.06-1.06Z"/></svg>Download</a>
+    <a class="btn" href="https://github.com/mapmodelers/ClaudeTray"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 0c4.42 0 8 3.58 8 8a8.01 8.01 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>View on GitHub</a>
+  </div>
+  <p class="meta">Free and open source (MIT) · Windows 10 / 11 · zip, no installer · experimental 0.3.x</p>
+
+  <div class="box">
+    <div class="bh">Demo</div>
+    <div class="demo"><img src="demo.gif" width="540" alt="Claude answers in a dev session; its steps run from the tray, then a reply is sent from the tray"></div>
+  </div>
+
+  <div class="two">
+    <div class="box"><div class="bh">What it does</div><div class="bb"><ul>
+      <li><b>All chats in one list:</b> working, waiting for you, new reply, steps to run. Read, reply, stop or retry from the panel.</li>
+      <li><b>Steps in one click:</b> in <code>/tray</code> chats, Claude's commands run from the panel. Say "check" and Claude reads their output.</li>
+      <li><b>Questions and permissions:</b> answer Claude Code questions and Allow / Deny prompts.</li>
+      <li><b>Usage limits</b> on the tray icon, with alerts at 80&nbsp;% and 95&nbsp;%.</li>
+    </ul></div></div>
+    <div class="box"><div class="bh">Install</div><div class="bb"><ol>
+      <li><a href="https://github.com/mapmodelers/ClaudeTray/releases/latest/download/ClaudeTray.zip">Download the zip</a> and unzip it, for example to <code>C:\Tools\ClaudeTray</code>.</li>
+      <li>Double-click <code>Start Tray for Claude.cmd</code> and sign in to claude.ai once.</li>
+      <li>Optional: add <code>skill/tray.zip</code> as a skill in Claude and start chats with <code>/tray</code>.</li>
+    </ol><p class="req">Windows 10 (1809+) or 11. No admin rights. Needs a paid Claude plan.</p></div></div>
+  </div>
+
+  <footer>
+    <a href="https://github.com/mapmodelers/ClaudeTray/issues/new/choose">Report a bug</a> ·
+    <a href="https://github.com/mapmodelers/ClaudeTray/blob/main/LICENSE">MIT license</a> · © 2026 MapModelers
+    <p>An independent project, not affiliated with or endorsed by Anthropic. Claude is a trademark of Anthropic.</p>
+  </footer>
+</main>
+</body>
+</html>
