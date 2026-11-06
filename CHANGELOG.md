@@ -2,6 +2,14 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.23
+
+- Download as a zip from the README (attached to each release from now on), then double-click
+  `Start Tray for Claude.cmd`: the first time, it opens claude.ai to sign in, then starts the tray. No PowerShell
+  command to type.
+- README: a short demo at the top, a clearer first paragraph, links to the download, install, shortcuts and
+  Discussions. `tools/demo-gif.js` makes the demo from the real panel with made-up chats.
+
 ## 0.3.22
 
 - Claude's last answer is never greyed out once read (earlier answers still are).

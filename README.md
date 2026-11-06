@@ -1,11 +1,17 @@
 # Tray for Claude
 
-A Windows tray panel for your Claude chats and plan usage. Follow several chats at once, answer Claude, run the
-commands it gives you and keep an eye on your limits, without switching windows.
+A Windows system tray panel for Claude: your claude.ai chats and Claude Code sessions next to the clock, with
+their status, notifications, replies, one-click steps and your usage limits. Follow several chats at once without
+switching windows. Free and open source, for Windows 10 and 11.
+
+**[Download the latest version](https://github.com/mapmodelers/ClaudeTray/releases/latest/download/ClaudeTray.zip)**
+(zip, no installer) · [Install](#install) · [Shortcuts](#shortcuts) · [Discussions](https://github.com/mapmodelers/ClaudeTray/discussions)
+
+<p><img src="docs/demo.gif" width="540" alt="Claude answers in a dev session; its steps run from the tray, then a reply is sent from the tray"></p>
+
+Experimental (0.3.x): it works, but things still change between versions. Bug reports are welcome.
 
 ![The panel open above the Windows clock](docs/hero.png)
-
-Preview release (0.3.x). It works, but things still change between versions. Bug reports are welcome.
 
 ## What it does
 
@@ -31,15 +37,15 @@ second-hand listings in the background, a permission to approve for a script, a 
 
 ## Install
 
-1. Download or clone this repository to a folder you can write to, for example `C:\Tools\ClaudeTray`.
-2. In PowerShell, from that folder:
+1. [Download ClaudeTray.zip](https://github.com/mapmodelers/ClaudeTray/releases/latest/download/ClaudeTray.zip) and
+   extract it to a folder you can write to, for example `C:\Tools\ClaudeTray`. (Or clone this repository.)
+2. Double-click `Start Tray for Claude.cmd` in that folder. The first time, a browser window opens on claude.ai:
+   sign in and close it. The icon then appears next to the clock and the tray starts with Windows. The same from
+   PowerShell:
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File .\ClaudeTray.ps1 -WebLogin
    ```
-
-   A browser window opens on claude.ai. Sign in and close it. The icon then appears next to the clock and the
-   tray starts with Windows.
 
    To start it again later: type "Tray for Claude" in Windows search, or double-click the "Tray for Claude"
    shortcut (or `Start Tray for Claude.cmd`) in its folder.
