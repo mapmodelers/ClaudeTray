@@ -15,7 +15,7 @@ const fake = `<div data-testid="user-message"><p>first question</p></div>
 (async () => {
   const b = await chromium.launch(); const errs = [];
   const src = await b.newPage(); await src.setContent(fake);
-  const msgs = JSON.parse(await src.evaluate(msgJs.replace('__N__', '20')));
+  const msgs = JSON.parse(await src.evaluate(msgJs.replace('__N__', '20').replace('__SIG__', '""'))).rows;
   const st = JSON.parse(await src.evaluate(stJs));
   console.log('MSGS', JSON.stringify(msgs, null, 0));
   if (JSON.stringify(msgs).includes('Designing the panel')) console.log('FAIL: turn heading leaked into the reply');

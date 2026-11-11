@@ -81,6 +81,7 @@ Claude plan. No installer and no admin rights. Updates: Settings > Check for upd
 | Pin, rename, move to a section, mute, hide | Right-click its title |
 | Open it in the Claude app or on claude.ai | Button at the end of its line, or right-click its title |
 | Change the model or the effort | Click the model name in its reply bar |
+| Focus on one chat (the panel shows only that one) | Its corner-brackets icon, or Ctrl+click its line; the arrow left of its title goes back |
 | Jump to the latest message | Arrow button at the bottom of the conversation |
 | New chat, sections, sort | + button on the toolbar |
 

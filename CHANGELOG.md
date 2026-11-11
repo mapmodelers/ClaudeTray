@@ -2,6 +2,27 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.24
+
+- Model chip: its menu works again on Claude Code pages, where claude.ai moved the other models into a "More models"
+  sub-menu. A click shows "Reading the models…" at once, then the models, "More models ›" and the effort levels, with
+  the current ones ticked. It no longer depends on the language of claude.ai or on a mouse move in the hidden tab.
+  The chip shows the effort bars for claude.ai chats too, when the page shows the effort.
+- Memory: the guard added in 0.3.21 never ran (it shared a counter that was reset first). It runs now, every ~30 s:
+  above 700 MB it does one full collection and logs before / after; above 1.5 GB it restarts the tray once no send
+  or step is in progress.
+- Memory: an open chat that has not changed is no longer transferred and parsed twice a second (the page answers
+  "same"). Each heartbeat logs a `memdiag` line (managed / private memory, collections, what the hidden browser sent,
+  errors caught silently by type and line). Known: memory can still grow while an expanded chat keeps changing; the
+  cause is not found yet, the guard is there for it.
+- Focus: the panel shows one chat only, with its conversation taking the whole height. The new icon on each chat's
+  line, or Ctrl+click on the line, turns it on; the arrow left of its title, or Ctrl+click again, goes back to the
+  list. It is kept across restarts.
+- A Claude Code session that the Claude app opened as a chat was listed twice once tracked from BROWSE (its session
+  id and its chat address). It is one row now; a pin on either one is kept, and BROWSE shows it as already tracked.
+- Steps that came from the text of a chat reply (no folder connected) or that need admin rights show the exact
+  command and ask before running. A quest block in a reply runs only in a chat where `/tray` is on.
+
 ## 0.3.23
 
 - Download as a zip from the README (attached to each release from now on), then double-click

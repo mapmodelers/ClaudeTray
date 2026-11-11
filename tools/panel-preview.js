@@ -14,7 +14,7 @@ const fake = `<div data-testid="user-message"><span class="sr-only">You said:</s
 (async () => {
   const b = await chromium.launch(); const errs = [];
   const src = await b.newPage(); await src.setContent(fake);
-  const msgs = JSON.parse(await src.evaluate(msgJs.replace('__N__', '20')));
+  const msgs = JSON.parse(await src.evaluate(msgJs.replace('__N__', '20').replace('__SIG__', '""'))).rows;
   const p = await b.newPage({ viewport: { width: 340, height: 500 } });
   p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await p.addInitScript(() => { window.__posts = []; window.chrome = { webview: { postMessage: m => window.__posts.push(m), addEventListener: (t, f) => { window.__h = f; } } }; });

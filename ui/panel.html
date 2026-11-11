@@ -138,6 +138,10 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .pill{font-size:10px;color:var(--mu);border:1px solid var(--ln);border-radius:8px;padding:0 6px;height:16px;display:none}
 .pill:hover{color:var(--tx);background:var(--ln)}
 #usage{flex:none;display:flex;gap:10px;padding:2px 8px 4px;border-top:1px solid var(--ln)}
+/* focus: the panel shows one chat only */
+.head .fback{flex:none;margin:0 1px 0 -3px;color:var(--mu)}.head .fback:hover{color:var(--tx)}
+body.focus .sh,body.focus .secempty,body.focus #brwbox,body.focus #list>:not(.sec),body.focus .cvz{display:none!important}
+body.focus .sec:not(:has(.card.fc)),body.focus #pins:not(:has(.card.fc)){display:none!important}
 .u{margin:1px 0 0;flex:1;min-width:0}
 .u .ul{display:flex;justify-content:space-between;gap:4px;white-space:nowrap;overflow:hidden;font-size:9.5px;color:var(--mu);line-height:1.3}
 .u .ul b{color:var(--tx);font-weight:600;margin-left:5px}
@@ -211,6 +215,8 @@ body.rsz,body.rsz *{cursor:ns-resize!important;user-select:none!important}#brw .
 const $ = s => document.querySelector(s);
 const post = m => window.chrome.webview.postMessage(m);
 const I = {
+  focus:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
   dot0:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/></svg>',
   bug:'<svg viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="11" rx="4"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0M12 11v8M8 12H4M20 12h-4M8 16.5l-3.5 2M16 16.5l3.5 2M8 9.5 5 7M16 9.5l3-2.5"/></svg>',
   clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
@@ -261,11 +267,11 @@ const secEls = new Map(), views = {}, brOpen = new Set(), brAsked = new Set();
 const SORTN = { manual: 'custom', date: 'by last used', name: 'by name', project: 'by project' }, SORTS = ['date', 'name', 'project'], SORTOK = ['manual', 'date', 'name', 'project'];
 function cvwOk(o){ const r = {}; if (o && typeof o === 'object') for (const [k, v] of Object.entries(o).slice(-40)) if (+v > 0) r[String(k)] = Math.max(0.1, Math.min(10, Math.round(+v * 1000) / 1000)); return r; }     // share of the space per chat (1 = even), set by the splitter
 function validLay(l){
-  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, recent: false, brh: 240, cvw: {}, open: [], big: [] };
+  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, recent: false, brh: 240, cvw: {}, open: [], big: [], focus: '' };
   if (!l || typeof l !== 'object') return d;
   const sec = Array.isArray(l.sec) ? l.sec.filter(s => s && s.id).map(s => ({ id: String(s.id), name: String(s.name || 'Section'), sort: SORTOK.includes(s.sort) ? s.sort : 'date', col: !!s.col })) : [];
   if (!sec.some(s => s.id === 'main')) sec.unshift(d.sec[0]);
-  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, recent: !!l.recent, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [] };
+  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, recent: !!l.recent, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [], focus: typeof l.focus === 'string' ? l.focus : '' };
 }
 function saveLay(){ clearTimeout(layT); layT = setTimeout(() => { LAY.open = [...opened]; LAY.big = [...big]; post({ type: 'layout', layout: LAY }); }, 400); }
 function secOf(c){ if (c.pin) return 'pin'; const s = LAY.at[c.id]; return s && LAY.sec.some(x => x.id === s) ? s : 'main'; }
@@ -371,7 +377,7 @@ function renderBrowse(L){                           // BROWSE: claude.ai + Claud
   b.classList.toggle('fold', !LAY.browse); { const rb0 = b.querySelector('[data-a="brref"]'); if (rb0) rb0.classList.toggle('spin', !!(S.catalog && S.catalog.loading)); } $('#brwb').classList.toggle('on', !!LAY.browse); $('#rctb').classList.toggle('on', !!LAY.recent);
   if (!LAY.browse) return;
   { const bl0 = b.querySelector('.bl'), mh = Math.min(LAY.brh || 240, brMax()) + 'px'; if (bl0.style.height !== mh) bl0.style.height = mh; }
-  const cat = S.catalog || {}, tracked = new Set((S.chats || []).map(c => c.id)), loc = S.desklocal || [], seen = S.seen || {};
+  const cat = S.catalog || {}, tracked = new Set((S.chats || []).map(c => c.id).concat(Object.keys(S.twins || {}))), loc = S.desklocal || [], seen = S.seen || {};
   const nw = (cid, at) => { const s0 = Date.parse(seen[cid] || ''), a0 = Date.parse(at || ''); return s0 && a0 && a0 > s0 + 5000 && !tracked.has(cid) ? '<span class="dot new" title="New since you last saw it" style="margin:0 2px"></span>' : ''; };
   const projs = cat.projects || [], rec = cat.recent || [], byP = cat.byProj || {};
   const ts = r => Date.parse(r.at) || 0, tag = t => '<span class="age" style="flex:none;opacity:.75">' + t + '</span>';
@@ -457,7 +463,11 @@ function fitConv(fromDrag){                            // fixed panel height (yo
 function render(){
   if (!S) return;
   setTimeout(modelMenuShow, 0); setTimeout(updShow, 0);
-  const css = Object.entries(S.theme).map(([k, v]) => '--' + k + ':' + v).join(';') + ';--convh:' + (S.fixedH ? Math.max(120, S.fixedH - 120) : Math.min(320, Math.max(120, Math.round(S.maxH * 0.5)))) + 'px;--mainw:' + (S.mainW || 340) + 'px';
+  if (!LAY && S.layout && typeof S.layout.focus === 'string' && S.layout.focus) { focusWant = S.layout.focus; focusWantT = Date.now(); }
+  if (focusWant) { if ((S.chats || []).some(c => c.id === focusWant)) { focusId = focusWant; focusWant = null; } else if (Date.now() - focusWantT > 15000) focusWant = null; }
+  if (focusId && !(S.chats || []).some(c => c.id === focusId)) focusId = null;     // that chat left the tray: back to the list
+  document.body.classList.toggle('focus', !!focusId);
+  const css = Object.entries(S.theme).map(([k, v]) => '--' + k + ':' + v).join(';') + ';--convh:' + (S.fixedH ? Math.max(120, S.fixedH - 120) : focusId ? Math.max(160, (S.maxH || 430) - 170) : Math.min(320, Math.max(120, Math.round(S.maxH * 0.5)))) + 'px;--mainw:' + (S.mainW || 340) + 'px';
   if (css !== rootCss) { rootCss = css; document.documentElement.style.cssText = css; }
   const sd = S.sides || {};
   for (const [X, on] of [['L', !!sd.l], ['R', !!sd.r]]) if (col[X].open && !on && Date.now() - (col[X].at || 0) > 1500) { col[X].open = false; col[X].pinned = false; }   // the tray closed it (panel hidden / dragged)
@@ -474,6 +484,7 @@ function render(){
     lastSt[c.id] = c.st;
   }
   firstState = false;
+  if (focusId) { opened.clear(); big.clear(); opened.add(focusId); }     // focus: that chat stays open, nothing else opens
   for (const id of opened) big.add(id);              // one open view: the full conversation (the compact step was dropped)
   const now = Date.now(), have = new Set(chats.map(c => c.id));
   for (const id of have) { delete goneAt[id]; hideNow.delete(id); }
@@ -482,14 +493,14 @@ function render(){
   for (const id of [...opened]) if (dead(id)) { opened.delete(id); big.delete(id); }
   sendExp(); { const fo = $('#fold'), any = opened.size > 0; fo.classList.toggle('un', !any); const ft = any ? 'Collapse all chats' : 'Expand the chats you had open'; setTitle(fo, ft); }
   const L = $('#list');
-  for (const [id, cd] of cards) { if (dead(id)) { cd.el.remove(); cards.delete(id); delete goneAt[id]; hideNow.delete(id); } else cd.el.style.display = have.has(id) ? '' : 'none'; }
+  for (const [id, cd] of cards) { if (dead(id)) { cd.el.remove(); cards.delete(id); delete goneAt[id]; hideNow.delete(id); } else { cd.el.style.display = have.has(id) && (!focusId || id === focusId) ? '' : 'none'; cd.el.classList.toggle('fc', id === focusId); } }
   // layout: sections (yours + the main one), manual order, sort per section - kept by the tray in state.json
   if (!LAY) { LAY = validLay(S.layout); if ((!S.expanded || !S.expanded.length) && LAY.open) { for (const id of LAY.open) if (have.has(id)) opened.add(id); for (const id of LAY.big || []) if (have.has(id)) { opened.add(id); big.add(id); } } }
   const fresh = chats.filter(c => !LAY.ord.includes(c.id)).map(c => c.id), layCh0 = fresh.length > 0; if (layCh0) LAY.ord = fresh.concat(LAY.ord);     // new chats: top of the manual order (in the tray's order)
   let layCh = layCh0;
   if (LAY.ord.length > 400) { LAY.ord = LAY.ord.slice(0, 400); layCh = true; }
   if (layCh) saveLay();
-  const P = $('#pins'); P.style.maxHeight = S.fixedH && [...P.children].some(x => x.classList.contains('big')) ? 'none' : Math.round((S.maxH || 430) * 0.6) + 'px';     // fixed height: an open pinned chat may take the space (fitConv sizes it)
+  const P = $('#pins'); P.style.maxHeight = focusId || (S.fixedH && [...P.children].some(x => x.classList.contains('big'))) ? 'none' : Math.round((S.maxH || 430) * 0.6) + 'px';     // fixed height: an open pinned chat may take the space (fitConv sizes it)
   const place = (box, list) => list.forEach((c, i) => { let cd = cards.get(c.id); if (!cd) cd = makeCard(c.id);
     if (box.children[i] !== cd.el) { const ae = document.activeElement, keep = ae && cd.el.contains(ae) ? ae : null, st = cd.conv.scrollTop, lst = box.scrollTop; box.insertBefore(cd.el, box.children[i] || null); cd.conv.scrollTop = st; box.scrollTop = lst; if (keep) keep.focus({ preventScroll: true }); }
     updateCard(cd, c); });
@@ -509,6 +520,7 @@ function render(){
     let ph = body.querySelector('.secempty'); if (!list.length && !ph) { ph = document.createElement('div'); ph.className = 'secempty'; body.appendChild(ph); } else if (list.length && ph) ph.remove();
     if (ph) { const tx = sc.id !== 'main' ? 'Drag chats here' : S.hiddenAll || (S.chats || []).length ? '' : 'No chat yet. Type /tray in a Claude chat.'; if (ph.textContent !== tx) ph.textContent = tx; ph.style.display = tx ? '' : 'none'; }     // all chats hidden: no line, BROWSE brings them back
   });
+  if (focusId) for (const [fid, fcd] of cards) { fcd.el.classList.toggle('fc', fid === focusId); if (have.has(fid)) fcd.el.style.display = fid === focusId ? '' : 'none'; }     // cards made in this pass (first state after a restart)
   renderBrowse(L);
   const nf = $('#newf'), bw = $('#brw'), ref = bw && bw.parentElement === L ? bw : null;     // New chat form: at the end of the list
   if (nf.parentElement !== L || nf.nextElementSibling !== ref) L.insertBefore(nf, ref);
@@ -520,7 +532,7 @@ function render(){
 function recentRows(){                               // claude.ai chats active in the last 24 h that are not in the tray (newest first, at most 10)
   if (!LAY || !LAY.recent) return [];
   const have = new Set((S.chats || []).map(c => c.id)), hid = new Set((S.hidden || []).map(h => h.id)), now = Date.now(), names = new Set((S.chats || []).map(c => String(c.title || '').trim().toLowerCase()));
-  return ((S.catalog || {}).recent || []).filter(r => { const t0 = Date.parse(r.at || ''); return t0 && now - t0 < 86400000 && !have.has('chat/' + r.id) && !hid.has('chat/' + r.id) && !names.has(String(r.name || '').trim().toLowerCase()); }).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).filter(r => !opened.size || now - Date.parse(r.at) < 180000).slice(0, 10);     // same name as a chat in the tray (a Claude Code session has its own id): not twice. A chat open: only the ones active right now (changed in the last 3 min)
+  return ((S.catalog || {}).recent || []).filter(r => { const t0 = Date.parse(r.at || ''); return t0 && now - t0 < 86400000 && !have.has('chat/' + r.id) && !(S.twins || {})['chat/' + r.id] && !hid.has('chat/' + r.id) && !names.has(String(r.name || '').trim().toLowerCase()); }).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).filter(r => !opened.size || now - Date.parse(r.at) < 180000).slice(0, 10);     // same name as a chat in the tray (a Claude Code session has its own id): not twice. A chat open: only the ones active right now (changed in the last 3 min)
 }
 function renderRecent(L){
   let r = $('#rct'); const rows = recentRows();
@@ -588,7 +600,7 @@ function updateCard(cd, c){
   const mph = cmp ? '<b>' + esc(c.title) + '</b>' + (syncing ? ' ' + SYNC : '') + (pv ? '<i' + (ak ? ' class="ak"' : '') + '> · ' + esc(pv) + '</i>' : '') : ''; if (mph !== cd.mphH) { cd.mphH = mph; cd.mph.innerHTML = mph; } cd.mph.classList.toggle('un', !!c.unread);
   if (cmp && !open) {                                    // compact: one line - dot (opens it) · field (title) · bell · open in Claude · age
     const md = marker(c); if (md !== cd.mdH) { cd.mdH = md; cd.mdot.innerHTML = md; }
-    const mt = (c.peek ? '<button class="ib keep" data-a="keep" title="Not in the tray yet - click to keep it">' + I.plus + '</button>' : '') + '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button><button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button><span class="age" title="Last activity">' + esc(c.age) + '</span>';
+    const mt = (c.peek ? '<button class="ib keep" data-a="keep" title="Not in the tray yet - click to keep it">' + I.plus + '</button>' : '') + '<button class="ib" data-a="focus" title="Focus: show only this chat (also Ctrl+click its line)">' + I.focus + '</button>' + '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button><button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button><span class="age" title="Last activity">' + esc(c.age) + '</span>';
     if (mt !== cd.mtH && !busy(cd.mt)) { cd.mtH = mt; cd.mt.innerHTML = mt; }
   }
   cd.mstop.style.display = c.working ? 'inline-flex' : 'none'; cd.mfld.classList.toggle('wk', !!c.working);
@@ -601,8 +613,9 @@ function updateCard(cd, c){
   const tools = '<div class="tools">' + (c.peek ? '<button class="ib keep" data-a="keep" title="Not in the tray yet - click to keep it">' + I.plus + '</button>' : '') + '<button class="ib" data-a="open" title="Open in the Claude app">' + I.app + '</button>' + (String(c.id || '').startsWith('local/') ? '' : '<button class="ib" data-a="web" title="Open on claude.ai">' + I.web + '</button>') + '' +
     '<button class="ib" data-a="mv" title="Move to a section…">' + I.mv + '</button><button class="ib" data-a="hide" title="Hide (comes back when Claude writes again, or from &quot;hidden&quot; at the bottom)">' + I.x + '</button>' +
     '<button class="ib' + (c.bell ? '' : ' keep') + '" data-a="bell" title="' + (c.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute') + '">' + (c.bell ? I.bell : I.belloff) + '</button>' +
+    (focusId === c.id ? '' : '<button class="ib" data-a="focus" title="Focus: show only this chat (also Ctrl+click its line)">' + I.focus + '</button>') +
     '<button class="ib' + (c.pin ? ' pon keep' : '') + '" data-a="pinc" title="' + (c.pin ? 'Unpin (back to the list)' : 'Pin on top (always shown, stays in view while you scroll)') + '">' + I.pin + '</button></div>';
-  const hh = marker(c) + '<div class="rt' + (c.pin || !c.bell ? ' rk' + ((c.pin ? 1 : 0) + (!c.bell ? 1 : 0)) : '') + '"><b>' + esc(c.title) + '</b>' + tools + '</div>' +
+  const hh = (focusId === c.id ? '<button class="ib fback" data-a="focus" title="Back to all your chats">' + I.back + '</button>' : '') + marker(c) + '<div class="rt' + (c.pin || !c.bell ? ' rk' + ((c.pin ? 1 : 0) + (!c.bell ? 1 : 0)) : '') + '"><b>' + esc(c.title) + '</b>' + tools + '</div>' +
     (proj ? '<span class="mdl" title="Project">' + esc(c.proj) + '</span>' : '') + '<span class="age">' + esc(c.age) + '</span>';
   if (hh !== cd.headH && !busy(cd.head)) { cd.headH = hh; cd.head.innerHTML = hh; }
   cd.head.classList.toggle('unread', !!c.unread);
@@ -828,10 +841,25 @@ const reveal = el => afterFit(() => { if (el && el.isConnected) el.scrollIntoVie
 const mShort = m => { const s0 = String(m || '').replace(/^claude-/, '').replace(/-\d{8}$/, ''); const k = s0.match(/^(opus|sonnet|haiku|fable)-(\d+)-(\d+)/i); return k ? k[1][0].toUpperCase() + k[1].slice(1) + ' ' + k[2] + '.' + k[3] : s0; };
 const EFF = ['low', 'medium', 'high', 'xhigh', 'max'], effBars = e => { const n = EFF.indexOf(String(e || '').toLowerCase()) + 1; if (!n) return ''; return '<span class="eb" title="Effort: ' + esc(e) + '">' + [1, 2, 3, 4, 5].map(i => '<i class="' + (i <= n ? 'on' : '') + '" style="height:' + (2 + i * 1.4) + 'px"></i>').join('') + '</span>'; };
 let mmAt = null;     // where the model chip was clicked, waiting for Desktop's options
-function modelMenuShow(){ const mm = S && S.modelMenu; if (!mmAt || !mm || mm.k === mmAt.k || mm.id !== mmAt.id) return; const at = mmAt; mmAt = null; const c = chatOf(mm.id) || {};
-  if (!mm.ok || !(mm.models || []).length) { popMenu(at.x, at.y, [{ t: 'Could not read the model menu', off: true }, { t: 'Open the chat in Claude', f: () => post({ type: 'open', id: mm.id, web: false }) }], true); return; }
+let focusId = null, focusWant = null, focusWantT = 0;     // focus: the one chat the panel shows (null = the list); focusWant: the one to come back to after a restart
+function setFocus(id){                                    // its icon, or Ctrl+click on its line: only this chat. Again, or the arrow left of its title: back to the list
+  focusId = id && id !== focusId ? id : null; focusWant = null;
+  if (LAY) { LAY.focus = focusId || ''; if (focusId && LAY.browse) LAY.browse = false; saveLay(); }
+  if (focusId) { opened.clear(); big.clear(); openCard(focusId); }
+  userAt = Date.now(); render(); sizeReport(true);
+  const cd = focusId && cards.get(focusId); if (cd) setTimeout(() => { try { cd.ta.focus({ preventScroll: true }); } catch (e) { } }, 0);
+}
+function modelMenuShow(){ const mm = S && S.modelMenu; if (!mmAt || !mm || mm.k === mmAt.k || mm.id !== mmAt.id) return; const at = mmAt; mmAt = null;
+  if (!document.querySelector('#pmenu[data-mm]')) return;     // the wait menu was closed (you clicked elsewhere): nothing pops up later
+  const c = chatOf(mm.id) || {};
+  if (!mm.ok) { popMenu(at.x, at.y, [{ t: 'Could not read the model menu', off: true }, { t: 'Open the chat in Claude', f: () => post({ type: 'open', id: mm.id, web: false }) }], true); return; }
   const lab = n => String(n).replace(/^(\S+ [\d.]+).*$/, '$1');
-  popMenu(at.x, at.y, mm.models.map(n => ({ t: lab(n), on: mShort(c.model) === lab(n) || String(c.model || '').startsWith(lab(n)), f: () => post({ type: 'setmodel', id: mm.id, kind: 'model', name: n }) })).concat((mm.efforts || []).length ? ['-'].concat(mm.efforts.map(n => ({ t: 'Effort: ' + n, on: String(c.effort || c.model || '').toLowerCase().endsWith(String(n).toLowerCase()), f: () => post({ type: 'setmodel', id: mm.id, kind: 'effort', name: n }) }))) : []), true); }
+  const isCur = n => mm.cur ? lab(mm.cur) === lab(n) : (mShort(c.model) === lab(n) || String(c.model || '').startsWith(lab(n)));
+  const mi = n => ({ t: lab(n), on: isCur(n), f: () => post({ type: 'setmodel', id: mm.id, kind: 'model', name: n }) });
+  const its = (mm.models || []).map(mi);
+  if ((mm.more || []).length) its.push({ t: 'More models \u203a', on: mm.more.some(isCur), f: () => popMenu(at.x, at.y, mm.more.map(mi), true) });
+  if ((mm.efforts || []).length) { if (its.length) its.push('-'); mm.efforts.forEach(n => its.push({ t: 'Effort: ' + n, on: mm.effCur ? mm.effCur === n : String(c.effort || '').toLowerCase() === String(n).toLowerCase(), f: () => post({ type: 'setmodel', id: mm.id, kind: 'effort', name: n }) })); }
+  popMenu(at.x, at.y, its, true); }
 const askSent = {}, askArm = {};     // askArm:  request button waiting for its confirming click     // local chat answers just sent from the tray
 let lastOpen = [], lastFold = null;     // lastFold = the exact view at the last collapse (cards, compact/full, Browse, scroll)
 try { lastFold = JSON.parse(localStorage.getItem('ctLastFold') || 'null'); } catch (e) { lastFold = null; }
@@ -947,6 +975,7 @@ document.addEventListener('click', e => {
     popMenu(r.left, r.top, [{ t: 'Report a bug, with the log (cleaned, to drag into the page)', f: a('log') }, { t: 'Report a bug, without the log', f: a('nolog') }], true); return; }
   if (e.target.id === 'gear' || e.target.closest('#gear')) { const r = $('#gear').getBoundingClientRect(); setMenu(r.left, r.top, true); return; }
   if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
+  if (focusId && e.target.closest('#brwb, #rctb, #plus, #fold')) setFocus(null);     // the list's tools: back to the list first
   if (e.target.closest('[data-a2="reconnect"]')) { post({ type: 'menuact', k: 'reconnect' }); const rb = e.target.closest('button'); rb.disabled = true; setTimeout(() => { rb.disabled = false; }, 5000); return; }
   if (e.target.closest('#plus')) { const r = $('#plus').getBoundingClientRect(); plusMenu(r.left, r.top, true); return; }
   const shd = e.target.closest('.sh'); if (shd && !e.target.closest('[data-a]') && !e.target.closest('[contenteditable=true]')) { const sc = LAY.sec.find(s => s.id === shd.dataset.sec); if (sc) { sc.col = !sc.col; saveLay(); render(); } return; }
@@ -959,6 +988,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('#nfX')) { $('#newf').classList.remove('on'); sizeReport(); return; }
   if (e.target.closest('#nfGo')) { newChat(); return; }
   const b = e.target.closest('[data-a],[data-copy]'), card = e.target.closest('.card'), id = card && card.dataset.id;
+  if (e.ctrlKey && card && !e.target.closest('button, a, textarea, .conv, .comp, .qz, .acts, .sit')) { e.preventDefault(); setFocus(id); return; }     // Ctrl+click on a chat's line: focus on it (again: back)
   if (b && b.dataset.copy != null) { post({ type: 'copy', text: b.dataset.copy }); return; }
   const lk = e.target.closest('a[data-href]'); if (lk) { e.preventDefault(); post({ type: 'openurl', url: lk.getAttribute('data-href') }); return; }
   const mb = e.target.closest('.m.a .b');
@@ -969,6 +999,7 @@ document.addEventListener('click', e => {
   if (S && S.settings && S.settings.debug) post({ type: 'log', text: 'ui: ' + a + (id ? ' ' + id : '') + (n != null ? '#' + n : '') });
   switch (a) {
     case 'toggle': toggle(id); break;
+    case 'focus': setFocus(id); break;
     case 'keep': post({ type: 'keep', id: id }); break;
     case 'qpick': {
         const isL = String(id).startsWith('local/'), gq = ((chatOf(id) || {}).q || {});
@@ -977,7 +1008,10 @@ document.addEventListener('click', e => {
     case 'qsub': { const ot = card.querySelector('.qoth'), tx = ot ? ot.value.trim() : ''; if (tx) post({ type: 'qother', id: id, text: tx, enter: false }); post({ type: 'qsub', id: id }); b.disabled = true; unstick(b); } break;
     case 'qnext': post({ type: 'qnext', id: id }); break;
     case 'addfolder': post({ type: 'addfolder', id: id }); break;
-    case 'model': { const r0 = b.getBoundingClientRect(); if (String(id).startsWith('local/')) { post({ type: 'open', id: id, web: false }); break; } mmAt = { id: id, x: r0.left, y: r0.top, k: (S.modelMenu || {}).k }; post({ type: 'modelmenu', id: id }); break; }     // the tray reads Desktop's options, then shows them here
+    case 'model': { const r0 = b.getBoundingClientRect(); if (String(id).startsWith('local/')) { post({ type: 'open', id: id, web: false }); break; } const again = mmAt && mmAt.id === id && Date.now() - mmAt.t < 12000;     // still reading: another click only shows the wait again
+      mmAt = { id: id, x: r0.left, y: r0.top, k: again ? mmAt.k : (S.modelMenu || {}).k, t: again ? mmAt.t : Date.now() };
+      popMenu(r0.left, r0.top, [{ t: 'Reading the models\u2026', off: true }], true); { const pm = $('#pmenu'); if (pm) pm.dataset.mm = '1'; }
+      if (!again) post({ type: 'modelmenu', id: id }); break; }     // the tray reads Desktop's options, then shows them here
     case 'qskip': post({ type: 'qskip', id: id }); if (String(id).startsWith('local/')) { askSent[id] = { l: 'Skip', at: Date.now() }; render(); setTimeout(render, 6100); } break;
     case 'qprev': post({ type: 'qprev', id: id }); break;
     case 'open': post({ type: 'open', id: id, web: false }); break;
