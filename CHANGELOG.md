@@ -2,6 +2,16 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.29
+
+- Tabs layout (Settings > Layout: tabs / list). A row of tabs, one per chat in the list's order, each with its status
+  mark, its number and its title; the selected chat fills the panel below, without a second line repeating its
+  title: its icons (open, claude.ai, move, hide, notifications, pin) and its age sit at the end of the row, faint. Click a tab, `Ctrl+Tab`, `Ctrl+1`...`9`
+  or the "next chat that waits for you" shortcut to switch. The chat that waits for you is selected first, and a tab
+  blinks when Claude finishes, asks or gives steps there. With many chats the titles shrink down to the status mark.
+  The top grip (or "collapse all") folds the panel down to the row of tabs, and a tab brings it back. BROWSE shows the
+  list again until you pick a tab.
+
 ## 0.3.28
 
 - Icons show only while the pointer is there. A chat's one-line row shows none until you point at it, and then all

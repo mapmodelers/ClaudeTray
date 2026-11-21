@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.28'
+$Version = '0.3.29'
 try { [AppDomain]::MonitoringIsEnabled = $true } catch { }     # memory diagnostics: lets the heartbeat say how much was allocated and how much a full collection leaves
 # First / last / skip N of a pipeline WITHOUT Select-Object. In Windows PowerShell 5.1, Select-Object writes 'Selected.System.Management.Automation.PSCustomObject'
 # into the type names of every PSCustomObject that passes through it, each time, on the object itself. A long-lived object (a chat message kept between

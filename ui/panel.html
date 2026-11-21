@@ -143,6 +143,10 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .pill:hover{color:var(--tx);background:var(--ln)}
 #usage{flex:none;display:flex;gap:10px;padding:2px 8px 4px;border-top:1px solid var(--ln)}
 /* status line (Ctrl+click on the top grip): the panel is one row of status marks, one per chat */
+#tabs{display:none}body.tabs #tabs{display:flex;align-items:stretch;gap:1px;flex:none;height:20px;padding:0 6px;overflow:hidden;border-bottom:1px solid var(--ln)}body.strip.tabs #tabs{border-bottom:0}body.strip.tabs #strip{display:none}     /* Tabs layout: one tab per chat, the selected chat below; with many chats the titles shrink to the status mark */
+.tab{display:flex;align-items:center;gap:3px;flex:1 1 0;min-width:24px;max-width:170px;padding:0 5px;border-radius:5px 5px 0 0;cursor:pointer;color:var(--mu);font-size:10.5px;white-space:nowrap;overflow:hidden}.tab b{font-weight:400;overflow:hidden;text-overflow:ellipsis;min-width:0}.tab i{font-style:normal;font-size:7.5px;opacity:.55;flex:none}.tab .dot,.tab .dots,.tab .askm{margin:0;flex:none}.tab .dot{width:7px;height:7px}
+.tab:hover{background:var(--ln)}.tab.on{background:var(--card);color:var(--tx)}.tab.fl{animation:sfl .7s steps(2,jump-none) 14}body.tabs .head .fback{display:none}body.tabs.focus:not(.strip) .card.fc .head{display:none}     /* the tab already carries the title: no second line with it */
+.ttools{display:flex;align-items:center;flex:none;margin-left:auto;padding-left:4px}.ttools .ib{opacity:.5}.ttools .ib:hover,.ttools .ib.keep{opacity:1}.ttools .age{margin-left:3px}
 #strip{display:none}body.strip #strip{display:flex;align-items:center;gap:1px;flex:none;height:16px;padding:0 6px 2px;overflow:hidden}
 body.strip #pins,body.strip #list,body.strip #brwbox,body.strip #tb,body.strip #usage,body.strip #newf,body.strip #offl{display:none!important}
 body.strip .rz.t,body.strip .rz.b,body.strip .rz.tl,body.strip .rz.tr,body.strip .rz.bl,body.strip .rz.br{display:none}
@@ -215,6 +219,7 @@ body.rsz,body.rsz *{cursor:ns-resize!important;user-select:none!important}#brw .
     <div class="r"><span id="nfSt"></span><button class="ib" id="nfX" title="Cancel"></button><button id="nfGo">Create</button></div>
   </div>
   <div id="offl"><span>claude.ai not reachable – reconnecting…</span><button data-a2="reconnect">Reconnect</button></div>
+  <div id="tabs"></div>
   <div id="strip"></div>
   <div id="pins"></div>
   <div id="list"></div>
@@ -279,11 +284,11 @@ const secEls = new Map(), views = {}, brOpen = new Set(), brAsked = new Set();
 const SORTN = { manual: 'custom', date: 'by last used', name: 'by name', project: 'by project' }, SORTS = ['date', 'name', 'project'], SORTOK = ['manual', 'date', 'name', 'project'];
 function cvwOk(o){ const r = {}; if (o && typeof o === 'object') for (const [k, v] of Object.entries(o).slice(-40)) if (+v > 0) r[String(k)] = Math.max(0.1, Math.min(10, Math.round(+v * 1000) / 1000)); return r; }     // share of the space per chat (1 = even), set by the splitter
 function validLay(l){
-  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, recent: false, brh: 240, cvw: {}, open: [], big: [], focus: '', strip: false };
+  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, recent: false, brh: 240, cvw: {}, open: [], big: [], focus: '', strip: false, tabs: false };
   if (!l || typeof l !== 'object') return d;
   const sec = Array.isArray(l.sec) ? l.sec.filter(s => s && s.id).map(s => ({ id: String(s.id), name: String(s.name || 'Section'), sort: SORTOK.includes(s.sort) ? s.sort : 'date', col: !!s.col })) : [];
   if (!sec.some(s => s.id === 'main')) sec.unshift(d.sec[0]);
-  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, recent: !!l.recent, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [], focus: typeof l.focus === 'string' ? l.focus : '', strip: !!l.strip };
+  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, recent: !!l.recent, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [], focus: typeof l.focus === 'string' ? l.focus : '', strip: !!l.strip, tabs: !!l.tabs };
 }
 function saveLay(){ clearTimeout(layT); layT = setTimeout(() => { LAY.open = [...opened]; LAY.big = [...big]; post({ type: 'layout', layout: LAY }); }, 400); }
 function secOf(c){ if (c.pin) return 'pin'; const s = LAY.at[c.id]; return s && LAY.sec.some(x => x.id === s) ? s : 'main'; }
@@ -354,7 +359,7 @@ function setMenu(x, y, up){                             // settings, inside the 
   popMenu(x, y, [{ t: 'Light theme', on: lightNow, f: a('theme', 'light') }, { t: 'Dark theme', on: !lightNow, f: a('theme', 'dark') }, '-',
     { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
     { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, { t: 'Keep the Claude app running (chats linked to this PC stay reachable)', on: !!st.keepApp, f: a('keepapp') }, '-',
-    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Shortcuts and placements \u203a', f: () => keysMenu(x, y, up) }, { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
+    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Layout: list', on: !tabsOn(), f: () => setTabs(false) }, { t: 'Layout: tabs', on: tabsOn(), f: () => setTabs(true) }, { t: 'Shortcuts and placements \u203a', f: () => keysMenu(x, y, up) }, { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
     updItem(), { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }])), up);
 }
 function chatMenu(id, x, y){                          // right-click on a chat title
@@ -481,6 +486,11 @@ function render(){
   document.body.classList.toggle('strip', stripOn);
   if (focusWant) { if ((S.chats || []).some(c => c.id === focusWant)) { focusId = focusWant; focusWant = null; } else if (Date.now() - focusWantT > 15000) focusWant = null; }
   if (focusId && !(S.chats || []).some(c => c.id === focusId)) focusId = null;     // that chat left the tray: back to the list
+  document.body.classList.toggle('tabs', tabsOn());
+  if (tabsOn() && !focusId && !focusWant && !tabsList && !(LAY && LAY.browse)) {     // Tabs layout: one chat is always the selected one - first the one that waits for you, else the first of the list
+    const cs = (S.chats || []).filter(c => !c.peek), pick = cs.find(c => ['ask', 'act', 'new'].includes(stripKey(c))) || cs.find(c => c.pin) || cs[0] || (S.chats || [])[0];
+    if (pick) { focusId = pick.id; if (LAY) LAY.focus = focusId; if (!stripOn) { opened.clear(); big.clear(); openCard(focusId); } }
+  }
   document.body.classList.toggle('focus', !!focusId);
   const css = Object.entries(S.theme).map(([k, v]) => '--' + k + ':' + v).join(';') + ';--convh:' + (S.fixedH ? Math.max(120, S.fixedH - 120) : focusId ? Math.max(160, (S.maxH || 430) - 170) : Math.min(320, Math.max(120, Math.round(S.maxH * 0.5)))) + 'px;--mainw:' + (S.mainW || 340) + 'px';
   if (css !== rootCss) { rootCss = css; document.documentElement.style.cssText = css; }
@@ -547,7 +557,7 @@ function render(){
   if (!S.shown) dirtyView = true; else dirtyView = false;
   { const hd = $('#hid'); if (hd) hd.remove(); }     // the "N hidden" line is gone: Browse brings hidden chats back
   renderRecent(L);
-  kMark(); fitConv(); sizeReport();
+  tabsDraw(); kMark(); fitConv(); sizeReport();
 }
 function recentRows(){                               // claude.ai chats active in the last 24 h that are not in the tray (newest first, at most 10)
   if (!LAY || !LAY.recent) return [];
@@ -887,12 +897,24 @@ function setStrip(on){                                    // Ctrl+click on the t
   if (LAY) saveLay(); userAt = Date.now(); render(); prevH = -1; sizeReport(true);     // the height is always sent again: the tray must know the status line is on / off
 }
 // ---- keyboard: Ctrl+1..9 = the Nth chat on screen, Ctrl+Tab / Ctrl+Shift+Tab = next / previous; each line carries its number, faint (kMark)
+let tabSt = {}, tabFl = {}, tabsH = '', tabsList = false;     // tabsList: the list is shown for now (recent chats, new chat), until a tab is picked
+//     // Tabs layout (Settings > Layout): a row of tabs = the chats in the list's order, the selected one shown below (the focus view)
+function tabsOn(){ return !!(LAY ? LAY.tabs : S && S.layout && S.layout.tabs); }
+function setTabs(on){ if (!LAY) return; LAY.tabs = !!on; tabsList = false; if (!on) { focusId = null; focusWant = null; LAY.focus = ''; } else if (LAY.browse) LAY.browse = false; saveLay(); userAt = Date.now(); render(); sizeReport(true); }
+function tabsDraw(){ const el = $('#tabs'); if (!tabsOn()) { if (tabsH) { tabsH = ''; el.innerHTML = ''; } return; }
+  const t9 = Date.now(), th = kOrder().map((id, i) => { const c = chatOf(id), k = stripKey(c), was = tabSt[id], on = id === focusId && !stripOn; if (was && was !== k && k !== 'work' && k !== 'idle') tabFl[id] = t9; tabSt[id] = k;     // Claude finished / asks / gave steps in a chat you are not looking at: its tab blinks for 10 s
+    return '<span class="tab' + (on ? ' on' : '') + (!on && t9 - (tabFl[id] || 0) < 10000 ? ' fl' : '') + '" data-tid="' + esc(id) + '" title="' + esc(c.title + (STRIPW[k] ? ' - ' + STRIPW[k] : '')) + '">' + (i < 9 ? '<i>' + (i + 1) + '</i>' : '') + marker(c).replace(/ title="[^"]*"/, '') + '<b>' + esc(c.title) + '</b></span>'; }).join('');
+  // the selected chat's icons sit at the end of the row, always there and faint (its own title line is not shown: the tab says it)
+  const fc = focusId && !stripOn ? chatOf(focusId) : null, ib = (a, t, i, x) => '<button class="ib' + (x || '') + '" data-a="' + a + '" title="' + t + '">' + i + '</button>';
+  const tl = !fc ? '' : '<span class="ttools">' + (fc.peek ? ib('keep', 'Not in the tray yet - click to keep it', I.plus, ' keep') : '') + ib('open', 'Open in the Claude app', I.app) + (String(fc.id || '').startsWith('local/') ? '' : ib('web', 'Open on claude.ai', I.web)) + ib('mv', 'Move to a section…', I.mv) + ib('hide', 'Hide (comes back when Claude writes again, or from &quot;hidden&quot; at the bottom)', I.x) +
+    ib('bell', fc.bell ? 'Notifications on - click to mute' : 'Notifications off - click to unmute', fc.bell ? I.bell : I.belloff, fc.bell ? '' : ' keep') + ib('pinc', fc.pin ? 'Unpin (back to the list)' : 'Pin on top (always shown, stays in view while you scroll)', I.pin, fc.pin ? ' pon keep' : '') + '<span class="age" title="Last activity">' + esc(fc.age) + '</span></span>';
+  if (th + tl !== tabsH && !busy(el)) { tabsH = th + tl; el.innerHTML = th + tl; } }
 function kOrder(){ return Array.from(document.querySelectorAll('#pins .card, #list .card')).map(c => c.dataset.id).filter(id => cards.has(id) && chatOf(id)); }
 function kCur(ids){ const cur = focusId || ids.find(id => opened.has(id) && big.has(id)) || ''; return ids.indexOf(cur); }
 function kOpen(id){                                       // make this chat the one shown (never closes it), cursor in its reply box
   const cd = cards.get(id); if (!cd) return;
   if (stripOn) stripOpen(id, false);
-  else if (focusId) { if (focusId !== id) setFocus(id); }
+  else if (focusId || tabsOn()) { if (focusId !== id) setFocus(id); }
   else if (!(opened.has(id) && big.has(id) && opened.size === 1)) { opened.clear(); big.clear(); openCard(id); userAt = Date.now(); render(); }
   const c2 = cards.get(id); if (c2) { reveal(c2.el); setTimeout(() => { try { c2.ta.focus({ preventScroll: true }); } catch (e) { } }, 0); }
 }
@@ -929,7 +951,7 @@ function stripOpen(id, focus){                            // a mark on the statu
   if (!focusId) { opened.clear(); big.clear(); openCard(id); render(); const cd = cards.get(id); if (cd) reveal(cd.el); }
 }
 function setFocus(id){                                    // its icon, or Ctrl+click on its line: only this chat. Again, or the arrow left of its title: back to the list
-  focusId = id && id !== focusId ? id : null; focusWant = null;
+  focusId = id && id !== focusId ? id : null; focusWant = null; if (focusId) tabsList = false;
   if (LAY) { LAY.focus = focusId || ''; if (focusId && LAY.browse) LAY.browse = false; saveLay(); }
   if (focusId) { opened.clear(); big.clear(); openCard(focusId); }
   userAt = Date.now(); render(); sizeReport(true);
@@ -950,6 +972,7 @@ const askSent = {}, askArm = {};     // askArm:  request button waiting for its 
 let lastOpen = [], lastFold = null;     // lastFold = the exact view at the last collapse (cards, compact/full, Browse, scroll)
 try { lastFold = JSON.parse(localStorage.getItem('ctLastFold') || 'null'); } catch (e) { lastFold = null; }
 function foldAll(){                                       // toolbar button / click on the top grip: collapse all, or bring back exactly what was open at the last collapse
+  if (tabsOn()) { setStrip(!stripOn); return; }             // Tabs layout: down to the row of tabs, and back
   const L = $('#list');
   if (opened.size || LAY.browse) {
     lastFold = { open: [...opened], big: [...big], browse: !!LAY.browse, top: L ? L.scrollTop : 0, focus: focusId || '' }; lastOpen = lastFold.open;
@@ -1088,7 +1111,8 @@ document.addEventListener('click', e => {
   if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
   { const wbb = e.target.closest('#wb button'); if (wbb) { post({ type: 'win', a: wbb.dataset.wb }); return; } }
   { const sd = e.target.closest('.sd'); if (sd) { stripOpen(sd.dataset.sid, e.ctrlKey); return; } }
-  if (focusId && e.target.closest('#brwb, #rctb, #plus')) setFocus(null);     // the list's tools: back to the list first
+  { const tb = e.target.closest('.tab'); if (tb) { if (stripOn) stripOpen(tb.dataset.tid, true); else kOpen(tb.dataset.tid); return; } }
+  if (focusId && e.target.closest('#brwb, #rctb, #plus')) { if (tabsOn()) tabsList = true; setFocus(null); }     // the list's tools: back to the list first
   if (e.target.closest('[data-a2="reconnect"]')) { post({ type: 'menuact', k: 'reconnect' }); const rb = e.target.closest('button'); rb.disabled = true; setTimeout(() => { rb.disabled = false; }, 5000); return; }
   if (e.target.closest('#plus')) { const r = $('#plus').getBoundingClientRect(); plusMenu(r.left, r.top, true); return; }
   const shd = e.target.closest('.sh'); if (shd && !e.target.closest('[data-a]') && !e.target.closest('[contenteditable=true]')) { const sc = LAY.sec.find(s => s.id === shd.dataset.sec); if (sc) { sc.col = !sc.col; saveLay(); render(); } return; }
@@ -1096,11 +1120,12 @@ document.addEventListener('click', e => {
   { const rr = e.target.closest('#rct .rrow'); if (rr) { const rid = rr.dataset.rid, rt = rr.dataset.t;
       if (e.target.closest('[data-a2="rkeep"]')) { post({ type: 'track', id: rid, title: rt }); return; }
       opened.clear(); big.clear(); openCard(rid); post({ type: 'peek', id: rid, title: rt }); render(); return; } }     // greyed chat: open it here (the tray loads it while it's open), + keeps it
-  if (e.target.closest('#brwb')) { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); saveLay(); render(); return; }
+  if (e.target.closest('#brwb')) { LAY.browse = !LAY.browse; if (LAY.browse) post({ type: 'catalog' }); if (LAY.browse && tabsOn()) { focusId = null; LAY.focus = ''; opened.clear(); big.clear(); }     // Tabs layout: BROWSE shows over the list; a tab brings the chat back
+    saveLay(); render(); return; }
   if (e.target.closest('#fold')) { foldAll(); return; }
   if (e.target.closest('#nfX')) { $('#newf').classList.remove('on'); sizeReport(); return; }
   if (e.target.closest('#nfGo')) { newChat(); return; }
-  const b = e.target.closest('[data-a],[data-copy]'), card = e.target.closest('.card'), id = card && card.dataset.id;
+  const b = e.target.closest('[data-a],[data-copy]'), card = e.target.closest('.card') || (focusId && e.target.closest('#tabs .ttools') ? (cards.get(focusId) || {}).el || null : null), id = card && card.dataset.id;     // the selected chat's icons on the row of tabs act on that chat
   if (e.ctrlKey && card && !e.target.closest('button, a, textarea, .conv, .comp, .qz, .acts, .sit')) { e.preventDefault(); setFocus(id); return; }     // Ctrl+click on a chat's line: focus on it (again: back)
   if (b && b.dataset.copy != null) { post({ type: 'copy', text: b.dataset.copy }); return; }
   const lk = e.target.closest('a[data-href]'); if (lk) { e.preventDefault(); post({ type: 'openurl', url: lk.getAttribute('data-href') }); return; }

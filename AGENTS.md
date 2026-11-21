@@ -309,6 +309,12 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   `Close-Panel`. One-line rows: `.mt` holds only state marks (`keep`) and the age; all actions are in `.mtl`, inside
   `.mfld`, shown on `.mini:hover` while the box is empty and not focused, and ending before the Stop button
   (`.mfld.wk`). A mousedown in `.mtl` is cancelled so the box does not take focus. Test: `node tools/panel-icons.js`.
+- Tabs layout (0.3.29): `LAY.tabs` (panel only, saved with the layout). It is the focus view with one chat always
+  selected (`render` picks one when `focusId` is empty, unless BROWSE is open) plus `#tabs`, drawn by `tabsDraw` from
+  `kOrder()` at the end of `render`. `foldAll` toggles the status line there, which shows `#tabs` instead of `#strip`.
+  The selected card's `.head` is hidden there; its tools are drawn in `#tabs .ttools` and the click handler maps
+  them to the focused card. `tabsList` = the list is shown for now (recent / new chat) until a tab is picked.
+  Test: `node tools/panel-tabs.js`.
 - Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
   working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
   `$pop.Width` from `Get-PanelW` directly.
