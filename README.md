@@ -81,6 +81,12 @@ Claude plan. No installer and no admin rights. Updates: Settings > Check for upd
 | Pin, rename, move to a section, mute, hide | Right-click its title |
 | Open it in the Claude app or on claude.ai | Button at the end of its line, or right-click its title |
 | Change the model or the effort | Click the model name in its reply bar |
+| Status line only (one row of status marks, no chat shown) | Ctrl+click the grip at the top; click a mark or the grip to come back |
+| Tell Claude a step failed | Click its `exit 1` in the step list: the text goes to the reply box, ready to send |
+| Show / hide the panel from any app | `Ctrl+Alt+T` (change it in Settings > Shortcuts and placements) |
+| Open the next chat that waits for you, from any app | `Ctrl+Alt+N` |
+| Move the panel between your spots | Drag it where you want: that spot is remembered (three at most). `Ctrl+Alt+P` goes to the next one, `Ctrl+Alt+D` back next to the tray |
+| Switch chat from the keyboard | `Ctrl+1`...`Ctrl+9` (the small number at the start of each line), `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | Focus on one chat (the panel shows only that one) | Its corner-brackets icon, or Ctrl+click its line; the arrow left of its title goes back |
 | Jump to the latest message | Arrow button at the bottom of the conversation |
 | New chat, sections, sort | + button on the toolbar |

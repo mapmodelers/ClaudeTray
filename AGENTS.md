@@ -277,6 +277,60 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   mostly model names = "More models", 2+ other radios = effort) -> `Poll-ModelMenu` -> `$UI.ModelMenu`
   {models, more, efforts, cur, effCur} -> page `modelMenuShow`. The chip click shows a wait menu at once (the read
   takes 2-4 s); the read's log line (`model[..] read`) holds the menu's structure when claude.ai changes it again.
+- Status line (0.3.25): Ctrl+click on `#gripz` -> `setStrip`: `body.strip` hides everything but `#top` and `#strip`
+  (one `.sd` per chat, built from `marker(c)`; `stripKey` = ask / work / act / new / idle, a change to ask / act / new
+  blinks 10 s). `opened` stays empty (`foldedAll`), so the tray reads no conversation. `sizeReport` sends
+  `{size, strip:true}`; `Fit-WebPop` then ignores `panelHeight` and allows 18 px instead of 60 (`$UI.Strip`). Top /
+  bottom resize handles are off in that mode (they would cover the marks). `LAY.strip` keeps it across restarts.
+  `foldAll` leaves the focus and remembers it in `lastFold.focus`.
+- Shortcuts and placements (0.3.27). `ClaudeTray.HotKeys` (an `IMessageFilter`) registers thread-level hotkeys
+  (`RegisterHotKey` with no window; `WM_HOTKEY` arrives in the UI thread's queue) -> `Invoke-HotKey`. Texts live in
+  config `hotkeyToggle` / `hotkeyPlace` / `hotkeyHome` / `hotkeyNext` ('' = off), parsed by `ConvertTo-HotKey` (needs
+  Ctrl, Alt or Win). `$UI.Hot` (keys + ok / taken / bad / off) goes to the page in `settings.hot`. Letter defaults
+  only when every installed layout is plain US (`$UsKeys`): Ctrl+Alt+letter is AltGr+letter elsewhere.
+  A taken one is tried again every 20 s (`Register-HotKeys $true`). Not `Ctrl+Alt+Space` by default: the Claude app's
+  quick entry holds it.
+  Placements: config `places` [{x, b, w, h}] (left, bottom anchor, CSS px size; max 3), `place0` (the default spot's
+  size while you only resize it there; a drag away moves that size into the new placement and clears `place0`), state.json `place` (0 default, 1-3, -1 = pinned somewhere not saved; kept as a new placement when you leave
+  it). `Set-Place` saves the one you leave (`Save-PlaceNow`), applies size + dock and shows the panel; `Set-DockHere`
+  (drag end) creates placement N from the default spot or updates the one in use. Shown from the keyboard, `Show-Pop`
+  takes `Get-TrayPoint` instead of the cursor. Tray -> page: `{type:'key', k: next | kb | toast}`. Page: `kOrder`
+  (cards in DOM order, pins first), `kMark` (end of `render`: `data-kn` on `.mdot` / `.head`, drawn by CSS, faint),
+  `kOpen` (never closes), `kNext` (`stripKey` ask / act / new), keys read from
+  `e.code` so the digit row works on AZERTY. Tests: `node tools/panel-keys.js`, `pwsh tools/unit-keys.ps1`.
+- Unpinned panel and the window in front (0.3.27): `Test-FgElsewhere` (ui tick) hides an unpinned panel when the
+  foreground window changes to another process. Exempt: our own process, the taskbar classes (the click rule decides
+  there), and 3 s after any user message from the panel (`$UI.FgHold` in `On-WebMsg`). The default placement has no
+  size of its own: `Set-Place 0` clears `panelWidth` / `panelHeight`; never store a `place0` again.
+- Slash list (`slashFor` in the panel): redrawn only when its content changes (`slp.sig`), because every state push
+  calls it; the selected row is kept in view by hand. Test: `node tools/panel-slash.js`.
+- Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
+  working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
+  `$pop.Width` from `Get-PanelW` directly.
+- Hidden browser (0.3.26): the off-screen fallback (`$headless = $false`, a real Edge window at -2600,-2600 with a
+  taskbar button) is only for headless being refused outright: `$hlWorked` is set once any page was `Ok` under
+  headless and then blocks it. A reloaded page gets 40 s to come back. Stuck-page reloads back off through
+  `$c.ReloadN` (reset when the chat stops working or its reply / message counts grow past `$c.Stuck*`).
+- Catalog (0.3.26): `$catJs` reads projects, `chat_conversations?limit=300` and the sessions list
+  `/v1/code/sessions?limit=100&tags=cowork-remote` (headers `anthropic-version`, `x-organization-uuid`; ids `cse_<x>`,
+  page `/code/session_<x>`, also served as `/cowork/cse_<x>`). Session rows carry `code: 1` and id `session_<x>`; the
+  panel builds chat ids with `cid(r)`, never `'chat/' + r.id`. Without the tag the list holds only remote-control
+  sessions. A chat that claude.ai upgraded to a session (tag `bard-conversation:<uuid>`) is only in the chat list.
+- NEVER pipe an object the tray keeps through `Select-Object` (0.3.26, the memory leak of 0.3.23 - 0.3.25). Windows
+  PowerShell 5.1 inserts `Selected.System.Management.Automation.PSCustomObject` into the type names of every
+  PSCustomObject that passes through it, even with only `-First` / `-Last` / `-Skip`, each time, on the object itself;
+  every distinct type-name list then costs one cached lookup key (found by counting the heap by type from outside:
+  600 MB of `Selected...@@@Selected...` strings). Use `Limit-First`, `Limit-Last`, `Limit-Skip` (`$LimitSrc`, loaded by
+  the UI thread and, through `$Web.MeasureSrc`, by the web engine; not loaded in `$probeScript` and `$UpdScript`).
+  `Select-Object -Unique` on strings is fine. `tools/check.ps1` fails on it.
+- `memalloc` (0.3.26): each `memdiag` is followed by the MB allocated since the last one by the UI thread, the web
+  engine (`$Web.Stat.Alloc`) and the app watcher (`$Probe.Alloc`), each from `GC.GetAllocatedBytesForCurrentThread()`,
+  plus the AppDomain totals (`MonitoringIsEnabled` is set at start). `Cdp` keeps one receive buffer (`$script:cdpBuf`,
+  64 KB): do not allocate per call, anything of 85 KB and more goes to the large object heap. The census cannot see
+  what the engine itself holds; to name it, count the heap by type from outside the process (ClrMD).
+- `memtop` (0.3.25): `Get-VarTop` (source in `$MeasureSrc`, also loaded by the web engine) walks the script-scope
+  variables, a few levels down and at most 30000 items, and lists the heaviest as `name items/k chars`; `$UI`, `$QS`,
+  `$Web`, `$Probe` are listed entry by entry. Names and sizes only, never content or chat ids.
 - Focus (0.3.24, page only): `focusId` = the one chat shown (`setFocus`, icon `data-a="focus"`, Ctrl+click on a card's line;
   the arrow `.fback` left of the title goes back, no extra bar). `render` keeps it the only open card, hides the other cards (`display:none`, class `fc` on the
   shown one; `body.focus` CSS hides section headers / BROWSE), sizes its conversation to the panel, and stores it in

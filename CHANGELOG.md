@@ -2,6 +2,70 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.27
+
+- Global shortcuts, from any app: show / hide the panel (`Ctrl+Alt+T`), next placement (`Ctrl+Alt+P`), default
+  placement (`Ctrl+Alt+D`), next chat that waits for you (`Ctrl+Alt+N`). Change them in Settings > Shortcuts and
+  placements. One that another app holds is shown as taken and tried again every 20 seconds (`Ctrl+Alt+Space`, for
+  instance, belongs to the Claude app's quick entry). On a keyboard layout where `Ctrl+Alt+letter` types a character
+  the defaults are `Ctrl+Alt+End` / `PageDown` / `Home` / `PageUp`.
+- Placements: up to three remembered spots (position and size) besides the default one next to the tray. Drag the
+  panel away from the tray and that spot, with its size, becomes a placement; the one in use follows when you move or
+  resize it. The default spot is always compact (standard width, height by content): `Ctrl+Alt+D` gives that back
+  whatever size the panel had, and a size you gave the panel at the default spot is kept as a placement when you go
+  to the next one.
+- An unpinned panel also leaves when another program's window comes to the front (`Alt+Tab`, the Start menu, a
+  window that opens), not only on a click outside. A panel as large as the screen had no "outside" left to click and
+  seemed stuck on top. A window that opens right after you act in the panel (a step, "open chat") does not count.
+- The panel can no longer end up off the screen: `Ctrl`+wheel on a panel that nearly filled the screen made it wider
+  than the screen and pushed it out of reach. Its size is now capped to the screen, and a panel found outside is
+  brought back when it is shown.
+- In the panel: `Ctrl+1`...`Ctrl+9` opens the Nth chat, `Ctrl+Tab` / `Ctrl+Shift+Tab` the next / previous one (also in
+  focus mode and from the status line); `1`...`9` alone do the same while the cursor is in no text box. Each chat line
+  carries its number, small and faint, in its corner.
+- The `/` list of commands and skills in a reply box no longer jumps back to its top each time the panel refreshes
+  (every second while a chat works), the selected line stays in view with the arrow keys, the list is taller, and a
+  skill is found by any part of its name (`/pc` finds `/group:pc-runner`). Names are read correctly again: claude.ai
+  now shows a `/` marker before each name, and the list showed that marker instead of the name.
+- A panel that is not pinned leaves on a click anywhere outside it, also when it is large (the strip between the tray
+  icon and the panel counted as part of it, which with a big panel was most of the screen).
+- A step block still being written in a reply no longer logs a warning per attempt.
+
+## 0.3.26
+
+- Sessions started in the Claude apps (tasks, Claude Code) are now in BROWSE, in Recent and in the "track a recent chat"
+  list. They were never listed: the tray only read the list of claude.ai chats, so such a session showed up only once
+  it had written steps for the tray.
+- "Claude asks" no longer shows a session's permission mode chip ("Accept edits") as a question: a button that opens
+  a menu is not an answer. A menu left open in the hidden tab is closed.
+- No more Edge window that cannot be clicked. The tray took one chat without its message box (a page reload that took
+  over 15 seconds) for claude.ai refusing the hidden browser, and switched to a real window parked off-screen until
+  the next start. It now switches only when no page at all ever showed its message box.
+- A chat that claude.ai itself shows as generating for hours was reloaded every minute. Reloads that change nothing
+  now space out: 1, 5, 15, then 30 minutes.
+- A failed step's `exit 1` (or `failed`) in the step list is clickable: it puts that text in the chat's reply box, ready
+  to send (nothing is sent by itself; with several steps it reads `step 2: exit 1`).
+- Memory leak found and fixed (the tray grew to 1.5 GB and restarted itself every 15 to 60 minutes with a conversation
+  open, 0.3.23 to 0.3.25). In Windows PowerShell 5.1, `Select-Object` adds a type name to every object that passes
+  through it, on the object itself. Chat messages kept between passes went through `Select-Object -Last N` several
+  times a second and collected thousands of type names; PowerShell keeps one lookup key per distinct list, each longer
+  than the last (600 MB of such strings after 9 minutes). The tray no longer pipes anything it keeps through
+  `Select-Object` (`Limit-First`, `Limit-Last`, `Limit-Skip` instead).
+- Memory, smaller: the web engine reuses one receive buffer instead of a new 256 KB one per browser call; the memory
+  guard lets the finalizers run before it measures; a `memalloc` log line says how much each thread allocated.
+- A finished step no longer leaves an error record for temp files that were never created.
+
+## 0.3.25
+
+- Status line: Ctrl+click on the top grip shrinks the panel to one thin row of status marks, one per chat (working,
+  steps for you, new reply, a question, idle), pinned chats first. A mark blinks for 10 s when Claude finishes, gives
+  steps or asks something. Click a mark to get the panel back with that chat open (Ctrl+click: focused on it); a click
+  on the grip brings back what was open. Kept across restarts. No conversation is read while it is on.
+- Collapse all (the grip, or the toolbar button) works while a chat is focused: back to the collapsed list; the same
+  click again returns to the focused chat.
+- Memory: each heartbeat also logs a `memtop` line, the tray's own tables that hold the most (names and sizes only),
+  for the UI thread and the web engine, to find what keeps the memory seen in 0.3.24.
+
 ## 0.3.24
 
 - Model chip: its menu works again on Claude Code pages, where claude.ai moved the other models into a "More models"

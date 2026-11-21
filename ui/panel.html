@@ -19,7 +19,7 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 #tb{flex:none;display:flex;align-items:center;gap:2px;padding:1px 5px;border-top:1px solid var(--ln);height:17px}#fold.un svg{transform:rotate(180deg)}
 #list{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 4px 3px;position:relative}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--ln);border-radius:3px}::-webkit-scrollbar-track{background:transparent}
-.card{border:1px solid transparent;border-radius:8px;margin:0 0 2px}
+.card{border:1px solid transparent;border-radius:8px;margin:0 0 2px}.mdot[data-kn]{position:relative}.mdot[data-kn]::before,.card.open>.head[data-kn]::before{content:attr(data-kn);position:absolute;font-size:7.5px;line-height:8px;font-weight:600;color:var(--mu);opacity:.55;pointer-events:none}.mdot[data-kn]::before{left:-4px;top:-1px}.card.open>.head[data-kn]::before{left:0;top:0}#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:60;max-width:90%;padding:3px 9px;border-radius:9px;background:var(--tx);color:var(--bg);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;pointer-events:none;transition:opacity .15s}#toast.on{opacity:.92}
 .card.open{border-color:var(--ln);background:var(--bg)}
 .head{display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:6px;cursor:pointer;min-height:20px}
 .head:hover{background:var(--card)}
@@ -73,7 +73,7 @@ body.nc #top button{app-region:no-drag;-webkit-app-region:no-drag}
 .st .k{color:var(--mu);margin-top:3px;flex:none}
 .st .l{flex:1;min-width:0;padding-top:2px}
 .st.done .l{color:var(--mu)}.st.skipped .l{color:var(--mu);text-decoration:line-through;opacity:.6}
-.st .x{font:10px Consolas,monospace;color:var(--ok);padding-top:4px;flex:none}.st .x.bad{color:var(--acc)}
+.st .x{font:10px Consolas,monospace;color:var(--ok);padding-top:4px;flex:none}.st .x.bad{color:var(--acc)}.st .x.xf{cursor:pointer}.st .x.xf:hover{text-decoration:underline}
 .st .run{color:var(--acc)}.st.done .run,.st.skipped .run{color:var(--mu)}
 .chk{width:12px;height:12px;border:1.5px solid var(--mu);border-radius:3px;margin:3px 0 0;flex:none;cursor:pointer;position:relative}
 .chk.on{background:var(--ok);border-color:var(--ok)}
@@ -131,13 +131,20 @@ body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:n
 .okm{color:var(--mu);margin-top:2px}.chs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}.chb{border:1px solid var(--acc);color:var(--tx);border-radius:6px;padding:0 9px;height:19px;font-size:10.5px}.chb:hover{background:var(--acc);color:#fff}
 .m.pst .b{color:var(--mu);font-size:10.5px}.ps1{display:flex;align-items:center;gap:5px;padding:0 2px}.ps1 .k svg,.ps1 .okm svg{width:10px;height:10px}.ps1 .l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ps1.d .l{text-decoration:line-through;text-decoration-color:var(--ln)}.ps1 .ans{color:var(--tx);opacity:.8;display:inline-block}.run1{color:var(--acc)!important;white-space:nowrap}.run1 .sync i{background:var(--acc)}.ps1 .prun{width:16px;height:16px;flex:none;opacity:.7}.ps1 .prun svg{width:10px;height:10px}.ps1 .prun:hover{opacity:1}.ps1 .prun:disabled{opacity:.3;cursor:default}.ps1 .prun.arm{opacity:1;color:#fff;background:var(--acc);border-radius:4px}.ps1 .prun.arm::after{content:'Run anyway?';font-size:9.5px;margin-left:3px;white-space:nowrap}.ps1 .prun.arm{width:auto;padding:0 5px}
 .trc{font-size:9px;color:var(--mu);border:1px dashed var(--ln);border-radius:5px;padding:0 3px;height:14px;line-height:12px;flex:none;margin:0 1px;opacity:.75}.trc.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 55%,transparent);border-style:solid}.trc:hover{opacity:1}
-#slp{position:fixed;z-index:45;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:min(150px,calc(100vh - 8px));overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-#slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#slp{position:fixed;z-index:45;background:var(--card);border:1px solid var(--ln);border-radius:7px;padding:2px;max-height:min(230px,calc(100vh - 8px));overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#slp .si{display:flex;gap:6px;padding:2px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;font-size:10.5px}#slp .si b{font-weight:500;flex:none}#slp .si span{color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:0}#slp .si.on{background:var(--ln)}#slp .sx{color:var(--mu);font-size:10px;padding:2px 6px}.st .cl{font:9.5px Consolas,monospace;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vw{opacity:.45;width:14px;height:14px}.vw:hover{opacity:1}.vw svg{width:11px;height:11px}
 .card.open:not(.big) .acts{border-top:0}
 .pill{font-size:10px;color:var(--mu);border:1px solid var(--ln);border-radius:8px;padding:0 6px;height:16px;display:none}
 .pill:hover{color:var(--tx);background:var(--ln)}
 #usage{flex:none;display:flex;gap:10px;padding:2px 8px 4px;border-top:1px solid var(--ln)}
+/* status line (Ctrl+click on the top grip): the panel is one row of status marks, one per chat */
+#strip{display:none}body.strip #strip{display:flex;align-items:center;gap:1px;flex:none;height:16px;padding:0 6px 2px;overflow:hidden}
+body.strip #pins,body.strip #list,body.strip #brwbox,body.strip #tb,body.strip #usage,body.strip #newf,body.strip #offl{display:none!important}
+body.strip .rz.t,body.strip .rz.b,body.strip .rz.tl,body.strip .rz.tr,body.strip .rz.bl,body.strip .rz.br{display:none}
+.sd{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:16px;border-radius:4px;cursor:pointer;flex:none}.sd:hover{background:var(--ln)}
+#strip .dot{width:7px;height:7px;margin:0}#strip .dots,#strip .askm{margin:0}
+.sd.fl{animation:sfl .7s steps(2,jump-none) 14}@keyframes sfl{0%{opacity:1}100%{opacity:.15}}
 /* focus: the panel shows one chat only */
 .head .fback{flex:none;margin:0 1px 0 -3px;color:var(--mu)}.head .fback:hover{color:var(--tx)}
 body.focus .sh,body.focus .secempty,body.focus #brwbox,body.focus #list>:not(.sec),body.focus .cvz{display:none!important}
@@ -193,7 +200,7 @@ body.rsz,body.rsz *{cursor:ns-resize!important;user-select:none!important}#brw .
 #hid .hr span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#hid .hr .ib{width:15px;height:15px}
 </style></head>
 <body><div class="rz l" data-e="l"></div><div class="rz r" data-e="r"></div><div class="rz t" data-e="t"></div><div class="rz b" data-e="b"></div><div class="rz tl" data-e="tl"></div><div class="rz tr" data-e="tr"></div><div class="rz bl" data-e="bl"></div><div class="rz br" data-e="br"></div><div id="wrap"><div id="app">
-  <div id="top" title="Drag to move (parks the panel)"><div id="gripz" title="Click: collapse / expand all - drag: move the panel"><div id="grip"></div></div></div>
+  <div id="top" title="Drag to move (parks the panel)"><div id="gripz" title="Click: collapse / expand all - Ctrl+click: status line only - drag: move the panel"><div id="grip"></div></div></div>
   <div id="newf">
     <div class="r"><select id="nfProj" title="Project"><option value="">No project</option></select></div>
     <div class="r"><input id="nfName" placeholder="Name (optional)" maxlength="120"></div>
@@ -204,6 +211,7 @@ body.rsz,body.rsz *{cursor:ns-resize!important;user-select:none!important}#brw .
     <div class="r"><span id="nfSt"></span><button class="ib" id="nfX" title="Cancel"></button><button id="nfGo">Create</button></div>
   </div>
   <div id="offl"><span>claude.ai not reachable – reconnecting…</span><button data-a2="reconnect">Reconnect</button></div>
+  <div id="strip"></div>
   <div id="pins"></div>
   <div id="list"></div>
   <div id="brwbox"></div>
@@ -267,11 +275,11 @@ const secEls = new Map(), views = {}, brOpen = new Set(), brAsked = new Set();
 const SORTN = { manual: 'custom', date: 'by last used', name: 'by name', project: 'by project' }, SORTS = ['date', 'name', 'project'], SORTOK = ['manual', 'date', 'name', 'project'];
 function cvwOk(o){ const r = {}; if (o && typeof o === 'object') for (const [k, v] of Object.entries(o).slice(-40)) if (+v > 0) r[String(k)] = Math.max(0.1, Math.min(10, Math.round(+v * 1000) / 1000)); return r; }     // share of the space per chat (1 = even), set by the splitter
 function validLay(l){
-  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, recent: false, brh: 240, cvw: {}, open: [], big: [], focus: '' };
+  const d = { v: 1, sec: [{ id: 'main', name: 'Chats', sort: 'date', col: false }], at: {}, ord: [], browse: false, recent: false, brh: 240, cvw: {}, open: [], big: [], focus: '', strip: false };
   if (!l || typeof l !== 'object') return d;
   const sec = Array.isArray(l.sec) ? l.sec.filter(s => s && s.id).map(s => ({ id: String(s.id), name: String(s.name || 'Section'), sort: SORTOK.includes(s.sort) ? s.sort : 'date', col: !!s.col })) : [];
   if (!sec.some(s => s.id === 'main')) sec.unshift(d.sec[0]);
-  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, recent: !!l.recent, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [], focus: typeof l.focus === 'string' ? l.focus : '' };
+  return { v: 1, sec: sec, at: (l.at && typeof l.at === 'object') ? Object.assign({}, l.at) : {}, ord: Array.isArray(l.ord) ? l.ord.map(String) : [], browse: !!l.browse, recent: !!l.recent, brh: Math.max(80, Math.min(900, +l.brh || 240)), cvw: cvwOk(l.cvw), open: Array.isArray(l.open) ? l.open : [], big: Array.isArray(l.big) ? l.big : [], focus: typeof l.focus === 'string' ? l.focus : '', strip: !!l.strip };
 }
 function saveLay(){ clearTimeout(layT); layT = setTimeout(() => { LAY.open = [...opened]; LAY.big = [...big]; post({ type: 'layout', layout: LAY }); }, 400); }
 function secOf(c){ if (c.pin) return 'pin'; const s = LAY.at[c.id]; return s && LAY.sec.some(x => x.id === s) ? s : 'main'; }
@@ -342,7 +350,7 @@ function setMenu(x, y, up){                             // settings, inside the 
   popMenu(x, y, [{ t: 'Light theme', on: lightNow, f: a('theme', 'light') }, { t: 'Dark theme', on: !lightNow, f: a('theme', 'dark') }, '-',
     { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
     { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, { t: 'Keep the Claude app running (chats linked to this PC stay reachable)', on: !!st.keepApp, f: a('keepapp') }, '-',
-    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
+    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Shortcuts and placements \u203a', f: () => keysMenu(x, y, up) }, { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
     updItem(), { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }])), up);
 }
 function chatMenu(id, x, y){                          // right-click on a chat title
@@ -384,7 +392,7 @@ function renderBrowse(L){                           // BROWSE: claude.ai + Claud
   const row = r => {
     if (r.hid) return '<div class="br" title="' + esc((r.name || '(untitled)') + ' - hidden from the tray') + '"><button class="ib" data-a="unhide" data-id="' + esc(r.id) + '" title="Show it in the tray again">' + I.plus + '</button><span class="bn">' + esc(r.name || '(untitled)') + '</span>' + tag(String(r.id).startsWith('code/') ? 'Code' : 'hidden') + '<span class="age">' + esc(agoTxt(r.at)) + '</span></div>';     // hidden chats the lists above don't have (Claude Code sessions): + brings them back
     if (r.loc) { const lid = 'local/' + r.id, lon = tracked.has(lid); return '<div class="br" title="' + esc((r.name || '(untitled)') + ' - Claude Desktop local chat: quests and results only, open and reply in Claude Desktop') + '">' + (lon ? '<span class="bt" title="In the tray">' + I.ok + '</span>' : '<button class="ib" data-a="brtrack" data-id="' + esc(lid) + '" data-t="' + esc(r.name || '') + '" title="Bring it into the tray">' + I.plus + '</button>') + nw(lid, r.at) + '<span class="bn">' + esc(r.name || '(untitled)') + '</span>' + tag('Local') + '<span class="age">' + esc(agoTxt(r.at)) + '</span></div>'; }
-    const id = 'chat/' + r.id, on = tracked.has(id);
+    const id = cid(r), on = tracked.has(id);
     return '<div class="br" title="' + esc(r.name || '(untitled)') + '">' + (on ? '<span class="bt" title="In the tray">' + I.ok + '</span>' : '<button class="ib" data-a="brtrack" data-id="' + esc(id) + '" data-t="' + esc(r.name || '') + '" title="Bring it into the tray">' + I.plus + '</button>') + nw(id, r.at) + '<span class="bn">' + esc(r.name || '(untitled)') + '</span><span class="age">' + esc(agoTxt(r.at)) + '</span></div>';
   };
   const lp = new Map();
@@ -435,6 +443,7 @@ function marker(c){
 }
 const hash = t => { let h = 5381; const s0 = String(t || '').slice(0, 300); for (let i = 0; i < s0.length; i++) h = ((h << 5) + h + s0.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 function chatOf(id){ return (S && S.chats || []).find(c => c.id === id); }
+function cid(r){ return (r && r.code ? 'code/' : 'chat/') + r.id; }     // a catalog row's chat id: claude.ai chats are chat/<uuid>, sessions (Claude Code, tasks) are code/session_<id>
 let foldedAll = true;     // the last change was 'collapse all' (grip / toolbar): only then the panel goes back to its small size
 function sendExp(){ if (opened.size) foldedAll = false; const all = foldedAll && !opened.size, v = [...opened].sort().join('|') + '/' + [...big].sort().join('|') + '/' + all; if (v !== lastExp) { lastExp = v; post({ type: 'expand', ids: [...opened], big: [...big], all: all }); if (LAY) saveLay(); } }
 const setCv = (cd, h, fill) => { const b = cd.conv, atB = b.scrollHeight - b.scrollTop - b.clientHeight < 8; if (cd.cvH !== h) { cd.cvH = h; if (h) cd.el.style.setProperty('--convh', h + 'px'); else cd.el.style.removeProperty('--convh'); } if (cd.el.classList.contains('fill') !== fill) cd.el.classList.toggle('fill', fill); if (atB && b.scrollHeight - b.scrollTop - b.clientHeight >= 8) b.scrollTop = b.scrollHeight; };     // at the latest message: stay there
@@ -464,6 +473,8 @@ function render(){
   if (!S) return;
   setTimeout(modelMenuShow, 0); setTimeout(updShow, 0);
   if (!LAY && S.layout && typeof S.layout.focus === 'string' && S.layout.focus) { focusWant = S.layout.focus; focusWantT = Date.now(); }
+  if (!LAY && S.layout && S.layout.strip) stripOn = true;     // after a restart: still the status line
+  document.body.classList.toggle('strip', stripOn);
   if (focusWant) { if ((S.chats || []).some(c => c.id === focusWant)) { focusId = focusWant; focusWant = null; } else if (Date.now() - focusWantT > 15000) focusWant = null; }
   if (focusId && !(S.chats || []).some(c => c.id === focusId)) focusId = null;     // that chat left the tray: back to the list
   document.body.classList.toggle('focus', !!focusId);
@@ -475,6 +486,10 @@ function render(){
   $('#pin').innerHTML = S.docked ? I.unpin : I.pin; $('#pin').classList.toggle('on', !!S.docked); setTitle($('#pin'), S.docked ? 'Unpin (closes when you click outside)' : 'Pin here (stays on top)');
   const uh = (S.usage || []).map(u => '<div class="u' + (u.used >= 75 ? ' warn' : '') + '" title="' + esc(u.tip) + '"><div class="ul"><span>' + esc(u.label) + '<b>' + Math.round(u.used) + '%</b></span><span title="resets">' + (u.at ? '↻ ' + esc(u.at) + ' · ' + esc(u.left) : '') + '</span></div><div class="bar"><i style="width:' + Math.min(100, Math.max(1, u.used)) + '%"></i></div></div>').join('') + (S.err ? '<div id="err">' + esc(S.err) + '</div>' : '');
   if (uh !== usageH) { usageH = uh; $('#usage').innerHTML = uh; }
+  if (stripOn) { const t9 = Date.now(), sl = (S.chats || []).filter(c => !c.peek).sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0));     // pinned first, then the list's order
+    const sh = sl.map(c => { const k = stripKey(c), was = stripSt[c.id]; if (was && was !== k && k !== 'work' && k !== 'idle') stripFl[c.id] = t9; stripSt[c.id] = k;     // Claude finished / asks / gave steps: its mark blinks for 10 s
+      return '<span class="sd' + (t9 - (stripFl[c.id] || 0) < 10000 ? ' fl' : '') + '" data-sid="' + esc(c.id) + '" title="' + esc(c.title + (STRIPW[k] ? ' - ' + STRIPW[k] : '')) + '">' + marker(c).replace(/ title="[^"]*"/, '') + '</span>'; }).join('');
+    if (sh !== stripH) { stripH = sh; $('#strip').innerHTML = sh; } }
   renderNew();
   const chats = S.chats || [];
   for (const c of chats) {                       // expand: what PS remembers on the first state, then chats that get new steps
@@ -485,6 +500,7 @@ function render(){
   }
   firstState = false;
   if (focusId) { opened.clear(); big.clear(); opened.add(focusId); }     // focus: that chat stays open, nothing else opens
+  if (stripOn) { opened.clear(); big.clear(); foldedAll = true; }     // status line: nothing opens (the tray reads no conversation meanwhile)
   for (const id of opened) big.add(id);              // one open view: the full conversation (the compact step was dropped)
   const now = Date.now(), have = new Set(chats.map(c => c.id));
   for (const id of have) { delete goneAt[id]; hideNow.delete(id); }
@@ -527,12 +543,12 @@ function render(){
   if (!S.shown) dirtyView = true; else dirtyView = false;
   { const hd = $('#hid'); if (hd) hd.remove(); }     // the "N hidden" line is gone: Browse brings hidden chats back
   renderRecent(L);
-  fitConv(); sizeReport();
+  kMark(); fitConv(); sizeReport();
 }
 function recentRows(){                               // claude.ai chats active in the last 24 h that are not in the tray (newest first, at most 10)
   if (!LAY || !LAY.recent) return [];
   const have = new Set((S.chats || []).map(c => c.id)), hid = new Set((S.hidden || []).map(h => h.id)), now = Date.now(), names = new Set((S.chats || []).map(c => String(c.title || '').trim().toLowerCase()));
-  return ((S.catalog || {}).recent || []).filter(r => { const t0 = Date.parse(r.at || ''); return t0 && now - t0 < 86400000 && !have.has('chat/' + r.id) && !(S.twins || {})['chat/' + r.id] && !hid.has('chat/' + r.id) && !names.has(String(r.name || '').trim().toLowerCase()); }).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).filter(r => !opened.size || now - Date.parse(r.at) < 180000).slice(0, 10);     // same name as a chat in the tray (a Claude Code session has its own id): not twice. A chat open: only the ones active right now (changed in the last 3 min)
+  return ((S.catalog || {}).recent || []).filter(r => { const t0 = Date.parse(r.at || ''); return t0 && now - t0 < 86400000 && !have.has(cid(r)) && !(S.twins || {})[cid(r)] && !hid.has(cid(r)) && !names.has(String(r.name || '').trim().toLowerCase()); }).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).filter(r => !opened.size || now - Date.parse(r.at) < 180000).slice(0, 10);     // same name as a chat in the tray (a Claude Code session has its own id): not twice. A chat open: only the ones active right now (changed in the last 3 min)
 }
 function renderRecent(L){
   let r = $('#rct'); const rows = recentRows();
@@ -554,7 +570,7 @@ function renderHidden(L){                       // chats you hid: one muted line
 function renderNew(){
   const cat = S.catalog, sel = $('#nfProj');
   if (cat && cat.projects) { const want = '<option value="">No project</option>' + cat.projects.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>').join(''); if (sel.dataset.h !== want) { const v = sel.value; sel.innerHTML = want; sel.dataset.h = want; sel.value = v; } }
-  if (cat && cat.recent) { const rs = $('#nfRecent'), tracked = new Set((S.chats || []).map(c => c.id)); const want = '<option value="">…or track a recent chat</option>' + cat.recent.filter(r => !tracked.has('chat/' + r.id)).map(r => '<option value="chat/' + esc(r.id) + '">' + esc(r.name || '(untitled)') + '</option>').join(''); if (rs.dataset.h !== want) { rs.innerHTML = want; rs.dataset.h = want; } }
+  if (cat && cat.recent) { const rs = $('#nfRecent'), tracked = new Set((S.chats || []).map(c => c.id)); const want = '<option value="">…or track a recent chat</option>' + cat.recent.filter(r => !tracked.has(cid(r))).map(r => '<option value="' + esc(cid(r)) + '">' + esc(r.name || '(untitled)') + '</option>').join(''); if (rs.dataset.h !== want) { rs.innerHTML = want; rs.dataset.h = want; } }
   const nc = S.newchat, st = $('#nfSt'), go = $('#nfGo');
   let txt = cat && cat.loading ? 'loading projects…' : (cat && cat.err ? 'projects: ' + cat.err : ''), bad = !!(cat && cat.err);
   if (nc && nc.key && nc.key !== newSeen) {
@@ -755,9 +771,9 @@ function actsHtml(c, cd){
     let right = '';
     if (s.running) right = '<span class="x run1" title="Running (hidden)">' + RUNM + 'running</span>';
     else if (sk) right = '<span class="x">skipped</span>';
-    else if (s.exit != null && s.exit !== '' && s.exit != 0) right = '<span class="x bad">exit ' + esc(s.exit) + '</span>';
+    else if (s.exit != null && s.exit !== '' && s.exit != 0) right = '<span class="x bad xf" data-a="exitfill" data-n="' + s.n + '" data-t="exit ' + esc(s.exit) + '" title="Click: put this in the reply box, ready to send">exit ' + esc(s.exit) + '</span>';
     else if (s.exit != null && s.exit !== '') right = '<span class="k okm" title="Done (exit 0)">' + I.ok + '</span>';
-    else if (bad) right = '<span class="x bad">failed</span>';
+    else if (bad) right = '<span class="x bad xf" data-a="exitfill" data-n="' + s.n + '" data-t="failed" title="Click: put this in the reply box, ready to send">failed</span>';
     else if (done && s.kind !== 'manual' && s.kind !== 'observe') right = '<span class="k okm" title="Done">' + I.ok + '</span>';
     if (s.kind === 'cmd' || s.kind === 'ps') right += '<button class="ib run" data-a="run" data-n="' + s.n + '" title="' + (done ? 'Run again' : 'Run (hidden, output captured)') + '">' + I.run + '</button><button class="ib" data-a="copycmd" data-n="' + s.n + '" title="Copy the command">' + I.copy + '</button><button class="ib" data-a="autostep" data-n="' + s.n + '" title="Ask Claude to do this step itself">' + I.bot + '</button>';
     else if (s.kind === 'exe') right += '<button class="ib run" data-a="run" data-n="' + s.n + '" title="Run">' + I.run + '</button>';
@@ -830,18 +846,80 @@ function sizeReport(now){
   const L = $('#list'); let last = L.lastElementChild; while (last && !last.offsetHeight) last = last.previousElementSibling;     // hidden blocks (New chat form) don't count
   const P = $('#pins'), ph = P.children.length ? Math.min(P.scrollHeight, parseInt(P.style.maxHeight) || 9999) + 3 : 0;
   let want = Math.ceil($('#top').offsetHeight + ph + (last ? last.offsetTop + last.offsetHeight + 4 : (P.children.length ? 4 : 30)) + $('#brwbox').offsetHeight + $('#tb').offsetHeight + $('#usage').offsetHeight + 2);
+  if (stripOn) want = Math.ceil($('#top').offsetHeight + $('#strip').offsetHeight + 2);     // status line: just the grip and the marks
   if (menuGrow) want = Math.max(want, menuGrow);
-  if (want > prevH + 1 || (want < prevH - 1 && (now || brDrag || Date.now() - userAt < 900))) { clearTimeout(shrinkT); shrinkT = null; prevH = want; post({ type: 'size', h: want }); }
+  if (want > prevH + 1 || (want < prevH - 1 && (now || brDrag || Date.now() - userAt < 900))) { clearTimeout(shrinkT); shrinkT = null; prevH = want; post({ type: 'size', h: want, strip: stripOn }); }
   else if (want < prevH - 1) { if (!shrinkT) shrinkT = setTimeout(() => { shrinkT = null; sizeReport(true); }, 700); }     // one pending shrink: later updates (a streaming reply) don't keep pushing it back
   else { clearTimeout(shrinkT); shrinkT = null; }     // shrinking by itself (a "writing…" line went away): wait, so the top edge doesn't bounce
 }
 function openCard(id){ opened.add(id); big.add(id); }
+function exitFill(id, n, t){                              // a failed step's 'exit 1': into this chat's reply box, ready to send (never sent by itself)
+  const cd = cards.get(id), c = chatOf(id); if (!cd || !t) return;
+  const many = c && (c.steps || []).length > 1, txt = many && n != null ? 'step ' + n + ': ' + t : t;
+  const box = cd.ta && cd.ta.offsetParent ? cd.ta : (cd.mi && cd.mi.offsetParent ? cd.mi : cd.ta); if (!box) return;
+  const cur = box.value.replace(/\s+$/, ''), sep = box.tagName === 'TEXTAREA' ? '\n' : ' ';
+  if (!cur.split('\n').some(l => l.trim() === txt) && !(sep === ' ' && cur.endsWith(txt))) box.value = cur ? cur + sep + txt : txt;
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+  box.focus({ preventScroll: true }); try { box.setSelectionRange(box.value.length, box.value.length); } catch (e) { }
+  reveal(box);
+}
 function afterFit(fn){ if (S && S.fixedH) { fn(); return; } let done = false; const go = () => { if (done) return; done = true; removeEventListener('resize', go); fn(); }; addEventListener('resize', go); setTimeout(go, 250); }     // run once the tray has resized the panel
 const reveal = el => afterFit(() => { if (el && el.isConnected) el.scrollIntoView({ block: 'nearest' }); });
 const mShort = m => { const s0 = String(m || '').replace(/^claude-/, '').replace(/-\d{8}$/, ''); const k = s0.match(/^(opus|sonnet|haiku|fable)-(\d+)-(\d+)/i); return k ? k[1][0].toUpperCase() + k[1].slice(1) + ' ' + k[2] + '.' + k[3] : s0; };
 const EFF = ['low', 'medium', 'high', 'xhigh', 'max'], effBars = e => { const n = EFF.indexOf(String(e || '').toLowerCase()) + 1; if (!n) return ''; return '<span class="eb" title="Effort: ' + esc(e) + '">' + [1, 2, 3, 4, 5].map(i => '<i class="' + (i <= n ? 'on' : '') + '" style="height:' + (2 + i * 1.4) + 'px"></i>').join('') + '</span>'; };
 let mmAt = null;     // where the model chip was clicked, waiting for Desktop's options
 let focusId = null, focusWant = null, focusWantT = 0;     // focus: the one chat the panel shows (null = the list); focusWant: the one to come back to after a restart
+let stripOn = false, stripBack = null, stripSt = {}, stripFl = {}, stripH = '';     // status line: on / what was open before / last state per chat / when it last changed (blinks 10 s)
+const stripKey = c => asks(c) ? 'ask' : c.working ? 'work' : c.st === 'act' && !c.allDone ? 'act' : c.unread ? 'new' : 'idle';
+const STRIPW = { ask: 'Claude waits for you', work: 'working', act: 'steps for you', new: 'new reply', idle: '' };
+function setStrip(on){                                    // Ctrl+click on the top grip: no chat shown, one row of status marks (one per chat). The grip or a mark brings the panel back
+  on = !!on; if (on === stripOn) return; stripOn = on; if (LAY) LAY.strip = on;
+  if (on) { stripBack = { open: [...opened], big: [...big] }; opened.clear(); big.clear(); foldedAll = true; stripSt = {}; stripFl = {}; stripH = ''; closeMenu(); if (LAY && LAY.browse) LAY.browse = false; }
+  else if (stripBack) { const ids = new Set((S.chats || []).map(c => c.id)); for (const i of stripBack.open) if (ids.has(i)) openCard(i); stripBack = null; }
+  if (LAY) saveLay(); userAt = Date.now(); render(); prevH = -1; sizeReport(true);     // the height is always sent again: the tray must know the status line is on / off
+}
+// ---- keyboard: Ctrl+1..9 = the Nth chat on screen, Ctrl+Tab / Ctrl+Shift+Tab = next / previous; each line carries its number, faint (kMark)
+function kOrder(){ return Array.from(document.querySelectorAll('#pins .card, #list .card')).map(c => c.dataset.id).filter(id => cards.has(id) && chatOf(id)); }
+function kCur(ids){ const cur = focusId || ids.find(id => opened.has(id) && big.has(id)) || ''; return ids.indexOf(cur); }
+function kOpen(id){                                       // make this chat the one shown (never closes it), cursor in its reply box
+  const cd = cards.get(id); if (!cd) return;
+  if (stripOn) stripOpen(id, false);
+  else if (focusId) { if (focusId !== id) setFocus(id); }
+  else if (!(opened.has(id) && big.has(id) && opened.size === 1)) { opened.clear(); big.clear(); openCard(id); userAt = Date.now(); render(); }
+  const c2 = cards.get(id); if (c2) { reveal(c2.el); setTimeout(() => { try { c2.ta.focus({ preventScroll: true }); } catch (e) { } }, 0); }
+}
+function kNext(){                                         // the next chat that waits for you: a question, steps to run, a new reply
+  const ids = kOrder(), need = ids.filter(id => { const k = stripKey(chatOf(id)); return k === 'ask' || k === 'act' || k === 'new'; });
+  if (!need.length) { toast('Nothing waits for you'); return; }
+  const at = kCur(ids), after = need.find(id => ids.indexOf(id) > at); kOpen(after || need[0]);
+}
+function kMark(){                                        // the chat's number for Ctrl+1..9, always there and faint, in the corner of its line
+  const ids = kOrder();
+  cards.forEach((cd, id) => { const i = ids.indexOf(id), v = i >= 0 && i < 9 ? String(i + 1) : '';
+    for (const e of [cd.el.querySelector('.mdot'), cd.el.querySelector('.head')]) { if (!e) continue; if (!v) e.removeAttribute('data-kn'); else if (e.getAttribute('data-kn') !== v) e.setAttribute('data-kn', v); } });
+}
+let toastT = 0;
+function toast(t){ let e = $('#toast'); if (!e) { e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); } e.textContent = t; e.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('on'), 2200); }
+function keyEv(m){                                        // from the tray: a global shortcut was pressed
+  if (m.k === 'next') kNext();
+  else if (m.k === 'toast') toast(m.t || '');
+  else if (m.k === 'kb') { const ids = kOrder(), i = kCur(ids), cd = i >= 0 && cards.get(ids[i]); if (cd) setTimeout(() => { try { cd.ta.focus({ preventScroll: true }); } catch (e) { } }, 30); }
+}
+function keysMenu(x, y, up){                              // Settings > Shortcuts and placements
+  const st = S.settings || {}, hot = st.hot || {}, pl = st.places || [], cur = +st.place || 0, a = (k, v) => () => post({ type: 'menuact', k: k, v: v });
+  const HK = [['toggle', 'Show / hide the panel'], ['place', 'Next placement'], ['home', 'Default placement (near the tray)'], ['next', 'Next chat that waits for you']];
+  const why = { taken: ' (taken by another app)', bad: ' (not understood)', off: '' };
+  const it = HK.map(h => { const v = hot[h[0]] || {}; return { t: h[1] + ': ' + (v.keys || 'off') + (why[v.st] || ''), f: () => { const nk = prompt(h[1] + '\n\nKeys, for example Ctrl+Alt+Space or Win+Shift+C. Empty = off.', v.keys || ''); if (nk !== null) post({ type: 'menuact', k: 'hotkey', v: h[0], t: nk.trim() }); } }; });
+  const pi = [{ t: 'Default (near the tray)', on: cur === 0, f: a('place', 0) }].concat(pl.map((d, i) => ({ t: 'Placement ' + (i + 1) + ' (' + d + ')', on: cur === i + 1, f: a('place', i + 1) })));
+  if (pl.length < 3) pi.push({ t: '+ New placement where the panel is now', f: a('placenew') });
+  if (cur > 0) pi.push({ t: 'Forget placement ' + cur, f: a('placedel', cur) });
+  popMenu(x, y, it.concat(['-'], pi, ['-', { t: 'In the panel: Ctrl+1\u20269 opens that chat, Ctrl+Tab the next one', off: true }]), up);
+}
+function stripOpen(id, focus){                            // a mark on the status line: back to the panel with that chat open (Ctrl+click: focused on it)
+  stripBack = null; if (focusId && focusId !== id) { focusId = null; if (LAY) LAY.focus = ''; }
+  setStrip(false); if (focus) { if (focusId !== id) setFocus(id); return; }
+  if (!focusId) { opened.clear(); big.clear(); openCard(id); render(); const cd = cards.get(id); if (cd) reveal(cd.el); }
+}
 function setFocus(id){                                    // its icon, or Ctrl+click on its line: only this chat. Again, or the arrow left of its title: back to the list
   focusId = id && id !== focusId ? id : null; focusWant = null;
   if (LAY) { LAY.focus = focusId || ''; if (focusId && LAY.browse) LAY.browse = false; saveLay(); }
@@ -866,7 +944,8 @@ try { lastFold = JSON.parse(localStorage.getItem('ctLastFold') || 'null'); } cat
 function foldAll(){                                       // toolbar button / click on the top grip: collapse all, or bring back exactly what was open at the last collapse
   const L = $('#list');
   if (opened.size || LAY.browse) {
-    lastFold = { open: [...opened], big: [...big], browse: !!LAY.browse, top: L ? L.scrollTop : 0 }; lastOpen = lastFold.open;
+    lastFold = { open: [...opened], big: [...big], browse: !!LAY.browse, top: L ? L.scrollTop : 0, focus: focusId || '' }; lastOpen = lastFold.open;
+    if (focusId) { focusId = null; focusWant = null; LAY.focus = ''; saveLay(); }     // collapse all works in focus too: back to the (collapsed) list; expanding again returns to the focus
     try { localStorage.setItem('ctLastFold', JSON.stringify(lastFold)); } catch (e) { }
     opened.clear(); big.clear(); foldedAll = true; if (LAY.browse) { LAY.browse = false; saveLay(); }
     render(); return;
@@ -875,6 +954,7 @@ function foldAll(){                                       // toolbar button / cl
   let back = lf ? (lf.open || []).filter(i => ids.has(i)) : [];
   if (lf && (back.length || lf.browse)) {
     for (const i of back) { opened.add(i); if ((lf.big || []).includes(i)) big.add(i); }
+    if (lf.focus && ids.has(lf.focus)) { focusId = lf.focus; LAY.focus = focusId; saveLay(); opened.clear(); big.clear(); openCard(focusId); }
     if (lf.browse) { LAY.browse = true; post({ type: 'catalog' }); saveLay(); }
     render(); afterFit(() => { const l2 = $('#list'); if (l2) l2.scrollTop = lf.top || 0; });
     return;
@@ -916,11 +996,22 @@ function drawAtts(cd){
 function slashFor(inp){                              // "/" at the start of a box: the chat's commands and skills (read from claude.ai)
   const v = inp.value; if (!/^\/[\w:.-]*$/.test(v)) { closeSlash(); return; }
   const card = inp.closest('.card'); if (!card) return; const sl = S.slash;
-  if (!sl) post({ type: 'slash', id: card.dataset.id });
-  const items = ((sl && sl.items) || []).filter(x => x.n.toLowerCase().startsWith(v.toLowerCase())).slice(0, 30);
+  if (!sl && Date.now() - (slashFor.at || 0) > 1500) { slashFor.at = Date.now(); post({ type: 'slash', id: card.dataset.id }); }
+  const q = v.toLowerCase(), q1 = q.slice(1), all = (sl && sl.items) || [], low = x => x.n.toLowerCase();     // names that start with what you typed, then names with a part that starts with it ("/pc" finds "/group:pc-runner"), then names that contain it
+  const pre = all.filter(x => low(x).startsWith(q)), part = q1 ? all.filter(x => !low(x).startsWith(q) && low(x).split(/[:.\/-]/).some(w => w.startsWith(q1))) : [], rest = q1 ? all.filter(x => !pre.includes(x) && !part.includes(x) && low(x).includes(q1)) : [];
+  const items = pre.concat(part, rest).slice(0, 40);
   if (!slp || slp.inp !== inp) { closeSlash(); slp = { inp: inp, i: 0, el: document.createElement('div') }; slp.el.id = 'slp'; document.body.appendChild(slp.el); slp.el.addEventListener('mousedown', e => { const r = e.target.closest('.si'); if (r) { e.preventDefault(); pickSlash(+r.dataset.i); } }); }
   slp.items = items; slp.i = Math.min(slp.i, Math.max(0, items.length - 1));
-  slp.el.innerHTML = items.length ? items.map((x, i) => '<div class="si' + (i === slp.i ? ' on' : '') + '" data-i="' + i + '" title="' + esc(x.d) + '"><b>' + esc(x.n) + '</b><span>' + esc(x.d) + '</span></div>').join('') : '<div class="sx">' + (!sl ? 'loading commands…' : sl.err ? 'commands: ' + esc(sl.err) : 'no command starts with ' + esc(v)) + '</div>';
+  const sig = v + '|' + (!sl ? 'L' : sl.err || '') + '|' + items.map(x => x.n).join(',');
+  if (slp.sig !== sig) {                                 // redrawn only when its content changes: the panel is refreshed every second while a chat works, and each redraw put the list back at its top
+    slp.sig = sig; slp.drawn = -1;
+    slp.el.innerHTML = items.length ? items.map((x, i) => '<div class="si" data-i="' + i + '" title="' + esc(x.d) + '"><b>' + esc(x.n) + '</b><span>' + esc(x.d) + '</span></div>').join('') : '<div class="sx">' + (!sl ? 'loading commands…' : sl.err ? 'commands: ' + esc(sl.err) : 'no command has ' + esc(v)) + '</div>';
+    slp.el.scrollTop = 0;
+  }
+  if (slp.drawn !== slp.i) {                             // the selected line moved (arrow keys): mark it and keep it in view
+    const rows = slp.el.querySelectorAll('.si'); rows.forEach((x, i) => x.classList.toggle('on', i === slp.i)); slp.drawn = slp.i;
+    const on = rows[slp.i], bx = slp.el; if (on) { if (on.offsetTop < bx.scrollTop + 2) bx.scrollTop = Math.max(0, on.offsetTop - 2); else if (on.offsetTop + on.offsetHeight > bx.scrollTop + bx.clientHeight - 2) bx.scrollTop = on.offsetTop + on.offsetHeight - bx.clientHeight + 2; }
+  }
   const r = inp.getBoundingClientRect(), w = Math.min(innerWidth - 8, Math.max(220, r.width)); slp.el.style.width = w + 'px'; slp.el.style.left = Math.max(4, Math.min(r.left, innerWidth - w - 4)) + 'px';
   const h = slp.el.offsetHeight; slp.el.style.top = Math.max(2, Math.min(r.top - h - 3 > 2 ? r.top - h - 3 : r.bottom + 3, innerHeight - h - 2)) + 'px';
 }
@@ -942,6 +1033,17 @@ const busy = el => !!(downIn && el && el.contains(downIn));
 document.addEventListener('mousedown', e => { downIn = e.target; userAt = Date.now(); }, true);
 document.addEventListener('mouseup', () => { if (downIn) { downIn = null; setTimeout(render, 0); } }, true);
 document.addEventListener('keydown', () => { userAt = Date.now(); }, true);
+document.addEventListener('keydown', e => {              // chat switching; e.code = the physical key, so the digit row works on AZERTY too
+  if (e.altKey || e.metaKey) return;
+  const dm = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
+  if (!e.ctrlKey) {                                      // 1-9 alone also work, whenever you are not typing in a box (no chat open, or the cursor outside its reply box)
+    const ae = document.activeElement, typing = !!(ae && ae.closest && ae.closest('input, textarea, select, [contenteditable]:not([contenteditable=false])'));
+    if (!dm || e.shiftKey || typing || document.getElementById('pmenu')) return;
+    const id1 = kOrder()[+dm[1] - 1]; e.preventDefault(); e.stopPropagation(); if (id1) kOpen(id1); return;
+  }
+  if (dm && !e.shiftKey) { const id = kOrder()[+dm[1] - 1]; e.preventDefault(); e.stopPropagation(); if (id) kOpen(id); return; }
+  if (e.key === 'Tab') { const ids = kOrder(); e.preventDefault(); e.stopPropagation(); if (!ids.length) return; const at = kCur(ids); kOpen(ids[at < 0 ? (e.shiftKey ? ids.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + ids.length) % ids.length]); return; }
+}, true);
 document.addEventListener('mousedown', e => { if (LAY && LAY.browse && e.button === 0 && !(e.target.closest && e.target.closest('#brwbox, #brwb, #pmenu, #tip'))) { LAY.browse = false; saveLay(); render(); } }, true);     // BROWSE folds back when you click anywhere else in the panel
 document.addEventListener('dblclick', e => {           // double-click: on a chat's line opens it, on an open conversation's empty space closes it (a double-click on text still selects the word)
   const card = e.target.closest && e.target.closest('.card'); if (!card || e.target.closest('button, a, [data-a], [data-a2], .cvz, textarea, .qz, .acts, .sh')) return;
@@ -969,13 +1071,14 @@ addEventListener('resize', () => { if (S && LAY) { fitConv(); clearTimeout(fitT)
 document.addEventListener('mouseup', () => { if (brDrag) { cancelAnimationFrame(brDrag.raf); brDrag = null; document.body.classList.remove('rsz'); saveLay(); } }, true);
 const brMax = () => Math.round((S && (S.fixedH || S.maxH) || innerHeight) * 0.7);     // BROWSE at most 70 % of the panel's possible height
 document.addEventListener('mousedown', e => { const rz = e.target.closest && e.target.closest('.rz'); if (rz && e.button === 0) { e.preventDefault(); post({ type: 'rsz', e: rz.dataset.e }); return; } post({ type: 'focus', kb: !!(e.target.closest && (e.target.closest('input, textarea, [contenteditable=true]') || (e.target.closest('.conv') && !e.target.closest('button, a, [data-a], [data-href], .ib, .qr')))) }); if (e.button === 0 && e.target.closest('#top') && !e.target.closest('button')) { e.preventDefault(); if (e.target.closest('#gripz')) gripDown = { x: e.screenX, y: e.screenY }; post({ type: 'drag' }); } });
-document.addEventListener('mouseup', e => { const g = gripDown; gripDown = null; if (g && e.button === 0 && Math.abs(e.screenX - g.x) < 4 && Math.abs(e.screenY - g.y) < 4 && e.target.closest('#gripz')) foldAll(); });
+document.addEventListener('mouseup', e => { const g = gripDown; gripDown = null; if (g && e.button === 0 && Math.abs(e.screenX - g.x) < 4 && Math.abs(e.screenY - g.y) < 4 && e.target.closest('#gripz')) { if (e.ctrlKey || stripOn) setStrip(!stripOn); else foldAll(); } });     // Ctrl+click: status line only (any click on the grip leaves it)
 document.addEventListener('click', e => {
   if (e.target.closest('#bugb')) { const r = $('#bugb').getBoundingClientRect(); const a = v => () => post({ type: 'menuact', k: 'bug', v: v });
     popMenu(r.left, r.top, [{ t: 'Report a bug, with the log (cleaned, to drag into the page)', f: a('log') }, { t: 'Report a bug, without the log', f: a('nolog') }], true); return; }
   if (e.target.id === 'gear' || e.target.closest('#gear')) { const r = $('#gear').getBoundingClientRect(); setMenu(r.left, r.top, true); return; }
   if (e.target.closest('#pin')) { post({ type: 'pin' }); return; }
-  if (focusId && e.target.closest('#brwb, #rctb, #plus, #fold')) setFocus(null);     // the list's tools: back to the list first
+  { const sd = e.target.closest('.sd'); if (sd) { stripOpen(sd.dataset.sid, e.ctrlKey); return; } }
+  if (focusId && e.target.closest('#brwb, #rctb, #plus')) setFocus(null);     // the list's tools: back to the list first
   if (e.target.closest('[data-a2="reconnect"]')) { post({ type: 'menuact', k: 'reconnect' }); const rb = e.target.closest('button'); rb.disabled = true; setTimeout(() => { rb.disabled = false; }, 5000); return; }
   if (e.target.closest('#plus')) { const r = $('#plus').getBoundingClientRect(); plusMenu(r.left, r.top, true); return; }
   const shd = e.target.closest('.sh'); if (shd && !e.target.closest('[data-a]') && !e.target.closest('[contenteditable=true]')) { const sc = LAY.sec.find(s => s.id === shd.dataset.sec); if (sc) { sc.col = !sc.col; saveLay(); render(); } return; }
@@ -1053,6 +1156,7 @@ document.addEventListener('click', e => {
     }
     case 'copycmd': { const s = ((chatOf(id) || {}).steps || []).find(x => x.n === n); post({ type: 'copy', text: s ? (s.cmd || s.path || s.url || '') : '' }); break; }
     case 'autostep': post({ type: 'autostep', id: id, n: n }); break;
+    case 'exitfill': exitFill(id, n, b.dataset.t || ''); break;
     case 'tick': post({ type: 'tick', id: id, n: n }); break;
     case 'edit': { const cd = cards.get(id); cd.edit.add(n); render(); const t = cd.actw.querySelector('[data-obs="' + n + '"]'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } break; }
   }
@@ -1136,6 +1240,7 @@ setInterval(() => {
 window.chrome.webview.addEventListener('message', e => {
   const m = e.data;
   if (m.type === 'state') { const t0 = performance.now(); S = m; if (!S.shown) { closeMenu(); if (LAY && LAY.browse) { LAY.browse = false; saveLay(); } } render(); if (slp) slashFor(slp.inp); const dt = performance.now() - t0; if (S.settings && S.settings.debug && dt > 30) post({ type: 'log', text: 'ui: slow render ' + Math.round(dt) + ' ms, ' + (S.chats || []).length + ' chats' }); }
+  else if (m.type === 'key') keyEv(m);
   else if (m.type === 'colev') {                          // from a side window (through the tray)
     const k = col[m.x]; if (!k) return;
     if (m.ev === 'hover') { k.hov = !!m.on; if (m.on) clearTimeout(leaveT); else schedClose(); }

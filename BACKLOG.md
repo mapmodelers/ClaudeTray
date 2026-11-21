@@ -7,7 +7,7 @@ What's planned and still open. Done work is in [CHANGELOG.md](CHANGELOG.md). Ide
 - Questions: working from the tray in 0.2.5 (pick, Next, Back, several answers + Other, Send; "looks functional").
   Not tried yet: Other + Enter on a one-answer step, Skip, a question with a single step.
 - Images: thumbnails in the conversation (today a click opens them).
-- Tray memory: it grows while an expanded chat is open (0.3.23: several GB in an hour). 0.3.24 makes the guard work, stops re-reading unchanged chats and logs a `memdiag` line; the cause is still to find from those logs.
+- Tabs layout: the tracked chats as a row of tabs with the selected chat below, as a List / Tabs setting (shortcuts, placements and chat keys came in 0.3.27).
 - Model / effort change: the menu read is checked on a Claude Code page (0.3.24, models, "More models", effort). Still to confirm on a live chat: picking a model, picking one under "More models", picking an effort.
 - Desktop local chats: untested on the classic installer, multi-org, PowerShell 7, other UI languages.
 - Left from the 0.3.1 UI review: Windows' own resize loop for the edges (only if they feel jittery); "Send answers" for a Desktop local chat's question (the tray ignores it today).

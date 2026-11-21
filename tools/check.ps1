@@ -48,4 +48,12 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     foreach ($ch in $chunks) { [IO.File]::WriteAllText($tmpJs, $ch[1]); $o = & node --check $tmpJs 2>&1; if ($LASTEXITCODE) { Write-Host ("JS {0}: {1}" -f $ch[0], (($o | Select-Object -First 4) -join ' | ')); $bad++ } }
     Remove-Item $tmpJs -ErrorAction SilentlyContinue
 }
+# 5. No Select-Object -First / -Last / -Skip on what the tray keeps (Windows PowerShell 5.1 adds a type name to every
+#    PSCustomObject that passes through it: the memory leak of 0.3.23 - 0.3.25). Use Limit-First / Limit-Last / Limit-Skip.
+#    Allowed: inside $UpdScript (one-shot runspace, fresh objects) and in comments.
+$lines5 = [IO.File]::ReadAllLines($path); $inUpd = $false
+for ($i5 = 0; $i5 -lt $lines5.Count; $i5++) {
+    $ln5 = $lines5[$i5]; if ($ln5 -match '^\$UpdScript = \{') { $inUpd = $true } elseif ($inUpd -and $ln5 -eq '}') { $inUpd = $false }
+    if (-not $inUpd -and $ln5 -notmatch '^\s*#' -and $ln5 -match 'Select-Object\s+-(First|Last|Skip|Property|ExpandProperty|Index)\b') { Write-Host ("Select-Object at line {0}: use Limit-First / Limit-Last / Limit-Skip" -f ($i5 + 1)); $bad++ }
+}
 if ($bad) { Write-Host "$bad problem(s)"; exit 1 } else { Write-Host 'check: OK' }
