@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.27'
+$Version = '0.3.28'
 try { [AppDomain]::MonitoringIsEnabled = $true } catch { }     # memory diagnostics: lets the heartbeat say how much was allocated and how much a full collection leaves
 # First / last / skip N of a pipeline WITHOUT Select-Object. In Windows PowerShell 5.1, Select-Object writes 'Selected.System.Management.Automation.PSCustomObject'
 # into the type names of every PSCustomObject that passes through it, each time, on the object itself. A long-lived object (a chat message kept between
@@ -4454,6 +4454,14 @@ function Step-Place {                                # the shortcut: default -> 
     if ($n9 -eq 0 -and $c9 -eq 0) { Show-PanelKb; Send-PanelKey 'toast' 'No placement yet: drag the panel where you want it'; return }
     Set-Place $(if ($c9 -lt 0 -or $c9 -ge $n9) { 0 } else { $c9 + 1 })
 }
+function Close-Panel {                               # the window's close button: it goes away, and the next open is the small panel next to the tray. The spot it leaves stays a placement
+    $from9 = Get-PlaceIx
+    if (($from9 -lt 0 -and $UI.Docked) -or ($from9 -eq 0 -and ($Cfg.panelWidth -or $Cfg.panelHeight))) { $kept9 = New-Place; if ($kept9) { Log "placement: the spot the panel was in is kept as placement $kept9" } } else { Save-PlaceNow }
+    Hide-Pop 'close' $true
+    $UI.Docked = $false; $UI.RestoreDock = $false; $UI.ClickHid = $false
+    if ($Cfg.panelWidth) { Save-CfgKey 'panelWidth' $null }; if ($Cfg.panelHeight) { Save-CfgKey 'panelHeight' $null }
+    $pop.Width = (Get-PopW); $QS.Place = 0; Save-State; Push-WebState $true
+}
 function Invoke-HotKey([int]$hid) {
     Log "shortcut $hid" 'DEBUG'
     switch ($hid) {
@@ -4517,6 +4525,10 @@ function On-WebMsg($m) {
         'rsz' { $UI.Rsz = @{ Edge = [string]$m.e; Start = [System.Windows.Forms.Cursor]::Position; B = $pop.Bounds }; $rszTimer.Start() }
         'drag' { $UI.Drag = @{ Start = [System.Windows.Forms.Cursor]::Position; Origin = $pop.Location }; $UI.DragMoved = $false; $dragTimer.Start() }
         'esc' { if (-not $UI.Docked) { Hide-Pop 'esc' } }
+        'win' { switch ([string]$m.a) {                 # the window buttons (top right, when the panel is used as a window)
+                'min' { Hide-Pop 'minimize' $true; $UI.ClickHid = [bool]$UI.Docked }     # like a click on the tray icon: it comes back where it was
+                'frame' { Step-Place }
+                'close' { Close-Panel } } }
         'col' { if ($m.open) { Show-SideWin ([string]$m.x) $m } else { Hide-SideWin ([string]$m.x) } }
         'zoom' { Set-WebZoom ([int]$m.d) }
         'menu' { $UI.MenuFromPanel = $true; $menu.Show([System.Windows.Forms.Cursor]::Position) }

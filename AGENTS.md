@@ -304,6 +304,11 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   size of its own: `Set-Place 0` clears `panelWidth` / `panelHeight`; never store a `place0` again.
 - Slash list (`slashFor` in the panel): redrawn only when its content changes (`slp.sig`), because every state push
   calls it; the selected row is kept in view by hand. Test: `node tools/panel-slash.js`.
+- Hover-only icons (0.3.28). Window buttons: `#wb` in `#top`, shown by `html:hover` in every mode, no height of
+  their own; they post `win` with `a` = `min` / `frame` / `close` and the tray runs `Hide-Pop`, `Step-Place`,
+  `Close-Panel`. One-line rows: `.mt` holds only state marks (`keep`) and the age; all actions are in `.mtl`, inside
+  `.mfld`, shown on `.mini:hover` while the box is empty and not focused, and ending before the Stop button
+  (`.mfld.wk`). A mousedown in `.mtl` is cancelled so the box does not take focus. Test: `node tools/panel-icons.js`.
 - Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
   working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
   `$pop.Width` from `Get-PanelW` directly.

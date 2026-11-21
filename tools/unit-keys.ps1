@@ -2,7 +2,7 @@
 #   pwsh -NoProfile -File tools/unit-keys.ps1
 $path = Join-Path (Split-Path -Parent $PSScriptRoot) 'ClaudeTray.ps1'
 $tk = $null; $er = $null; $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tk, [ref]$er)
-$want = 'Get-PopW', 'Hold-PopOnScreen', 'Set-WebZoom', 'ConvertTo-HotKey', 'Get-Places', 'Get-PlaceIx', 'Get-PlaceLabels', 'Save-PlaceNow', 'New-Place', 'Set-Place', 'Step-Place', 'Set-DockHere', 'Set-DockMemo'
+$want = 'Close-Panel', 'Get-PopW', 'Hold-PopOnScreen', 'Set-WebZoom', 'ConvertTo-HotKey', 'Get-Places', 'Get-PlaceIx', 'Get-PlaceLabels', 'Save-PlaceNow', 'New-Place', 'Set-Place', 'Step-Place', 'Set-DockHere', 'Set-DockMemo'
 foreach ($f in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $want -contains $n.Name }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
 $lim = [regex]::Match([IO.File]::ReadAllText($path), "(?s)\`$LimitSrc = @'\r?\n(.*?)\r?\n'@"); . ([scriptblock]::Create($lim.Groups[1].Value))
 $fails = 0; function Ok($c, $t) { if ($c) { "ok   $t" } else { "FAIL $t"; $script:fails++ } }
@@ -72,6 +72,13 @@ Ok ($pop.Width -eq 1874 -and $pop.Left -ge 0 -and $pop.Right -le 1920 -and [int]
 $pop.Left = -1162; $pop.Top = 212; $pop.Width = 2203; Hold-PopOnScreen
 Ok ($pop.Left -eq 0 -and $pop.Width -eq 1920 -and $pop.Top -ge 0 -and $pop.Bottom -le 1040) "a panel found outside the screen is brought back when shown ($(Now9))"
 Ok (((Get-Content -Raw $path) -match "'placedel' \{") -and ((Get-Content -Raw $path) -match "'hotkey' \{")) 'menu actions are wired'
+# the window's close button: hidden, next open = the small panel next to the tray, the spot it leaves is kept
+function Hide-Pop($why, $force) { $script:hid9 = "$why/$force"; $UI.Shown = $false }
+$Cfg.places = @([ordered]@{ x = 0; b = 1006; w = 1874; h = 996 }); $Cfg.panelWidth = 570; $Cfg.panelHeight = 663; $UI.Docked = $true; $UI.Shown = $true; $QS.Place = -1
+$pop.Left = 700; $pop.Top = 200; $pop.Width = 570; $pop.Height = 663; $QS.DockB = 863; Close-Panel
+Ok ($script:hid9 -eq 'close/True' -and -not $UI.Docked -and $QS.Place -eq 0 -and -not $Cfg.panelWidth -and -not $Cfg.panelHeight -and $pop.Width -eq 340) "close: hidden, unpinned, back to the compact default ($script:hid9, place $($QS.Place), width $($pop.Width))"
+Ok ((Get-Places).Count -eq 2 -and (Get-Places)[1].w -eq 570 -and (Get-Places)[1].x -eq 700 -and (Get-Places)[1].b -eq 863) "close: the window spot it left is kept as placement 2 ($((Get-Places).Count))"
+$UI.Shown = $true; Close-Panel; Ok ((Get-Places).Count -eq 2) 'close from the default spot adds nothing'
 # an unpinned panel leaves when another program's window comes to the front (Alt+Tab, Start menu) - the real C# lines compile, the rule runs on a stand-in
 $cs9 = @([regex]::Matches((Get-Content -Raw $path), '(?m)^\s*(\[DllImport\("user32\.dll", EntryPoint = "Get(WindowThreadProcessId|ClassNameW)".*|public static string WinInfo\(IntPtr h\).*)$') | ForEach-Object { $_.Value })
 Ok ($cs9.Count -eq 3) "the three native lines for 'which window is in front' are there ($($cs9.Count))"

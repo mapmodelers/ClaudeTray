@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.28
+
+- Icons show only while the pointer is there. A chat's one-line row shows none until you point at it, and then all
+  of them, the same as on an open chat (open in the app, open on claude.ai, move, hide, notifications, focus, pin),
+  over the end of its field: nothing moves, and the title gets the room the three old icons took. What is a state
+  stays in view: muted, pinned, not in the tray yet.
+- Window buttons at the top right of the panel while the pointer is over it, in every mode: minimize (hides it; it
+  comes back at the same spot), switch (between the small tray panel and your placements, like the next-placement
+  shortcut) and close (hides it; the next open is the small panel next to the tray, and the spot it left stays a
+  placement). They take no room. The tray keeps running in every case.
+
 ## 0.3.27
 
 - Global shortcuts, from any app: show / hide the panel (`Ctrl+Alt+T`), next placement (`Ctrl+Alt+P`), default
