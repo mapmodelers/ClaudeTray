@@ -87,7 +87,7 @@ textarea{width:100%;display:block;resize:none;border:0;outline:0;background:tran
 textarea::placeholder{color:var(--mu)}
 .comp{padding:2px 4px 4px}
 .cbox{display:flex;align-items:flex-end;gap:2px;background:var(--field);border:1px solid var(--ln);border-radius:9px;padding:2px 2px 2px 7px}
-.cbox textarea{flex:1;max-height:100px;padding:1px 0}
+.cbox textarea{flex:1;max-height:100px;padding:1px 0}body:not(.dicton) .micb{display:none!important}.micb{flex:none;opacity:.6}.micb:hover{opacity:1}.micb.rec{opacity:1;color:#e5484d;animation:micp 1s ease-in-out infinite}.micb.run{opacity:1;color:var(--acc);animation:micp .5s ease-in-out infinite}.micb.rec,.micb.run{display:inline-flex!important}@keyframes micp{50%{opacity:.35}}.cbox .micb{margin:0 1px 0 -4px}.mfld .micb{margin:0 1px 0 -3px}     /* the microphone: first thing in the box, far left */
 .send{color:var(--acc)}.stop{color:var(--acc);display:none}
 .atts{display:flex;flex-wrap:wrap;gap:3px;margin:0 0 2px}.atts:empty{display:none}
 .att{display:inline-flex;align-items:center;gap:2px;max-width:100%;background:var(--card);border-radius:5px;padding:0 1px 0 3px;font-size:9.5px;color:var(--mu);height:16px}
@@ -126,8 +126,8 @@ textarea::placeholder{color:var(--mu)}
 body.compact .card:not(.open) .head{display:none}body.compact .card:not(.open) .mini{margin:0;padding:1px 4px;gap:4px;border-radius:6px}body.compact .card:not(.open) .mini:hover{background:var(--card)}
 body.compact .card:not(.open) .mdot{display:inline-flex;align-items:center;justify-content:center;width:14px;height:18px;flex:none;cursor:pointer;border-radius:4px}body.compact .card:not(.open) .mdot:hover{background:var(--ln)}body.compact .card:not(.open) .mdot .dot{margin:0}
 body.compact .card:not(.open) .mt{display:flex;align-items:center;gap:0;flex:none}body.compact .card:not(.open) .mt .ib{opacity:.7}.mtl{display:none}
-body.compact .card:not(.open) .mini:hover .mi:placeholder-shown:not(:focus)~.mtl{display:flex;align-items:center;position:absolute;right:2px;top:0;height:17px;z-index:1;border-radius:5px;background:var(--field);box-shadow:-8px 0 6px var(--field)}body.compact .card:not(.open) .mini:hover .mfld.wk .mi:placeholder-shown:not(:focus)~.mtl{right:19px}body.compact .card:not(.open) .mt .age{margin-left:3px;min-width:18px;text-align:right}
-body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=attach],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=msend]{display:none}
+body.compact .card:not(.open) .mini:hover .mfld:not(:focus-within) .mi:placeholder-shown~.mtl{display:flex;align-items:center;position:absolute;right:2px;top:0;height:17px;z-index:1;border-radius:5px;background:var(--field);box-shadow:-8px 0 6px var(--field)}body.compact .card:not(.open) .mini:hover .mfld.wk:not(:focus-within) .mi:placeholder-shown~.mtl{right:19px}body.compact .card:not(.open) .mt .age{margin-left:3px;min-width:18px;text-align:right}
+body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=attach],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=mic],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=msend]{display:none}
 .mph{display:none}body.compact .card:not(.open) .mph{display:block;position:absolute;left:6px;right:4px;top:0;line-height:17px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;color:var(--mu)}.mph b{font-weight:400;color:color-mix(in srgb,var(--tx) 66%,var(--mu))}.mph.un b{color:color-mix(in srgb,var(--tx) 84%,var(--mu))}.mph i{font-style:normal;opacity:.85}body.compact .card:not(.open) .mfld.wk .mph{right:20px}body.compact .card:not(.open) .mi:focus+.mph,body.compact .card:not(.open) .mi:not(:placeholder-shown)+.mph{display:none}body.compact .mi{font-size:11px}
 .mi:focus::placeholder{color:transparent!important}.mi:not(:focus):not(:placeholder-shown){font-style:italic}.mini .mi{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:10.5px;height:17px;padding:0}
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
@@ -269,6 +269,7 @@ const I = {
   v1:'<svg viewBox="0 0 24 24"><path d="M5 9h14M5 15h9"/></svg>',
   v2:'<svg viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h14M5 20h8"/></svg>',
   plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  mic:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   clip:'<svg viewBox="0 0 24 24"><path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/></svg>',
   dl:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
   more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>',
@@ -359,7 +360,7 @@ function setMenu(x, y, up){                             // settings, inside the 
   popMenu(x, y, [{ t: 'Light theme', on: lightNow, f: a('theme', 'light') }, { t: 'Dark theme', on: !lightNow, f: a('theme', 'dark') }, '-',
     { t: 'Short replies from Claude', on: !!st.terse, f: a('terse') }, { t: 'Debug logs (for fixing bugs)', on: !!st.debug, f: a('debug') }, '-',
     { t: 'Start with Windows', on: st.start === 'windows', f: a('start', 'windows') }, { t: 'Start when the Claude app opens', on: st.start === 'claude', f: a('start', 'claude') }, { t: 'Start only when I start it', on: st.start === 'manual', f: a('start', 'manual') }, { t: 'Keep the Claude app running (chats linked to this PC stay reachable)', on: !!st.keepApp, f: a('keepapp') }, '-',
-    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: 'Layout: list', on: !tabsOn(), f: () => setTabs(false) }, { t: 'Layout: tabs', on: tabsOn(), f: () => setTabs(true) }, { t: 'Shortcuts and placements \u203a', f: () => keysMenu(x, y, up) }, { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
+    ].concat(S.deskSeen ? [{ t: 'Claude Desktop local chats (experimental) \u203a', f: () => popMenu(x, y, [{ t: 'Keep Claude Desktop off-screen when minimized', on: !!st.park, f: a('park') }, { t: 'Hide Claude Desktop while the tray works in it', on: !!st.ghost, f: a('ghost') }], up) }] : []).concat([{ t: 'Idle chats leave the tray: ' + (+st.hideAfter ? st.hideAfter + ' min' : 'never') + ' \u203a', f: () => popMenu(x, y, [0, 5, 10, 30, 60].map(v => ({ t: v ? 'after ' + v + ' min' : 'never', on: +st.hideAfter === v, f: a('hideafter', v) })), up) }].concat(['-', { t: !st.dict || st.dict === 'off' ? 'Dictation: a microphone in the reply boxes (runs on this PC, download about ' + (st.dictMb || 475) + ' MB)' : st.dict === 'dl' ? 'Dictation (downloading\u2026)' : 'Dictation', on: !!st.dict && st.dict !== 'off', f: a('dict') }, ...(st.dictGpu && st.dictGpu !== 'na' ? [{ t: st.dictGpu === 'none' ? 'Dictation: use the graphics card (NVIDIA, download about ' + (st.dictGpuMb || 655) + ' MB)' : st.dictGpu === 'dl' ? 'Dictation: graphics-card program downloading\u2026' : st.dictGpu === 'bad' ? 'Dictation: graphics card failed, on the processor (click to try again)' : 'Dictation on the graphics card', on: st.dictGpu === 'ready' && st.dictGpuOn !== false && st.dictGpu !== 'bad', off: st.dictGpu === 'dl', f: a('dictgpu') }] : []), { t: 'Layout: list', on: !tabsOn(), f: () => setTabs(false) }, { t: 'Layout: tabs', on: tabsOn(), f: () => setTabs(true) }, { t: 'Shortcuts and placements \u203a', f: () => keysMenu(x, y, up) }, { t: 'Reset panel size', off: !st.sized, f: a('size') }, { t: 'Refresh usage now', f: a('refresh') }]).concat([{ t: st.signedIn ? 'Open claude.ai in the tray browser' : 'Sign in to claude.ai…', f: a('weblogin') }]).concat([{ t: 'Open log folder', f: a('logs') }, '-',
     updItem(), { t: 'Restart the tray', f: a('restart') }, { t: 'Exit', f: a('exit') }, '-', { t: 'Tray for Claude ' + (st.version || ''), off: true }])), up);
 }
 function chatMenu(id, x, y){                          // right-click on a chat title
@@ -486,7 +487,7 @@ function render(){
   document.body.classList.toggle('strip', stripOn);
   if (focusWant) { if ((S.chats || []).some(c => c.id === focusWant)) { focusId = focusWant; focusWant = null; } else if (Date.now() - focusWantT > 15000) focusWant = null; }
   if (focusId && !(S.chats || []).some(c => c.id === focusId)) focusId = null;     // that chat left the tray: back to the list
-  document.body.classList.toggle('tabs', tabsOn());
+  document.body.classList.toggle('tabs', tabsOn()); document.body.classList.toggle('dicton', !!(S.settings && S.settings.dict && S.settings.dict !== 'off'));     // dictation is an option: no microphone unless it is on
   if (tabsOn() && !focusId && !focusWant && !tabsList && !(LAY && LAY.browse)) {     // Tabs layout: one chat is always the selected one - first the one that waits for you, else the first of the list
     const cs = (S.chats || []).filter(c => !c.peek), pick = cs.find(c => ['ask', 'act', 'new'].includes(stripKey(c))) || cs.find(c => c.pin) || cs[0] || (S.chats || [])[0];
     if (pick) { focusId = pick.id; if (LAY) LAY.focus = focusId; if (!stripOn) { opened.clear(); big.clear(); openCard(focusId); } }
@@ -557,7 +558,7 @@ function render(){
   if (!S.shown) dirtyView = true; else dirtyView = false;
   { const hd = $('#hid'); if (hd) hd.remove(); }     // the "N hidden" line is gone: Browse brings hidden chats back
   renderRecent(L);
-  tabsDraw(); kMark(); fitConv(); sizeReport();
+  tabsDraw(); kMark(); dictMark(); fitConv(); sizeReport();
 }
 function recentRows(){                               // claude.ai chats active in the last 24 h that are not in the tray (newest first, at most 10)
   if (!LAY || !LAY.recent) return [];
@@ -601,9 +602,9 @@ function newChat(){
 }
 function makeCard(id){
   const el = document.createElement('div'); el.className = 'card'; el.dataset.id = id;
-  el.innerHTML = '<div class="head" title="Click to expand / collapse"></div><div class="body"><div class="sit"></div><div class="conv"><div class="msgs"></div><div class="actw"></div><div class="askw"></div></div><button class="jump" data-a="jump" title="Jump to the latest"></button><div class="comp"><div class="atts"></div><div class="cbox"><textarea rows="1" placeholder="Reply to Claude…"></textarea><input type="file" multiple hidden><button class="ib send" data-a="send" title="Send (Enter) - Shift+Enter: new line">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button>' +
+  el.innerHTML = '<div class="head" title="Click to expand / collapse"></div><div class="body"><div class="sit"></div><div class="conv"><div class="msgs"></div><div class="actw"></div><div class="askw"></div></div><button class="jump" data-a="jump" title="Jump to the latest"></button><div class="comp"><div class="atts"></div><div class="cbox"><button class="ib micb" data-a="mic" title="Dictate: click, speak, click again - it is written down on this PC (Esc cancels)">' + I.mic + '</button><textarea rows="1" placeholder="Reply to Claude…"></textarea><input type="file" multiple hidden><button class="ib send" data-a="send" title="Send (Enter) - Shift+Enter: new line">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button>' +
     '<button class="ib mchip" data-a="model" title="Model and effort" style="display:none"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button><button class="trc" data-a="trc"></button><button class="pill" data-a="auto" title="Ask Claude to do these steps itself">auto</button></div></div></div>' +
-    '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation (right-click: open it next to the others)"></span><div class="mfld"><input class="mi" spellcheck="false"><span class="mph"></span><span class="mtl"></span><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><span class="mfiles"></span><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="trc" data-a="trc"></button></div><span class="mt"></span></div>';
+    '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation (right-click: open it next to the others)"></span><div class="mfld"><button class="ib micb" data-a="mic" title="Dictate: click, speak, click again - it is written down on this PC (Esc cancels)">' + I.mic + '</button><input class="mi" spellcheck="false"><span class="mph"></span><span class="mtl"></span><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><span class="mfiles"></span><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="trc" data-a="trc"></button></div><span class="mt"></span></div>';
   el.querySelector('.head').draggable = true;
   el.insertAdjacentHTML('beforeend', '<div class="cvz" title="Drag: more room for one conversation or the other - double-click: share evenly"></div>');     // splitter under this card, shown when another open conversation follows
   const cd = { id: id, el: el, head: el.querySelector('.head'), conv: el.querySelector('.conv'), msgs: el.querySelector('.msgs'), actw: el.querySelector('.actw'), ta: el.querySelector('textarea'), send: el.querySelector('.send'), stop: el.querySelector('.stop'), auto: el.querySelector('.pill'), headH: '', actH: '', items: [], stick: true, full: new Set(), edit: new Set(), obs: {}, files: [], mi: el.querySelector('.mi'), mdot: el.querySelector('.mdot'), mph: el.querySelector('.mph'), mphH: '', mfld: el.querySelector('.mfld'), mt: el.querySelector('.mt'), mtl: el.querySelector('.mtl'), mtlH: '', mdH: '', mtH: '', mfiles: el.querySelector('.mfiles'), mstop: el.querySelector('.mini .stop'), sit: el.querySelector('.sit'), sitH: '', jump: el.querySelector('.jump'), ask: el.querySelector('.askw'), askH: '', atts: el.querySelector('.atts'), fin: el.querySelector('input[type=file]') };
@@ -929,7 +930,18 @@ function kMark(){                                        // the chat's number fo
     for (const e of [cd.el.querySelector('.mdot'), cd.el.querySelector('.head')]) { if (!e) continue; if (!v) e.removeAttribute('data-kn'); else if (e.getAttribute('data-kn') !== v) e.setAttribute('data-kn', v); } });
 }
 let toastT = 0;
-function toast(t){ let e = $('#toast'); if (!e) { e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); } e.textContent = t; e.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('on'), 2200); }
+let dict = { st: 'idle', id: '', box: '' };              // dictation: which box listens ('rec') or waits for its text ('run')
+function dictMark(){ for (const b of document.querySelectorAll('.micb')) { const c = b.closest('.card'), on = dict.st !== 'idle' && !!c && c.dataset.id === dict.id && ((dict.box === 'mi') === !!b.closest('.mfld')); b.classList.toggle('rec', on && dict.st === 'rec'); b.classList.toggle('run', on && dict.st === 'run'); } }
+function dictEv(m){                                       // from the tray: listening / writing it down / the text / a note
+  if (m.st === 'msg') { toast(m.t || '', 6000); return; }
+  if (m.st === 'rec' || m.st === 'run') { dict = { st: m.st, id: m.id || dict.id, box: m.box || dict.box }; dictMark(); toast(m.st === 'rec' ? 'Listening\u2026 click the microphone when you are done (Esc cancels)' : 'Writing it down\u2026', m.st === 'rec' ? 4000 : 60000); return; }
+  dict = { st: 'idle', id: '', box: '' }; dictMark(); { const te = $('#toast'); if (te) te.classList.remove('on'); }
+  if (m.st !== 'text') return;
+  const cd = cards.get(m.id), t = String(m.t || '').trim(); if (!cd) return; if (!t) { toast('Nothing was heard'); return; }
+  const bx = m.box === 'mi' && cd.mi && cd.mi.offsetParent ? cd.mi : cd.ta, v = bx.value, foc = document.activeElement === bx, a = foc ? bx.selectionStart : v.length, z = foc ? bx.selectionEnd : v.length, pre = v.slice(0, a), sp = pre && !/\s$/.test(pre) ? ' ' : '';
+  bx.value = pre + sp + t + v.slice(z); const pos = (pre + sp + t).length; bx.focus(); try { bx.setSelectionRange(pos, pos); } catch (e) { } bx.dispatchEvent(new Event('input', { bubbles: true }));     // at the cursor, or after what is already there
+}
+function toast(t, ms){ let e = $('#toast'); if (!e) { e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); } e.textContent = t; e.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('on'), ms || 2200); }
 function keyEv(m){                                        // from the tray: a global shortcut was pressed
   if (m.k === 'next') kNext();
   else if (m.k === 'toast') toast(m.t || '');
@@ -1172,6 +1184,7 @@ document.addEventListener('click', e => {
     case 'unhide': post({ type: 'unhide', id: b.dataset.id }); b.disabled = true; unstick(b); break;
     case 'reload': post({ type: 'reload', id: id }); b.disabled = true; unstick(b); break;
     case 'unattall': { const cd = cards.get(id); cd.files = []; drawAtts(cd); break; }
+    case 'mic': { const cdm = cards.get(id), inMini = !!b.closest('.mfld'), bx = cdm && (inMini ? cdm.mi : cdm.ta); if (bx) { bx.focus(); post({ type: 'mic', id: id, box: inMini ? 'mi' : 'ta' }); } break; }     // dictation: the tray records and writes it down on this PC, then sends the text back (dictEv)
     case 'attach': if (String(id).startsWith('local/')) post({ type: 'addfolder', id: id }); else cards.get(id).fin.click(); break;     // local chats: files or a folder, given to the session by path
     case 'unatt': { const cd = cards.get(id); cd.files.splice(+b.dataset.i, 1); drawAtts(cd); break; }
     case 'dl': post({ type: 'dl', id: id, x: +b.dataset.x, k: +b.dataset.k, u: b.dataset.u || '', mode: b.dataset.mode }); break;
@@ -1240,6 +1253,7 @@ document.addEventListener('input', e => {
   sizeReport();
 });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && dict.st === 'rec') { e.preventDefault(); e.stopPropagation(); post({ type: 'mic', cancel: true }); return; }     // Esc while it listens: drop the recording
   if (slp && e.target === slp.inp && slp.items && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key) && !e.isComposing) {
     if (e.key === 'Escape') { e.preventDefault(); closeSlash(); return; }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (slp.items.length) { slp.i = (slp.i + (e.key === 'ArrowDown' ? 1 : -1) + slp.items.length) % slp.items.length; slashFor(slp.inp); } return; }
@@ -1276,6 +1290,7 @@ window.chrome.webview.addEventListener('message', e => {
   const m = e.data;
   if (m.type === 'state') { const t0 = performance.now(); S = m; if (!S.shown) { closeMenu(); if (LAY && LAY.browse) { LAY.browse = false; saveLay(); } } render(); if (slp) slashFor(slp.inp); const dt = performance.now() - t0; if (S.settings && S.settings.debug && dt > 30) post({ type: 'log', text: 'ui: slow render ' + Math.round(dt) + ' ms, ' + (S.chats || []).length + ' chats' }); }
   else if (m.type === 'key') keyEv(m);
+  else if (m.type === 'dict') dictEv(m);
   else if (m.type === 'colev') {                          // from a side window (through the tray)
     const k = col[m.x]; if (!k) return;
     if (m.ev === 'hover') { k.hov = !!m.on; if (m.on) clearTimeout(leaveT); else schedClose(); }

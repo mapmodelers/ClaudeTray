@@ -12,8 +12,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   await p.goto('file://' + path.join(root, 'ui', 'panel.html'));
   const theme = { bg: '#262624', card: '#30302e', tx: '#eeece2', mu: '#9a978d', ln: '#3b3a37', acc: '#d97757', act: '#6296d6', pur: '#7e6bc4', ok: '#6fa876', field: '#30302e', bub: '#1a1a18' };
   const mk = (id, title, o) => Object.assign({ id, title, st: 'done', working: false, bell: true, age: '5m', preview: 'last line', web: true, msgs: [{ r: 'u', t: 'hello' }, { r: 'a', t: 'answer from ' + title }], steps: [] }, o);
+  let dictSt9 = 'on';
   let chats = [mk('chat/a', 'Alpha'), mk('chat/b', 'Bravo'), mk('chat/c', 'Charlie', { working: true }), mk('chat/d', 'Delta', { st: 'act', steps: [{ n: 1, kind: 'manual', label: 'Do it' }] }), mk('chat/e', 'Echo')];
-  const state = () => ({ type: 'state', theme, nc: false, docked: true, maxH: 520, expanded: [], big: [], err: '', usage: [], hiddenAll: true, sides: { roomL: true, roomR: true }, mainW: 420, shown: true, chats, settings: { version: 'test' } });
+  const state = () => ({ type: 'state', theme, nc: false, docked: true, maxH: 520, expanded: [], big: [], err: '', usage: [], hiddenAll: true, sides: { roomL: true, roomR: true }, mainW: 420, shown: true, chats, settings: { version: 'test', dict: dictSt9, dictMb: 475, dictGpu: dictSt9 === 'on' ? 'none' : 'na', dictGpuMb: 655 } });
   const push = async () => { await p.evaluate(s => window.__h({ data: s }), state()); await p.waitForTimeout(130); };
   const view = () => p.evaluate(() => { const vis = e => e && e.offsetParent !== null; const t = [...document.querySelectorAll('#tabs .tab')];
     return { tabs: vis(document.getElementById('tabs')) ? t.map(x => x.querySelector('b').textContent) : null, on: t.filter(x => x.classList.contains('on')).map(x => x.dataset.tid), cards: [...document.querySelectorAll('.card')].filter(vis).map(c => c.dataset.id), open: [...document.querySelectorAll('.card.open')].filter(vis).map(c => c.dataset.id), back: [...document.querySelectorAll('.fback')].filter(vis).length, strip: document.body.classList.contains('strip'), fit: t.every(x => x.getBoundingClientRect().right <= innerWidth + 1) }; });
@@ -56,6 +57,13 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   ok(v.tabs === null && v.cards.length === 4, 'Layout: list - the list is back, no tabs (' + JSON.stringify(v.cards) + ')');
   await p.click('.card[data-id="chat/b"] .mdot'); await p.waitForTimeout(250);
   ok((await p.evaluate(() => { const h = document.querySelector('.card[data-id="chat/b"] .head'); return !!h && h.offsetParent !== null && h.textContent.includes('Bravo'); })), 'list layout: an open chat has its title line as before');
+  { const n9 = await p.evaluate(() => window.__posts.length); await item('Dictation: use the graphics card (NVIDIA, download about 655 MB)');
+    ok((await p.evaluate(n => window.__posts.slice(n).filter(m => m.type === 'menuact' && m.k === 'dictgpu').length, n9)) === 1, 'Settings has the graphics-card dictation entry when an NVIDIA card is there, and it tells the tray'); }
+  { const n8 = await p.evaluate(() => window.__posts.length); await item('Dictation');
+    ok((await p.evaluate(n => window.__posts.slice(n).filter(m => m.type === 'menuact' && m.k === 'dict').length, n8)) === 1, 'Settings > Dictation (on) tells the tray to turn it off'); }
+  dictSt9 = 'off'; await push(); await p.click('#gear'); await p.waitForTimeout(150);
+  { const its = await p.evaluate(() => [...document.querySelectorAll('#pmenu *')].filter(e => e.children.length === 0).map(e => e.textContent.trim()).filter(x => /ictation/.test(x))); await p.keyboard.press('Escape');
+    ok(its.length === 1 && its[0] === 'Dictation: a microphone in the reply boxes (runs on this PC, download about 475 MB)', 'off: one entry that says what it is and how much it downloads, and no graphics-card entry (' + JSON.stringify(its) + ')'); }
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 3)));
   await b.close(); console.log(fails ? fails + ' FAILED' : 'ALL OK'); process.exit(fails ? 1 : 0);
 })();

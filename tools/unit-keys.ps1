@@ -79,6 +79,63 @@ $pop.Left = 700; $pop.Top = 200; $pop.Width = 570; $pop.Height = 663; $QS.DockB 
 Ok ($script:hid9 -eq 'close/True' -and -not $UI.Docked -and $QS.Place -eq 0 -and -not $Cfg.panelWidth -and -not $Cfg.panelHeight -and $pop.Width -eq 340) "close: hidden, unpinned, back to the compact default ($script:hid9, place $($QS.Place), width $($pop.Width))"
 Ok ((Get-Places).Count -eq 2 -and (Get-Places)[1].w -eq 570 -and (Get-Places)[1].x -eq 700 -and (Get-Places)[1].b -eq 863) "close: the window spot it left is kept as placement 2 ($((Get-Places).Count))"
 $UI.Shown = $true; Close-Panel; Ok ((Get-Places).Count -eq 2) 'close from the default spot adds nothing'
+# dictation: the recorder's native line compiles, the one-time download script is valid PowerShell, and the click / poll logic behaves
+$mc9 = [regex]::Match((Get-Content -Raw $path), '(?m)^\s*\[DllImport\("winmm\.dll".*mciSendString\(.*$').Value
+$okm9 = $true; try { Add-Type -TypeDefinition ("using System; using System.Runtime.InteropServices; namespace M9 { public static class N { " + $mc9 + "`n } }") -ErrorAction Stop } catch { $okm9 = $false; "$_" }
+Ok ($mc9 -and $okm9) 'mciSendString is declared and compiles'
+$ds9 = [regex]::Match((Get-Content -Raw $path), "(?s)\`$DictSetupSrc = @'\r?\n(.*?)\r?\n'@").Groups[1].Value; $pe9 = $null; [void][System.Management.Automation.Language.Parser]::ParseInput($ds9, [ref]$null, [ref]$pe9)
+Ok ($ds9.Length -gt 800 -and $pe9.Count -eq 0 -and $ds9 -match 'SHA256' -and $ds9 -match 'SHA1' -and $ds9 -notmatch 'Select-Object') "the download script parses, checks both checksums ($($ds9.Length) chars, $($pe9.Count) errors)"
+Ok ((Get-Content -Raw $path) -match "BinSha256 = '[0-9A-F]{64}'" -and (Get-Content -Raw $path) -match "ModelSha1 = '[0-9A-F]{40}'" -and (Get-Content -Raw $path) -match "releases/download/b5454/whisper-bin-x64\.zip") 'the program and the model are pinned to one build and their checksums'
+$acs9 = foreach ($sec9 in 2.8, 13.5, 16.5, 40) { [Math]::Max(448, [Math]::Min(1500, [int][Math]::Ceiling($sec9 * 50) + 192)) }
+Ok ((Get-Content -Raw $path) -match '\[Math\]::Max\(448, \[Math\]::Min\(1500, \[int\]\[Math\]::Ceiling\(\$long9 \* 50\) \+ 192\)\)' -and ($acs9 -join ',') -eq '448,867,1017,1500' -and (Get-Content -Raw $path) -match "' -bs 1 -bo 1'") "whisper's window follows the length of the recording (2.8 / 13.5 / 16.5 / 40 s -> $($acs9 -join ', ') of 1500), first answer taken"
+Ok ((Get-Content -Raw $path) -match "GpuSha256 = '[0-9A-F]{64}'" -and (Get-Content -Raw $path) -match 'whisper-bin-win-cuda-12\.4\.0-x64\.zip' -and $ds9 -match '\$sub') 'the graphics-card program is pinned to the same build with its checksum, and installs in its own folder'
+# cutting a recording at its pauses (the real C# from the tray, on made-up sound: tone = speech, near-silence = pause)
+$au9 = [regex]::Match((Get-Content -Raw $path), "(?s)\`$DictAudioSrc = @'\r?\n(.*?)\r?\n'@").Groups[1].Value
+Add-Type -TypeDefinition ($au9 -replace 'namespace ClaudeTray', 'namespace A9')
+Ok ((Get-Content -Raw $path) -match "if \(-not \('ClaudeTray\.Audio' -as \[type\]\)\) \{ Add-Type -TypeDefinition \`$DictAudioSrc \}" -and $au9 -notmatch '\$"|\bout var\b|=>|\?\.') 'the cutting code is compiled at first use, apart from the tray''s own start, and uses no newer C# than Windows PowerShell has'
+function Wav9([string]$f, [object[]]$spec) { $ms = New-Object IO.MemoryStream; $w = New-Object IO.BinaryWriter $ms; $rnd = New-Object Random 7
+    foreach ($sp in $spec) { $nn = [int]($sp[0] * 16000); for ($i = 0; $i -lt $nn; $i++) { $v = if ($sp[1]) { [int](9000 * [Math]::Sin($i * 0.05)) } else { $rnd.Next(-30, 30) }; $w.Write([int16]$v) } }
+    $pcm = $ms.ToArray(); $fs = [IO.File]::Create($f); $o = New-Object IO.BinaryWriter $fs; $o.Write([Text.Encoding]::ASCII.GetBytes('RIFF')); $o.Write([int](36 + $pcm.Length)); $o.Write([Text.Encoding]::ASCII.GetBytes('WAVEfmt ')); $o.Write([int]16); $o.Write([int16]1); $o.Write([int16]1); $o.Write([int]16000); $o.Write([int]32000); $o.Write([int16]2); $o.Write([int16]16); $o.Write([Text.Encoding]::ASCII.GetBytes('data')); $o.Write([int]$pcm.Length); $o.Write($pcm); $o.Close() }
+$wb9 = Join-Path ([IO.Path]::GetTempPath()) ('ct-split9-' + [guid]::NewGuid().ToString('N'))
+Wav9 "$wb9.wav" @(@(0.3, $false), @(3.0, $true), @(1.0, $false), @(3.5, $true), @(0.3, $false), @(2.5, $true), @(0.4, $false))
+$sp9 = [A9.Audio]::Split("$wb9.wav", $wb9, 0.6, 1.8, 8)
+Ok ($sp9.Count -eq 2 -and [Math]::Abs($sp9[0] - 3.8) -lt 0.2 -and [Math]::Abs($sp9[1] - 7.2) -lt 0.2 -and (Test-Path "$wb9-0.wav") -and (Test-Path "$wb9-1.wav") -and -not (Test-Path "$wb9-2.wav")) "speech, a 1 s pause, speech with a short 0.3 s breath: cut once, at the long pause ($(@($sp9 | ForEach-Object { [Math]::Round($_, 2) }) -join ' + ') s)"
+Ok (((Get-Item "$wb9-0.wav").Length + (Get-Item "$wb9-1.wav").Length - 88) -eq ((Get-Item "$wb9.wav").Length - 44)) 'the parts hold all of the sound, nothing lost at the cut'
+Wav9 "$wb9.wav" @(@(4.0, $true), @(0.9, $false), @(0.8, $true), @(0.9, $false), @(4.0, $true)); $sp9 = [A9.Audio]::Split("$wb9.wav", $wb9, 0.6, 1.8, 8)
+Ok ($sp9.Count -eq 2) "a 0.8 s word between two pauses is too short to tell its language: it joins a neighbour ($($sp9.Count) parts)"
+Wav9 "$wb9.wav" (, @(6.0, $true)); $sp9 = [A9.Audio]::Split("$wb9.wav", $wb9, 0.6, 1.8, 8); Ok ($sp9.Count -eq 1 -and [Math]::Abs($sp9[0] - 6.0) -lt 0.1) 'no pause: not cut'
+Get-ChildItem ([IO.Path]::GetTempPath()) -Filter 'ct-split9-*' | Remove-Item -Force
+Ok ((Get-Content -Raw $path) -match '\[ClaudeTray\.Audio\]::Split\(' -and (Get-Content -Raw $path).Contains('-f "{0}-{1}.wav" -of "{0}-{1}"')) 'the tray cuts the recording when the language is detected, and gives the parts to one run of the program'
+. ([scriptblock]::Create(@($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Test-DictOn' }, $true))[0].Extent.Text))
+function Get-DictExe { Join-Path ([IO.Path]::GetTempPath()) 'ct-none9.exe' }; function Get-DictModel { Join-Path ([IO.Path]::GetTempPath()) 'ct-none9.bin' }
+$Cfg.dictation = $null; $o1 = Test-DictOn; $Cfg.dictation = $true; $o2 = Test-DictOn; $Cfg.dictation = $false; $o3 = Test-DictOn
+Ok (-not $o1 -and $o2 -and -not $o3) "the option: off on a PC that never had it, on when set, off when set off ($o1 $o2 $o3)"
+Ok ((Get-Content -Raw $path) -match "'dict' \{[\s\S]{0,900}Save-CfgKey 'dictation' \`$true[\s\S]{0,200}Start-DictSetup" -and @([regex]::Matches((Get-Content -Raw $path), '(?m)^\s*(if .*)?Start-DictSetup\b|\{ Start-DictSetup')).Count -ge 1 -and (Get-Content -Raw $path) -notmatch 'Click the microphone again to get it') 'the download starts from the Settings entry, not from a click on a microphone'
+foreach ($fn9 in 'Invoke-Mic', 'Poll-Dict') { . ([scriptblock]::Create(@($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $fn9 }, $true))[0].Extent.Text)) }
+$said9 = New-Object System.Collections.ArrayList; $did9 = New-Object System.Collections.ArrayList; $script:dst9 = 'none'
+function Send-PanelDict($st, $id9, $box9, $t9) { [void]$said9.Add("$st|$id9|$box9|$t9") }; function Get-DictState { $script:dst9 }; function Start-DictSetup { [void]$did9.Add('setup') }; function Start-DictRec($a, $b) { [void]$did9.Add("rec $a $b") }; function Stop-DictRec($c) { [void]$did9.Add("stop $c") }
+$DictSpec = @{ Mb = 475 }; $DictDir = Join-Path ([IO.Path]::GetTempPath()) 'ctdict9'; $UI.Dict = $null; $UI.DictDl = $null; $UI.DictAsk = $null
+function Test-DictOn { $script:don9 }; $script:don9 = $false
+Invoke-Mic ([pscustomobject]@{ id = 'chat/a'; box = 'ta' }); Ok ($did9.Count -eq 0 -and $said9.Count -eq 0) 'dictation off (the default): a microphone message does nothing, nothing is downloaded'
+$script:don9 = $true; Invoke-Mic ([pscustomobject]@{ id = 'chat/a'; box = 'ta' }); Ok ($did9[-1] -eq 'setup' -and $said9[-1] -like 'msg|||The dictation files are missing*475 MB*') 'on but the files are gone: they are downloaded again, and it says so'
+$script:dst9 = 'dl'; Invoke-Mic ([pscustomobject]@{ id = 'chat/a'; box = 'ta' }); Ok ($said9[-1] -like '*still downloading*' -and $did9.Count -eq 1) 'a click during the download only says so'
+$script:dst9 = 'ready'; Invoke-Mic ([pscustomobject]@{ id = 'chat/a'; box = 'mi' }); Ok ($did9[-1] -eq 'rec chat/a mi') 'model there: a click starts listening for that box'
+$UI.Dict = @{ St = 'rec'; Id = 'chat/a'; Box = 'mi'; At = (Get-Date) }; Invoke-Mic ([pscustomobject]@{ id = 'chat/a'; box = 'mi' }); Ok ($did9[-1] -eq 'stop False') 'a click while it listens: stop and write it down'
+Invoke-Mic ([pscustomobject]@{ cancel = $true }); Ok ($did9[-1] -eq 'stop True') 'Esc: the recording is dropped'
+$UI.Dict.At = (Get-Date).AddSeconds(-121); Poll-Dict; Ok ($did9[-1] -eq 'stop False') 'after two minutes it stops by itself'
+$b9 = Join-Path ([IO.Path]::GetTempPath()) ('ct-dict-test' + [guid]::NewGuid().ToString('N')); [IO.File]::WriteAllText("$b9.txt", " [BLANK_AUDIO] Bonjour  le monde,`n and hello (music) ", [Text.Encoding]::UTF8); [IO.File]::WriteAllText("$b9.wav", 'x')
+$UI.Dict = @{ St = 'run'; Id = 'chat/a'; Box = 'ta'; Base = $b9; RunAt = (Get-Date); Secs = 3.2; P = [pscustomobject]@{ HasExited = $true; ExitCode = 0 } }; Poll-Dict
+Ok ($said9[-1] -eq 'text|chat/a|ta|Bonjour le monde, and hello' -and -not $UI.Dict -and -not (Test-Path "$b9.txt") -and -not (Test-Path "$b9.wav")) "whisper done: the text goes to the box without whisper's own notes, temporary files are removed ($($said9[-1]))"
+function Start-DictRun($d) { [void]$did9.Add("run gpu=$([bool](Test-DictGpu))"); $d.P = [pscustomobject]@{ HasExited = $false; ExitCode = 0 }; $d.Gpu = [bool](Test-DictGpu); $d.RunAt = Get-Date }; function Test-DictGpu { -not $UI.DictGpuBad }; function Push-WebState($f) { }
+$UI.DictGpuBad = $false; $UI.Dict = @{ St = 'run'; Id = 'chat/a'; Box = 'ta'; Base = (Join-Path ([IO.Path]::GetTempPath()) 'ct-dict-none9'); RunAt = (Get-Date); Secs = 3.2; Gpu = $true; P = [pscustomobject]@{ HasExited = $true; ExitCode = 3 } }; Poll-Dict
+Ok ($UI.DictGpuBad -and $did9[-1] -eq 'run gpu=False' -and $UI.Dict -and $UI.Dict.St -eq 'run' -and $said9[-1] -like 'msg|||The graphics card could not be used*') "the graphics-card program fails: the same sound is written down on the processor, and the card is left alone afterwards ($($did9[-1]))"
+$UI.Dict = $null
+$b9 = Join-Path ([IO.Path]::GetTempPath()) ('ct-dict-test' + [guid]::NewGuid().ToString('N')); [IO.File]::WriteAllText("$b9-0.txt", " Bonjour, je teste.`n", [Text.Encoding]::UTF8); [IO.File]::WriteAllText("$b9-1.txt", " And now in English.`n", [Text.Encoding]::UTF8); foreach ($x in '.wav', '-0.wav', '-1.wav') { [IO.File]::WriteAllText("$b9$x", 'x') }
+$UI.Dict = @{ St = 'run'; Id = 'chat/a'; Box = 'ta'; Base = $b9; Parts = 2; RunAt = (Get-Date); Secs = 9; Gpu = $false; P = [pscustomobject]@{ HasExited = $true; ExitCode = 0 } }; Poll-Dict
+Ok ($said9[-1] -eq 'text|chat/a|ta|Bonjour, je teste. And now in English.' -and -not @(Get-ChildItem ([IO.Path]::GetTempPath()) -Filter ([IO.Path]::GetFileName($b9) + '*')).Count) "two parts: their texts are joined in order and every temporary file is removed ($($said9[-1]))"
+New-Item -ItemType Directory -Force -Path $DictDir | Out-Null; [IO.File]::WriteAllText((Join-Path $DictDir 'setup.txt'), 'model 47'); $UI.DictDl = @{ P = [pscustomobject]@{ HasExited = $false }; At = (Get-Date); Said = '' }; Poll-Dict
+Ok ($said9[-1] -eq 'msg|||Speech model: 40 %') "download progress is said in steps of 20 % ($($said9[-1]))"
+[IO.File]::WriteAllText((Join-Path $DictDir 'setup.txt'), 'err the speech model is not the expected one (checksum)'); Poll-Dict; Ok (-not $UI.DictDl -and $said9[-1] -like 'msg|||Dictation could not be set up: the speech model is not the expected one*') 'a failed check is reported and nothing is kept running'
 # an unpinned panel leaves when another program's window comes to the front (Alt+Tab, Start menu) - the real C# lines compile, the rule runs on a stand-in
 $cs9 = @([regex]::Matches((Get-Content -Raw $path), '(?m)^\s*(\[DllImport\("user32\.dll", EntryPoint = "Get(WindowThreadProcessId|ClassNameW)".*|public static string WinInfo\(IntPtr h\).*)$') | ForEach-Object { $_.Value })
 Ok ($cs9.Count -eq 3) "the three native lines for 'which window is in front' are there ($($cs9.Count))"

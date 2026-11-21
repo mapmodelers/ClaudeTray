@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.29'
+$Version = '0.3.30'
 try { [AppDomain]::MonitoringIsEnabled = $true } catch { }     # memory diagnostics: lets the heartbeat say how much was allocated and how much a full collection leaves
 # First / last / skip N of a pipeline WITHOUT Select-Object. In Windows PowerShell 5.1, Select-Object writes 'Selected.System.Management.Automation.PSCustomObject'
 # into the type names of every PSCustomObject that passes through it, each time, on the object itself. A long-lived object (a chat message kept between
@@ -161,6 +161,7 @@ namespace ClaudeTray {
         [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
         [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
         [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("winmm.dll", CharSet = CharSet.Unicode)] public static extern int mciSendString(string cmd, System.Text.StringBuilder ret, int retLen, IntPtr hwnd);
         [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId")] static extern uint WinPid(IntPtr h, out uint pid);
         [DllImport("user32.dll", EntryPoint = "GetClassNameW", CharSet = CharSet.Unicode)] static extern int WinClass(IntPtr h, System.Text.StringBuilder s, int n);
         public static string WinInfo(IntPtr h) { uint pid = 0; WinPid(h, out pid); System.Text.StringBuilder sb = new System.Text.StringBuilder(160); WinClass(h, sb, 160); return pid + "|" + sb.ToString(); }     // "process id|window class"
@@ -988,6 +989,174 @@ function Start-Update([string]$mode) {                # check / apply in the bac
     $UI.UpdPs = $ps; $UI.UpdH = $ps.BeginInvoke(); $UI.UpdAt = Get-Date
     Log "update: $mode"; Push-WebState
 }
+# ---------------------------------------------------------------- dictation: the microphone in a reply box
+# Speech is recorded by Windows (MCI, 16 kHz mono) and written down on this PC by whisper.cpp with a Whisper model: nothing goes to Claude or anywhere else
+# until you send the text. Both are downloaded once, on your say, into %LOCALAPPDATA%\ClaudeTray\whisper, and checked against the checksums below.
+$DictDir = Join-Path $env:LOCALAPPDATA 'ClaudeTray\whisper'
+$DictSpec = @{
+    BinUrl = 'https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-x64.zip'; BinSha256 = '6BA69E3482D7826214F90A6A9C84CA07782AEC1E1D0C6A7C30C994FD5D816CCB'
+    ModelUrl = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin'; ModelSha1 = '55356645C2B361A969DFD0EF2C5A50D530AFD8D5'; ModelFile = 'ggml-small.bin'; Mb = 475
+    # optional, for an NVIDIA graphics card: the same program built for CUDA 12, with the CUDA files it needs (1.2 GB once unpacked)
+    GpuUrl = 'https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-win-cuda-12.4.0-x64.zip'; GpuSha256 = 'AFEF0B881C500958921C3F5523B50E59EE2EC9B6F5CBD25B324C51ED308A957A'; GpuMb = 655
+}
+$DictAudioSrc = @'
+using System;
+namespace ClaudeTray {
+    public static class Audio {                           // dictation: cut a recording at its pauses, so each part gets its own language (French, then English)
+        // 16-bit PCM wav in, parts written as <outBase>-0.wav, -1.wav...; returns the length of each part in seconds (one value = not cut, nothing written)
+        public static double[] Split(string wav, string outBase, double minPause, double minPart, int maxParts) {
+            byte[] b = System.IO.File.ReadAllBytes(wav); int pos = 12, fmt = -1, data = -1, dataLen = 0;
+            while (pos + 8 <= b.Length) { string id = System.Text.Encoding.ASCII.GetString(b, pos, 4); int len = BitConverter.ToInt32(b, pos + 4);
+                if (id == "fmt ") fmt = pos + 8; else if (id == "data") { data = pos + 8; dataLen = Math.Min(len, b.Length - data); break; }
+                pos += 8 + len + (len & 1); }
+            if (fmt < 0 || data < 0) return new double[] { 0 };
+            int ch = BitConverter.ToInt16(b, fmt + 2), rate = BitConverter.ToInt32(b, fmt + 4), bits = BitConverter.ToInt16(b, fmt + 14);
+            if (BitConverter.ToInt16(b, fmt) != 1 || bits != 16 || ch < 1 || rate < 8000) return new double[] { 0 };
+            int blk = 2 * ch, n = dataLen / blk, fr = rate / 50, nf = n / fr; double total = (double)n / rate;     // frames of 20 ms
+            if (nf < 100) return new double[] { total };
+            double[] rms = new double[nf];
+            for (int f = 0; f < nf; f++) { double sum = 0; int o = data + f * fr * blk; for (int i = 0; i < fr; i++) { int v = BitConverter.ToInt16(b, o + i * blk); sum += (double)v * v; } rms[f] = Math.Sqrt(sum / fr); }
+            double[] srt = (double[])rms.Clone(); Array.Sort(srt); double thr = Math.Max(120, srt[(int)(nf * 0.9)] * 0.1);     // quiet = a tenth of the loud frames
+            System.Collections.Generic.List<int> cuts = new System.Collections.Generic.List<int>(); int run = 0, need = (int)(minPause * 50);
+            for (int f = 0; f <= nf; f++) { bool quiet = f < nf && rms[f] < thr; if (quiet) { run++; continue; } if (run >= need && f - run > 0 && f < nf) cuts.Add(f - run / 2); run = 0; }     // cut in the middle of a pause, never at the very start or end
+            // parts between the cuts; one that is too short to tell its language joins its neighbour
+            System.Collections.Generic.List<int> edge = new System.Collections.Generic.List<int>(); edge.Add(0); edge.AddRange(cuts); edge.Add(nf);
+            int minF = (int)(minPart * 50); bool again = true;
+            while (again && edge.Count > 2) { again = false; for (int i = 0; i + 1 < edge.Count; i++) { if (edge[i + 1] - edge[i] < minF) { edge.RemoveAt(i + 1 < edge.Count - 1 ? i + 1 : i); again = true; break; } } }
+            while (edge.Count - 1 > maxParts) edge.RemoveAt(edge.Count - 2);
+            if (edge.Count <= 2) return new double[] { total };
+            double[] secs = new double[edge.Count - 1];
+            for (int p = 0; p + 1 < edge.Count; p++) { int a = edge[p] * fr, z = p + 2 == edge.Count ? n : edge[p + 1] * fr, len = (z - a) * blk; secs[p] = (double)(z - a) / rate;
+                using (System.IO.FileStream fs = System.IO.File.Create(outBase + "-" + p + ".wav")) using (System.IO.BinaryWriter w = new System.IO.BinaryWriter(fs)) {
+                    w.Write(System.Text.Encoding.ASCII.GetBytes("RIFF")); w.Write(36 + len); w.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt ")); w.Write(16); w.Write((short)1); w.Write((short)ch); w.Write(rate); w.Write(rate * blk); w.Write((short)blk); w.Write((short)16);
+                    w.Write(System.Text.Encoding.ASCII.GetBytes("data")); w.Write(len); w.Write(b, data + a * blk, len); } }
+            return secs;
+        }
+    }
+}
+'@     # compiled at the first dictation, on its own: a problem here costs the cutting, never the tray
+$DictSetupSrc = @'
+param([string]$dir, [string]$binUrl, [string]$binSha, [string]$modelUrl, [string]$modelSha1, [string]$modelFile, [string]$sub = '')
+$ErrorActionPreference = 'Stop'; $stat = Join-Path $dir 'setup.txt'; $pdir = $dir; if ($sub -and $sub -ne '-') { $pdir = Join-Path $dir $sub }
+function Say9([string]$t) { [IO.File]::WriteAllText($stat, $t) }
+function Get9([string]$url, [string]$out, [string]$tag) {
+    $rq = [Net.HttpWebRequest]::Create($url); $rq.UserAgent = 'ClaudeTray'; $rs = $rq.GetResponse(); $len = $rs.ContentLength; $in = $rs.GetResponseStream(); $fs = [IO.File]::Create($out); $buf = New-Object byte[] 1048576; $tot = 0; $last = Get-Date
+    try { while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $fs.Write($buf, 0, $n); $tot += $n; if (((Get-Date) - $last).TotalSeconds -ge 1) { $last = Get-Date; Say9 ("$tag " + [int](100 * $tot / [Math]::Max(1, $len))) } } } finally { $fs.Close(); $in.Close(); $rs.Close() }
+}
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    New-Item -ItemType Directory -Force -Path $pdir | Out-Null
+    $exe = Join-Path $pdir 'Release\whisper-cli.exe'
+    if (-not (Test-Path $exe)) {
+        $zip = Join-Path $pdir 'bin.zip'; Say9 'program 0'; Get9 $binUrl $zip 'program'
+        if ((Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash -ne $binSha) { Remove-Item -LiteralPath $zip -Force; throw 'the program file is not the expected one (checksum)' }
+        Say9 'unpack 0'; Expand-Archive -LiteralPath $zip -DestinationPath $pdir -Force; Remove-Item -LiteralPath $zip -Force
+        if (-not (Test-Path $exe)) { throw 'whisper-cli.exe is not in the package' }
+    }
+    $model = Join-Path $dir $modelFile
+    if (-not (Test-Path $model)) {
+        $part = "$model.part"; Say9 'model 0'; Get9 $modelUrl $part 'model'; Say9 'check 0'
+        if ((Get-FileHash -Algorithm SHA1 -LiteralPath $part).Hash -ne $modelSha1) { Remove-Item -LiteralPath $part -Force; throw 'the speech model is not the expected one (checksum)' }
+        Move-Item -LiteralPath $part -Destination $model -Force
+    }
+    Say9 'ready'
+} catch { Say9 ("err " + $_.Exception.Message) }
+'@
+function Get-DictGpuExe { return (Join-Path $DictDir 'cuda\Release\whisper-cli.exe') }
+function Test-DictGpu { return ((Test-Path (Get-DictGpuExe)) -and -not $UI.DictGpuBad -and $Cfg.dictationGpu -ne $false) }     # the graphics-card program is there and has not failed in this run of the tray
+function Test-DictNvidia { if ($null -eq $UI.DictNv) { $UI.DictNv = $false; try { foreach ($vc9 in @(Get-CimInstance Win32_VideoController -ErrorAction Stop)) { if ([string]$vc9.Name -match 'NVIDIA') { $UI.DictNv = $true } } } catch { } }; return [bool]$UI.DictNv }
+function Get-DictGpuState { if ($UI.DictDl -and $UI.DictDl.Gpu) { return 'dl' }; if (Test-Path (Get-DictGpuExe)) { return $(if ($UI.DictGpuBad) { 'bad' } else { 'ready' }) }; if (Test-DictNvidia) { return 'none' }; return 'na' }
+function Get-DictExe { return (Join-Path $DictDir 'Release\whisper-cli.exe') }
+function Get-DictModel { return (Join-Path $DictDir $DictSpec.ModelFile) }
+function Test-DictOn { return [bool]($Cfg.dictation -eq $true -or ($null -eq $Cfg.dictation -and (Test-Path (Get-DictExe)) -and (Test-Path (Get-DictModel)))) }     # an option, off by default: nothing is downloaded and no microphone is shown until it is turned on in Settings (a PC that already has the files keeps it on)
+function Get-DictState { if ((Test-Path (Get-DictExe)) -and (Test-Path (Get-DictModel))) { return 'ready' }; if ($UI.DictDl) { return 'dl' }; return 'none' }     # ready stays ready while the graphics-card program downloads
+function Send-PanelDict([string]$st, [string]$id9 = '', [string]$box9 = '', [string]$t9 = '') { try { if ($UI.WebReady) { $UI.WebUi.CoreWebView2.PostWebMessageAsJson((ConvertTo-Json -InputObject ([ordered]@{ type = 'dict'; st = $st; id = $id9; box = $box9; t = $t9 }) -Compress)) } } catch { } }
+function Invoke-Mci([string]$c9) { return [int][ClaudeTray.Native]::mciSendString($c9, $null, 0, [IntPtr]::Zero) }
+function Start-DictSetup([bool]$gpu9 = $false) {      # the one-time download, in a hidden PowerShell of its own; Poll-Dict follows it. $gpu9: the graphics-card program, next to the standard one
+    try { New-Item -ItemType Directory -Force -Path $DictDir | Out-Null; $sf9 = Join-Path $DictDir 'setup.ps1'; [IO.File]::WriteAllText($sf9, $DictSetupSrc); [IO.File]::WriteAllText((Join-Path $DictDir 'setup.txt'), 'start')
+        $al9 = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" "{1}" "{2}" "{3}" "{4}" "{5}" "{6}" "{7}"' -f $sf9, $DictDir, $(if ($gpu9) { $DictSpec.GpuUrl } else { $DictSpec.BinUrl }), $(if ($gpu9) { $DictSpec.GpuSha256 } else { $DictSpec.BinSha256 }), $DictSpec.ModelUrl, $DictSpec.ModelSha1, $DictSpec.ModelFile, $(if ($gpu9) { 'cuda' } else { '-' })
+        $UI.DictDl = @{ P = (Start-Process powershell -ArgumentList $al9 -WindowStyle Hidden -PassThru); At = (Get-Date); Said = ''; Gpu = $gpu9 }; $UI.DictGpuBad = $false; Log ("dict: download started ({0})" -f $(if ($gpu9) { 'graphics-card program' } else { 'program and speech model' }))
+    } catch { $UI.DictDl = $null; Log "dict: download could not start: $($_.Exception.Message)" 'WARN'; Send-PanelDict 'msg' '' '' 'The download could not start (see the log)' }
+}
+function Start-DictRun($d9) {                        # hand the saved sound to whisper (graphics card when its program is there, else the processor); Poll-Dict picks up the text
+    # speed on the processor: whisper works on a 30 s window whatever the length of the recording, so the window is cut down to what was said (plus a margin);
+    # one thread per real core (hyper-threads slow it down); the first answer is taken instead of comparing five (beam search). On the graphics card the five are kept.
+    $lang9 = if ($Cfg.dictationLanguage) { [string]$Cfg.dictationLanguage } else { 'auto' }; if ($lang9 -notmatch '^[a-z]{2,4}$') { $lang9 = 'auto' }
+    if (-not $UI.DictCores) { $UI.DictCores = 0; try { foreach ($cp9 in @(Get-CimInstance Win32_Processor -ErrorAction Stop)) { $UI.DictCores += [int]$cp9.NumberOfCores } } catch { }; if ($UI.DictCores -lt 1) { $UI.DictCores = [Math]::Max(1, [int]([Environment]::ProcessorCount / 2)) } }
+    $th9 = [Math]::Max(2, [Math]::Min(8, [int]$UI.DictCores))
+    # French, then English in one go: whisper picks ONE language per sound file, so the recording is cut at its pauses (0.6 s or more) and each part is detected on its own.
+    # Parts go through one run of the program (the model is loaded once). Not when you fixed the language (config dictationLanguage) or set dictationSplit to false.
+    $parts9 = @($d9.Secs); $d9.Parts = 0
+    if ($lang9 -eq 'auto' -and $Cfg.dictationSplit -ne $false -and $d9.Secs -ge 4) { try { if (-not ('ClaudeTray.Audio' -as [type])) { Add-Type -TypeDefinition $DictAudioSrc }; $parts9 = @([ClaudeTray.Audio]::Split("$($d9.Base).wav", $d9.Base, 0.6, 1.8, 8)); if ($parts9.Count -gt 1) { $d9.Parts = $parts9.Count } } catch { $parts9 = @($d9.Secs); $d9.Parts = 0; Log "dict: the recording could not be cut at its pauses: $($_.Exception.Message)" 'WARN' } }
+    $long9 = 0.0; foreach ($ps9 in $parts9) { if ([double]$ps9 -gt $long9) { $long9 = [double]$ps9 } }; if ($long9 -le 0) { $long9 = [double]$d9.Secs }
+    $ac9 = [Math]::Max(448, [Math]::Min(1500, [int][Math]::Ceiling($long9 * 50) + 192))
+    $gpu9 = Test-DictGpu
+    $io9 = if ($d9.Parts) { ((0..($d9.Parts - 1)) | ForEach-Object { '-f "{0}-{1}.wav" -of "{0}-{1}"' -f $d9.Base, $_ }) -join ' ' } else { '-f "{0}.wav" -of "{0}"' -f $d9.Base }
+    $pr9 = if ($Cfg.dictationPrompt) { ' --prompt "{0}"' -f (([string]$Cfg.dictationPrompt) -replace '["\r\n]', ' ') } else { '' }
+    $al9 = '-m "{0}" -l {1} -t {2} -ac {3}{4}{5} -nt -np -otxt {6}' -f (Get-DictModel), $lang9, $th9, $ac9, $(if ($gpu9) { '' } else { ' -bs 1 -bo 1' }), $pr9, $io9
+    $d9.P = Start-Process -FilePath $(if ($gpu9) { Get-DictGpuExe } else { Get-DictExe }) -ArgumentList $al9 -WindowStyle Hidden -PassThru; $d9.St = 'run'; $d9.Gpu = $gpu9; $d9.RunAt = Get-Date
+    Log ("dict: {0} s recorded, writing it down on the {1} (language {2}, {3} threads, window {4}/1500, {5})" -f $d9.Secs, $(if ($gpu9) { 'graphics card' } else { 'processor' }), $lang9, $th9, $ac9, $(if ($d9.Parts) { "$($d9.Parts) parts: " + ((@($parts9) | ForEach-Object { [Math]::Round([double]$_, 1) }) -join ' + ') + ' s' } else { 'one part' }))
+}
+function Start-DictRec([string]$id9, [string]$box9) {   # record from the default microphone until the next click (2 minutes at most)
+    [void](Invoke-Mci 'close ctdict')
+    $o9 = Invoke-Mci 'open new type waveaudio alias ctdict'
+    if ($o9) { Log "dict: no recorder (mci open = $o9)" 'WARN'; Send-PanelDict 'msg' '' '' 'No microphone found: check Windows Settings > System > Sound > Input'; return }
+    $f9 = Invoke-Mci 'set ctdict bitspersample 16 channels 1 samplespersec 16000 bytespersec 32000 alignment 2'
+    $r9 = Invoke-Mci 'record ctdict'
+    if ($r9) { [void](Invoke-Mci 'close ctdict'); Log "dict: recording did not start (mci record = $r9)" 'WARN'; Send-PanelDict 'msg' '' '' 'The microphone could not be opened: check Windows Settings > Privacy & security > Microphone'; return }
+    $UI.Dict = @{ St = 'rec'; Id = $id9; Box = $box9; At = (Get-Date) }; Log "dict: recording (format set = $f9)"; Send-PanelDict 'rec' $id9 $box9
+}
+function Stop-DictRec([bool]$cancel9) {              # stop; unless cancelled, save the sound and hand it to whisper (Poll-Dict picks up the text)
+    $d9 = $UI.Dict; if (-not $d9 -or $d9.St -ne 'rec') { return }
+    [void](Invoke-Mci 'stop ctdict'); $secs9 = [Math]::Round(((Get-Date) - $d9.At).TotalSeconds, 1)
+    if ($cancel9 -or $secs9 -lt 0.4) { [void](Invoke-Mci 'close ctdict'); $UI.Dict = $null; Log "dict: recording dropped after $secs9 s"; Send-PanelDict 'idle'; return }
+    $base9 = Join-Path $env:TEMP ('ct-dict-' + [guid]::NewGuid().ToString('N')); $wav9 = "$base9.wav"
+    $s9 = Invoke-Mci ('save ctdict "{0}"' -f $wav9); [void](Invoke-Mci 'close ctdict')
+    if ($s9 -or -not (Test-Path $wav9)) { $UI.Dict = $null; Log "dict: the recording could not be saved (mci save = $s9)" 'WARN'; Send-PanelDict 'idle'; Send-PanelDict 'msg' '' '' 'The recording could not be saved'; return }
+    $d9.Base = $base9; $d9.Secs = $secs9
+    try { Start-DictRun $d9; Send-PanelDict 'run' $d9.Id $d9.Box }
+    catch { $UI.Dict = $null; Log "dict: whisper did not start: $($_.Exception.Message)" 'WARN'; Send-PanelDict 'idle'; Send-PanelDict 'msg' '' '' 'The dictation program did not start (see the log)' }
+}
+function Poll-Dict {                                 # from the 0.7 s timer: the download's progress, the 2-minute limit, the text when whisper is done
+    $dl9 = $UI.DictDl
+    if ($dl9) {
+        $st9 = ''; try { $st9 = [IO.File]::ReadAllText((Join-Path $DictDir 'setup.txt')).Trim() } catch { }
+        if ($st9 -eq 'ready') { $UI.DictDl = $null; Log ("dict: ready after {0} s{1}" -f [int]((Get-Date) - $dl9.At).TotalSeconds, $(if ($dl9.Gpu) { ' (graphics-card program)' } else { '' })); Send-PanelDict 'msg' '' '' $(if ($dl9.Gpu) { 'Dictation now uses your graphics card' } else { 'Dictation is ready: click the microphone and speak' }); Push-WebState $true }
+        elseif ($st9.StartsWith('err ')) { $UI.DictDl = $null; Log "dict: download failed: $($st9.Substring(4))" 'WARN'; Send-PanelDict 'msg' '' '' ('Dictation could not be set up: ' + $st9.Substring(4)) }
+        elseif ($dl9.P.HasExited -and ((Get-Date) - $dl9.At).TotalSeconds -gt 5) { $UI.DictDl = $null; Log "dict: the download stopped without a result ('$st9')" 'WARN'; Send-PanelDict 'msg' '' '' 'The download stopped: click the microphone to try again' }
+        elseif ($st9 -match '^(program|model|check|unpack) (\d+)$') { $step9 = [int]([Math]::Floor([int]$Matches[2] / 20)) * 20; $say9 = "$($Matches[1]) $step9"; if ($say9 -ne $dl9.Said) { $dl9.Said = $say9; Send-PanelDict 'msg' '' '' $(if ($Matches[1] -eq 'model') { "Speech model: $step9 %" } elseif ($Matches[1] -eq 'check') { 'Checking the speech model…' } elseif ($Matches[1] -eq 'unpack') { 'Unpacking…' } elseif ($dl9.Gpu) { "Graphics-card program: $step9 %" } else { 'Downloading the dictation program…' }) } }
+    }
+    $d9 = $UI.Dict; if (-not $d9) { return }
+    if ($d9.St -eq 'rec') { if (((Get-Date) - $d9.At).TotalSeconds -ge 120) { Log 'dict: 2-minute limit'; Stop-DictRec $false }; return }
+    if ($d9.St -ne 'run') { return }
+    $late9 = ((Get-Date) - $d9.RunAt).TotalSeconds -gt 180
+    if (-not $d9.P.HasExited -and -not $late9) { return }
+    $outs9 = @(if ($d9.Parts) { (0..($d9.Parts - 1)) | ForEach-Object { "$($d9.Base)-$_" } } else { $d9.Base })
+    $has9 = Test-Path "$($outs9[0]).txt"
+    if ($d9.Gpu -and -not $late9 -and ($d9.P.ExitCode -ne 0 -or -not $has9)) {     # the graphics-card program failed (driver too old, no CUDA card...): same sound again on the processor, and no more graphics card in this run
+        $UI.DictGpuBad = $true; Log ("dict: the graphics-card program failed (exit {0}, text file {1}) - using the processor" -f $d9.P.ExitCode, $has9) 'WARN'
+        try { Start-DictRun $d9; Send-PanelDict 'msg' '' '' 'The graphics card could not be used: writing it down on the processor'; Push-WebState $true; return } catch { Log "dict: whisper did not start: $($_.Exception.Message)" 'WARN' }
+    }
+    $UI.Dict = $null; $txt9 = ''
+    if ($late9 -and -not $d9.P.HasExited) { try { $d9.P.Kill() } catch { }; Log 'dict: whisper took more than 3 minutes, stopped' 'WARN'; Send-PanelDict 'idle'; Send-PanelDict 'msg' '' '' 'Dictation took too long and was stopped' }
+    else {
+        foreach ($o9 in $outs9) { try { if (Test-Path "$o9.txt") { $txt9 += ' ' + [IO.File]::ReadAllText("$o9.txt", [Text.Encoding]::UTF8) } } catch { } }     # the parts, in the order they were said
+        $txt9 = (($txt9 -replace '\[[^\]]{0,40}\]|\([^)]{0,40}\)', ' ') -replace '\s+', ' ').Trim()     # whisper's own notes ([BLANK_AUDIO], (music)) are not speech
+        Log ("dict: {0} characters from {1} s of sound in {2} ms on the {3} (exit {4})" -f $txt9.Length, $d9.Secs, [int]((Get-Date) - $d9.RunAt).TotalMilliseconds, $(if ($d9.Gpu) { 'graphics card' } else { 'processor' }), $d9.P.ExitCode)
+        Send-PanelDict 'text' $d9.Id $d9.Box $txt9
+    }
+    foreach ($o9 in @($d9.Base) + $outs9) { foreach ($x9 in '.wav', '.txt') { try { if (Test-Path "$o9$x9") { Remove-Item -LiteralPath "$o9$x9" -Force } } catch { } } }     # the tray's own temporary files
+}
+function Invoke-Mic($m9) {                           # a click on the microphone (or Esc while it listens)
+    if ($m9.cancel) { Stop-DictRec $true; return }
+    if (-not (Test-DictOn)) { return }
+    if ($UI.Dict -and $UI.Dict.St -eq 'rec') { Stop-DictRec $false; return }
+    if ($UI.Dict -and $UI.Dict.St -eq 'run') { Send-PanelDict 'msg' '' '' 'Still writing down what you said…'; return }
+    $ds9 = Get-DictState
+    if ($ds9 -eq 'ready') { Start-DictRec ([string]$m9.id) ([string]$m9.box); return }
+    if ($ds9 -eq 'dl') { Send-PanelDict 'msg' '' '' 'The speech model is still downloading'; return }
+    Start-DictSetup; Send-PanelDict 'msg' '' '' ("The dictation files are missing: downloading them again (about {0} MB)." -f $DictSpec.Mb)     # the option is on but the files are gone
+}
 function Poll-Update {
     $ps = $UI.UpdPs; if (-not $ps) { return }
     if (-not $UI.UpdH.IsCompleted -and ((Get-Date) - $UI.UpdAt).TotalSeconds -lt 120) { return }
@@ -1156,7 +1325,7 @@ $tray = New-Object System.Windows.Forms.NotifyIcon
 $tray.Text = 'Tray for Claude'
 $QuitEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::ManualReset, 'Local\ClaudeTray.Quit')
 [void]$QuitEvent.Reset()
-function Exit-Tray([string]$why) { Write-Heartbeat 'exit'; Log "Exit: $why"; try { foreach ($hid9 in 1..4) { $HotKeys.Unregister($hid9) } } catch { }; try { if ($script:Park) { Undo-DesktopPark $false } } catch { }; if ($why -notmatch 'restart') { Stop-OurBrowser }; try { $Probe.Stop = $true } catch { }; try { $uiTimer.Stop(); $pollTimer.Stop(); $questTimer.Stop(); $animTimer.Stop() } catch { }; try { $pop.Hide() } catch { }; $tray.Visible = $false; $tray.Dispose(); [System.Windows.Forms.Application]::Exit() }
+function Exit-Tray([string]$why) { Write-Heartbeat 'exit'; Log "Exit: $why"; try { if ($UI.Dict -and $UI.Dict.St -eq 'rec') { [void](Invoke-Mci 'close ctdict') } } catch { }; try { foreach ($hid9 in 1..4) { $HotKeys.Unregister($hid9) } } catch { }; try { if ($script:Park) { Undo-DesktopPark $false } } catch { }; if ($why -notmatch 'restart') { Stop-OurBrowser }; try { $Probe.Stop = $true } catch { }; try { $uiTimer.Stop(); $pollTimer.Stop(); $questTimer.Stop(); $animTimer.Stop() } catch { }; try { $pop.Hide() } catch { }; $tray.Visible = $false; $tray.Dispose(); [System.Windows.Forms.Application]::Exit() }
 
 # ---------------------------------------------------------------- quests: read / state / results
 $QS = @{ List = @(); Hist = @{}; Prev = @{}; Running = @{}; Hidden = @{}; Pins = [ordered]@{}; Layout = $null; Proj = @{}; Anchor = @{}; Bells = @{}; Dock = $null; DockB = $null; Titles = @{}; DeskOnly = @{}; Alerts = @{}; Read = @{}; Confirmed = @{}; Place = $null }
@@ -4192,7 +4361,7 @@ function Push-WebState([bool]$force = $false) {
                              err = $werr; usage = $us; catalog = $UI.Catalog; twins = $(if ($UI.Twin) { $UI.Twin } else { @{} }); desklocal = @(if (($QS.Layout -and $QS.Layout.browse) -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count) { try { Get-DesktopLocal } catch { } }); deskSeen = [bool](@($script:DeskLocalCache).Count -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count); deskOnly = @($QS.DeskOnly.Keys); seen = $(try { $sm = @{}; foreach ($sq in @($QS.List)) { $sl = Get-LastActivity $sq; $sr = $(if ($QS.Read[[string]$sq.id]) { $QS.Read[[string]$sq.id].At } else { $null }); $sv = $(if ($sr -is [datetime]) { $sr } elseif ($sq.LastSent -is [datetime]) { $sq.LastSent } else { $sq.Upd }); if ($sv) { $sm[[string]$sq.id] = ([datetime]$sv).ToUniversalTime().ToString('o') } }; $sm } catch { @{} }); newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)     # seen = when you last saw each tracked chat (Browse dot)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible -and -not ([string]$_.id).StartsWith('local/') -or (-not $_.Visible -and $Caps.Local) } | Limit-First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd); at = ([datetime]$qh.Upd).ToUniversalTime().ToString('o') } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ hot = $UI.Hot; places = @(Get-PlaceLabels); place = (Get-PlaceIx); keepApp = [bool]$Cfg.keepClaudeApp; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ dict = $(if (-not (Test-DictOn)) { 'off' } elseif ((Get-DictState) -eq 'ready') { 'on' } elseif ($UI.DictDl) { 'dl' } else { 'none' }); dictMb = [int]$DictSpec.Mb; dictGpu = $(if (Test-DictOn) { Get-DictGpuState } else { 'na' }); dictGpuOn = [bool]($Cfg.dictationGpu -ne $false); dictGpuMb = [int]$DictSpec.GpuMb; hot = $UI.Hot; places = @(Get-PlaceLabels); place = (Get-PlaceIx); keepApp = [bool]$Cfg.keepClaudeApp; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 8 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -4507,6 +4676,19 @@ function On-WebMsg($m) {
                 'size' { Save-CfgKey 'panelWidth' $null; Save-CfgKey 'panelHeight' $null; $pop.Width = (Get-PopW); Fit-WebPop; try { Save-PlaceNow } catch { } }
                 'place' { Set-Place ([int]$m.v) }
                 'placenew' { Save-PlaceNow; if (-not $UI.Docked) { $UI.Docked = $true; Pin-Pop; Set-DockMemo }; $pnew = New-Place; if ($pnew) { $QS.Place = $pnew; Save-State; Send-PanelKey 'toast' "Saved as placement $pnew" } else { Send-PanelKey 'toast' 'The three placements are taken' } }
+                'dict' {                                    # Settings > Dictation: the option itself. Turning it on is what downloads the program and the speech model (the entry says how much)
+                    if (Test-DictOn) { if ($UI.Dict -and $UI.Dict.St -eq 'rec') { Stop-DictRec $true }; Save-CfgKey 'dictation' $false; Log 'dict: turned off'; Send-PanelDict 'msg' '' '' 'Dictation is off. Its files stay on this PC for next time.' }
+                    else { Save-CfgKey 'dictation' $true
+                        if ((Get-DictState) -eq 'none') { Log 'dict: turned on, files to download'; Start-DictSetup; Send-PanelDict 'msg' '' '' ("Dictation: downloading (about {0} MB, one time). The microphone works once it says ready." -f $DictSpec.Mb) }
+                        else { Log 'dict: turned on'; Send-PanelDict 'msg' '' '' 'Dictation is on: a microphone is in the reply boxes' } }
+                    Push-WebState $true
+                }
+                'dictgpu' {                                 # Settings > Dictation: the graphics-card program (download it, or switch it off / on once it is there)
+                    $gs9 = Get-DictGpuState
+                    if ($gs9 -eq 'none') { if ((Get-DictState) -ne 'ready') { Send-PanelDict 'msg' '' '' 'Set up dictation first: click a microphone' } elseif ($UI.DictDl) { Send-PanelDict 'msg' '' '' 'A download is already running' } else { Start-DictSetup $true; Send-PanelDict 'msg' '' '' ("Downloading the graphics-card program (about {0} MB, 1.2 GB on disk). Dictation keeps working meanwhile." -f $DictSpec.GpuMb) } }
+                    elseif ($gs9 -eq 'ready' -or $gs9 -eq 'bad') { if ($gs9 -eq 'bad') { $UI.DictGpuBad = $false; Save-CfgKey 'dictationGpu' $null } else { Save-CfgKey 'dictationGpu' $(if ($Cfg.dictationGpu -eq $false) { $null } else { $false }) } }
+                    Push-WebState $true
+                }
                 'placedel' { $pdel = [int]$m.v; $plc = Get-Places; if ($pdel -ge 1 -and $pdel -le $plc.Count) { $pcur = Get-PlaceIx; Save-CfgKey 'places' @($plc | Where-Object { $_ -ne $plc[$pdel - 1] }); if ($pcur -eq $pdel) { Set-Place 0 $false } elseif ($pcur -gt $pdel) { $QS.Place = $pcur - 1; Save-State } } }
                 'hotkey' { $hdn = [string]$m.v; if ($HotDefs.Contains($hdn)) { $hnew = ConvertTo-HotKey ([string]$m.t); Save-CfgKey $HotDefs[$hdn].Key $(if ($hnew) { $hnew.Text } else { ([string]$m.t).Trim() }); [void](Register-HotKeys) } }
                 'refresh' { Invoke-Poll }
@@ -4525,6 +4707,7 @@ function On-WebMsg($m) {
         'rsz' { $UI.Rsz = @{ Edge = [string]$m.e; Start = [System.Windows.Forms.Cursor]::Position; B = $pop.Bounds }; $rszTimer.Start() }
         'drag' { $UI.Drag = @{ Start = [System.Windows.Forms.Cursor]::Position; Origin = $pop.Location }; $UI.DragMoved = $false; $dragTimer.Start() }
         'esc' { if (-not $UI.Docked) { Hide-Pop 'esc' } }
+        'mic' { Invoke-Mic $m }                         # the microphone in a reply box: dictation on this PC (see Invoke-Mic)
         'win' { switch ([string]$m.a) {                 # the window buttons (top right, when the panel is used as a window)
                 'min' { Hide-Pop 'minimize' $true; $UI.ClickHid = [bool]$UI.Docked }     # like a click on the tray icon: it comes back where it was
                 'frame' { Step-Place }
@@ -4777,6 +4960,7 @@ $questTimer.Interval = 700
 $questTimer.add_Tick({
     try {
         Poll-WebWait
+        try { if ($UI.DictDl -or $UI.Dict) { Poll-Dict } } catch { Log "dict poll: $($_.Exception.Message)" 'WARN' }
         $UI.CoolN = [int]$UI.CoolN + 1; $UI.MemN = [int]$UI.MemN + 1; if ($UI.MemN % 40 -eq 0) { Test-MemoryGuard }     # every ~30 s (its own counter: CoolN goes back to 0 at 14)
         if ($script:Park -or ($Cfg.parkDesktop -and $Caps.Park)) { Update-DesktopPark }     # off unless the capability is on
         if ($script:Ghost -and ((Get-Date) - $script:Ghost.At).TotalSeconds -gt 20) { Log 'ghost: safety net - Claude Desktop made visible again' 'WARN'; Set-DesktopGhost $script:Ghost.H $false }

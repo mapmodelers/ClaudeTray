@@ -2,6 +2,24 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.30
+
+- Dictation (an option, off by default: Settings > Dictation): a microphone at the far left of the reply boxes (the full one, and the one-line box once the cursor is
+  in it). Click, speak, click again: what you said is written into the box at the cursor (`Esc` drops it, two
+  minutes at most). It runs on your PC with [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and the
+  multilingual Whisper "small" model: nothing is sent anywhere and it uses none of your Claude usage. Nothing is
+  downloaded until you turn the option on; then the program and the model come once (about 475 MB, into
+  `%LOCALAPPDATA%\ClaudeTray\whisper`, checked against pinned checksums). Turning it off hides the microphones and
+  keeps the files. Short recordings are written down faster than long ones (the model only looks at what was said). The
+  language is detected, and a recording is cut at its pauses so that each part gets its own: French, a pause,
+  then English comes out in both. Set `dictationLanguage` in `config.json` (`fr`, `en`...) to fix one language.
+- Dictation on the graphics card: with an NVIDIA card, Settings offers "Dictation: use the graphics card" (a second
+  download, about 655 MB, 1.2 GB on disk, with the CUDA files it needs). Much faster; if it cannot run (old driver),
+  the tray says so and goes back to the processor by itself.
+- Fixed (since 0.3.28): in a one-line box with the cursor in it, pressing the mouse on the paperclip or `/tray`
+  made the line's hover icons appear under the pointer, so the click could land on one of them (hide, for
+  instance) instead.
+
 ## 0.3.29
 
 - Tabs layout (Settings > Layout: tabs / list). A row of tabs, one per chat in the list's order, each with its status

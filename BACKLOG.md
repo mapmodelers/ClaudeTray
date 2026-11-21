@@ -8,6 +8,7 @@ What's planned and still open. Done work is in [CHANGELOG.md](CHANGELOG.md). Ide
   Not tried yet: Other + Enter on a one-answer step, Skip, a question with a single step.
 - Images: thumbnails in the conversation (today a click opens them).
 - Tabs layout (0.3.29): drag a tab to reorder; the order is the list's today.
+- Dictation (0.3.30): the pinned whisper.cpp program is a nightly build (b5454); move to a stable release file when the project publishes Windows ones. Keep the model loaded between dictations (about 1 s faster each).
 - Model / effort change: the menu read is checked on a Claude Code page (0.3.24, models, "More models", effort). Still to confirm on a live chat: picking a model, picking one under "More models", picking an effort.
 - Desktop local chats: untested on the classic installer, multi-org, PowerShell 7, other UI languages.
 - Left from the 0.3.1 UI review: Windows' own resize loop for the edges (only if they feel jittery); "Send answers" for a Desktop local chat's question (the tray ignores it today).

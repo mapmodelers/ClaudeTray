@@ -27,6 +27,8 @@ Experimental (0.3.x): it works, but things still change between versions. Bug re
 - **Model and effort** of a chat, shown in its reply bar and changed from there.
 - **Usage.** Session and weekly limits under the list, with a notification at 80 % and 95 %.
 
+- **Dictation (optional, off by default).** Turn it on in Settings and a microphone appears in the reply boxes: click, speak, click again. It runs on your PC with [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and a Whisper speech model, downloaded once when you turn it on (about 475 MB; with an NVIDIA card, an optional faster version of about 655 MB more). Nothing you say is sent anywhere.
+
 Typical use: a Claude Code session fixing a test while you push its branch from the panel, a research chat comparing
 second-hand listings in the background, a permission to approve for a script, a contract review to read later.
 

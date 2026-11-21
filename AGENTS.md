@@ -315,6 +315,18 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   The selected card's `.head` is hidden there; its tools are drawn in `#tabs .ttools` and the click handler maps
   them to the focused card. `tabsList` = the list is shown for now (recent / new chat) until a tab is picked.
   Test: `node tools/panel-tabs.js`.
+- Dictation (0.3.30): an option (`config.json` `dictation`, `Test-DictOn`, Settings > Dictation = menuact `dict`),
+  off by default; turning it on is the only thing that downloads. `body.dicton` shows the microphones.
+  `data-a="mic"` posts `mic` with `box` (`mi` / `ta`). The tray records with MCI
+  (`mciSendString`, alias `ctdict`, UI thread), saves a wav in `%TEMP%`, runs `whisper-cli.exe -otxt` hidden and
+  `Poll-Dict` (0.7 s timer) posts `dict` messages back (`rec`, `run`, `text`, `idle`, `msg`); the panel inserts the
+  text (`dictEv`). `$DictSpec` pins the whisper.cpp build and the model with checksums; `$DictSetupSrc` downloads
+  them in its own hidden PowerShell after a second, confirming click. The text is never logged, only its length.
+  The panel cannot record itself (`NavigateToString` gives no secure context, so no `getUserMedia`).
+  Mixed languages: whisper takes one language per file, so `[ClaudeTray.Audio]::Split` cuts the wav at pauses of
+  0.6 s or more (parts under 1.8 s join a neighbour, 8 at most) and all parts go through one run (`-f` / `-of` pairs).
+  Graphics card: an optional second program in `whisper\cuda` (`$DictSpec.GpuUrl`), used by `Start-DictRun` when
+  `Test-DictGpu`; a failed run sets `$UI.DictGpuBad` and the same sound is run again on the processor.
 - Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
   working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
   `$pop.Width` from `Get-PanelW` directly.
