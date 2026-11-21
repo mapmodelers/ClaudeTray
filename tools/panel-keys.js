@@ -77,7 +77,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   await p.evaluate(() => keysMenu(10, 10, false)); await p.waitForTimeout(150);
   const items = await p.evaluate(() => [...document.querySelectorAll('#pmenu .pmi')].map(e => e.textContent));
   console.log('   menu: ' + JSON.stringify(items));
-  ok(items[0] === 'Show / hide the panel: Ctrl+Alt+Space' && items[1] === 'Next placement: Ctrl+Alt+P (taken by another app)' && items[2] === 'Default placement (near the tray): off', 'the menu lists each shortcut with its keys and state');
+  ok(items[0] === 'Show / hide the panel: Ctrl+Alt+Space' && items[1] === 'Next placement: Ctrl+Alt+P (taken by another app)' && items[2] === 'Tray panel, and back to your window: off', 'the menu lists each shortcut with its keys and state');
   ok(items.includes('✓ Placement 1 (500 x 457)') && items.includes('Placement 2 (340 x auto)') && items.includes('Default (near the tray)') && items.includes('+ New placement where the panel is now') && items.includes('Forget placement 1'), 'and the placements, the one in use ticked');
   const clickItem = async t => { await p.evaluate(() => keysMenu(10, 10, false)); await p.waitForTimeout(100); await p.evaluate(tx => { const e = [...document.querySelectorAll('#pmenu .pmi')].find(x => x.textContent.replace('✓ ', '') === tx); e.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); e.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); e.click(); }, t); await p.waitForTimeout(150); };
   const lastAct = () => p.evaluate(() => window.__posts.filter(m => m.type === 'menuact').pop());

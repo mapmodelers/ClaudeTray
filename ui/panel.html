@@ -949,7 +949,7 @@ function keyEv(m){                                        // from the tray: a gl
 }
 function keysMenu(x, y, up){                              // Settings > Shortcuts and placements
   const st = S.settings || {}, hot = st.hot || {}, pl = st.places || [], cur = +st.place || 0, a = (k, v) => () => post({ type: 'menuact', k: k, v: v });
-  const HK = [['toggle', 'Show / hide the panel'], ['place', 'Next placement'], ['home', 'Default placement (near the tray)'], ['next', 'Next chat that waits for you']];
+  const HK = [['toggle', 'Show / hide the panel'], ['place', 'Next placement'], ['home', 'Tray panel, and back to your window'], ['next', 'Next chat that waits for you']];
   const why = { taken: ' (taken by another app)', bad: ' (not understood)', off: '' };
   const it = HK.map(h => { const v = hot[h[0]] || {}; return { t: h[1] + ': ' + (v.keys || 'off') + (why[v.st] || ''), f: () => { const nk = prompt(h[1] + '\n\nKeys, for example Ctrl+Alt+Space or Win+Shift+C. Empty = off.', v.keys || ''); if (nk !== null) post({ type: 'menuact', k: 'hotkey', v: h[0], t: nk.trim() }); } }; });
   const pi = [{ t: 'Default (near the tray)', on: cur === 0, f: a('place', 0) }].concat(pl.map((d, i) => ({ t: 'Placement ' + (i + 1) + ' (' + d + ')', on: cur === i + 1, f: a('place', i + 1) })));

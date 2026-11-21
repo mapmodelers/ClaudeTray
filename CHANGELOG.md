@@ -2,6 +2,13 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.31
+
+- `Ctrl`+wheel changes the size of the text, not the size of the panel: the frame stays where it is and as big as it
+  is, at any zoom. Your placements keep their size on screen too. The small tray panel stays 340 wide; its height
+  still follows its content. The zoom now goes from 50 % to 200 % (it stopped at 140 %).
+- `Ctrl+Alt+D` goes to the small tray panel, and a second press takes you back to the window you came from.
+
 ## 0.3.30
 
 - Dictation (an option, off by default: Settings > Dictation): a microphone at the far left of the reply boxes (the full one, and the one-line box once the cursor is

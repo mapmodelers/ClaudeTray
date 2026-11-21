@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.30'
+$Version = '0.3.31'
 try { [AppDomain]::MonitoringIsEnabled = $true } catch { }     # memory diagnostics: lets the heartbeat say how much was allocated and how much a full collection leaves
 # First / last / skip N of a pipeline WITHOUT Select-Object. In Windows PowerShell 5.1, Select-Object writes 'Selected.System.Management.Automation.PSCustomObject'
 # into the type names of every PSCustomObject that passes through it, each time, on the object itself. A long-lived object (a chat message kept between
@@ -4465,17 +4465,24 @@ function Show-SideWin([string]$X, $m) {
 }
 function Hide-SideWin([string]$X) { $sd = $UI.Sides[$X]; if ($sd -and $sd.Open) { $sd.Open = $false; $sd.Pinned = $false; try { $sd.Form.Hide(); [void][ClaudeTray.Native]::SetWindowLong($sd.Hwnd, -20, ([ClaudeTray.Native]::GetWindowLong($sd.Hwnd, -20) -bor 0x08000000)) } catch { }; Log "webui: side window $X closed" 'DEBUG' } }
 function Test-InSideWins($pt) { foreach ($sd in @($UI.Sides.Values)) { if ($sd.Open -and $sd.Form.Bounds.Contains($pt)) { return $true } }; return $false }
-function Set-WebZoom([int]$d) {                       # Ctrl+wheel over the panel: whole UI bigger/smaller, remembered
-    $z = [Math]::Round([Math]::Min(1.4, [Math]::Max(0.6, $UI.Zoom + 0.05 * $d)), 2); if ($z -eq $UI.Zoom) { return }
+function Set-WebZoom([int]$d) {                       # Ctrl+wheel over the panel: the text bigger / smaller, remembered. The frame keeps its size: only what is inside changes
+    $z0 = [double]$UI.Zoom; $z = [Math]::Round([Math]::Min(2.0, [Math]::Max(0.5, $UI.Zoom + 0.05 * $d)), 2); if ($z -eq $UI.Zoom) { return }     # 50 % to 200 %
+    # sizes are kept in zoom-free units (pixels = size x zoom), so they are re-expressed for the new zoom: the width from the frame as it is now (exact), the rest by the ratio
+    if ($Cfg.panelWidth) { Save-CfgKey 'panelWidth' ([int][Math]::Max(120, [Math]::Round($pop.Width / ($k * $z)))) }
+    if ([int]$Cfg.panelHeight -gt 0) { Save-CfgKey 'panelHeight' ([int][Math]::Max(60, [Math]::Round([int]$Cfg.panelHeight * $z0 / $z))) }
+    $pl0 = Get-Places; if ($pl0.Count) { $cur0 = Get-PlaceIx
+        for ($pi9 = 0; $pi9 -lt $pl0.Count; $pi9++) { foreach ($dk9 in 'w', 'h') { if ([int]$pl0[$pi9][$dk9] -gt 0) { $pl0[$pi9][$dk9] = [int][Math]::Round([int]$pl0[$pi9][$dk9] * $z0 / $z) } }
+            if ($pi9 + 1 -eq $cur0 -and $UI.Docked) { if ($Cfg.panelWidth) { $pl0[$pi9].w = [int]$Cfg.panelWidth }; if ([int]$Cfg.panelHeight -gt 0) { $pl0[$pi9].h = [int]$Cfg.panelHeight } } }     # the placement in use = the panel's own size
+        Save-CfgKey 'places' $pl0 }
     $UI.Zoom = $z; Save-CfgKey 'panelZoom' $z
     try { $UI.WebUi.ZoomFactor = $z } catch { }; foreach ($sd in @($UI.Sides.Values)) { try { $sd.Wv.ZoomFactor = $z } catch { } }
-    $nw = Get-PopW; $pop.SetBounds($pop.Right - $nw, $pop.Top, $nw, $pop.Height); Fit-WebPop; Hold-PopOnScreen     # the height follows the zoom too; a panel that would not fit stays inside its screen
+    $nw = Get-PopW; if ([Math]::Abs($nw - $pop.Width) -gt 2) { $pop.SetBounds($pop.Right - $nw, $pop.Top, $nw, $pop.Height) }; Fit-WebPop; Hold-PopOnScreen     # (a pixel of rounding is not a reason to move the frame)     # a height that follows the content still follows it (bigger text = taller); a panel that would not fit stays inside its screen
     $UI.WebJson = ''; Push-WebState; Place-SideWins
     Log ("webui: zoom {0:P0}" -f $z) 'DEBUG'
 }
 function Get-PanelW { if ($Cfg.panelWidth) { return [int]$Cfg.panelWidth } else { return 340 } }
-function Get-PopW {                                  # the panel's width in pixels: the width you set x the zoom, never wider than its screen
-    $w9 = px ((Get-PanelW) * $UI.Zoom)
+function Get-PopW {                                  # the panel's width in pixels, never wider than its screen. A width you gave is kept in zoom-free units (x zoom = pixels, and Set-WebZoom re-expresses it, so zooming never moves the frame); the small tray panel is 340 wide at any zoom
+    $w9 = if ($Cfg.panelWidth) { px ([int]$Cfg.panelWidth * $UI.Zoom) } else { px 340 }
     try { $sw9 = (Get-WorkArea ($pop.Left + [int]($pop.Width / 2)) ($pop.Top + [int]($pop.Height / 2))).Width; if ($sw9 -gt 200 -and $w9 -gt $sw9) { $w9 = $sw9 } } catch { }
     return $w9
 }
@@ -4636,7 +4643,10 @@ function Invoke-HotKey([int]$hid) {
     switch ($hid) {
         1 { if ($UI.Shown) { Hide-Pop 'shortcut' $true; $UI.ClickHid = [bool]$UI.Docked } else { Show-PanelKb } }
         2 { Step-Place }
-        3 { Set-Place 0 }
+        3 { $c9 = Get-PlaceIx; $n9 = (Get-Places).Count     # the tray panel, and back: a second press returns to the window you came from
+            if ($c9 -eq 0 -and $UI.Shown) { $b9 = [int]$UI.PlaceBack; if ($b9 -lt 1 -or $b9 -gt $n9) { $b9 = [Math]::Min(1, $n9) }
+                if ($b9 -ge 1) { Set-Place $b9 } else { Show-PanelKb; Send-PanelKey 'toast' 'No window spot yet: drag the panel where you want it' } }
+            else { $UI.PlaceBack = $(if ($c9 -ge 1) { $c9 } elseif ($c9 -lt 0 -and $UI.Docked -and $n9 -lt 3) { $n9 + 1 } else { [Math]::Min(1, $n9) }); Set-Place 0 } }     # (a spot that was not saved yet becomes the next placement when you leave it)
         4 { if (-not $UI.Shown) { Show-PanelKb } else { Pin-Pop; try { [void]$UI.WebUi.Focus() } catch { } }; Send-PanelKey 'next' }
     }
 }

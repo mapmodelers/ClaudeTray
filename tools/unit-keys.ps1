@@ -2,7 +2,7 @@
 #   pwsh -NoProfile -File tools/unit-keys.ps1
 $path = Join-Path (Split-Path -Parent $PSScriptRoot) 'ClaudeTray.ps1'
 $tk = $null; $er = $null; $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tk, [ref]$er)
-$want = 'Close-Panel', 'Get-PopW', 'Hold-PopOnScreen', 'Set-WebZoom', 'ConvertTo-HotKey', 'Get-Places', 'Get-PlaceIx', 'Get-PlaceLabels', 'Save-PlaceNow', 'New-Place', 'Set-Place', 'Step-Place', 'Set-DockHere', 'Set-DockMemo'
+$want = 'Invoke-HotKey', 'Close-Panel', 'Get-PopW', 'Hold-PopOnScreen', 'Set-WebZoom', 'ConvertTo-HotKey', 'Get-Places', 'Get-PlaceIx', 'Get-PlaceLabels', 'Save-PlaceNow', 'New-Place', 'Set-Place', 'Step-Place', 'Set-DockHere', 'Set-DockMemo'
 foreach ($f in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $want -contains $n.Name }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
 $lim = [regex]::Match([IO.File]::ReadAllText($path), "(?s)\`$LimitSrc = @'\r?\n(.*?)\r?\n'@"); . ([scriptblock]::Create($lim.Groups[1].Value))
 $fails = 0; function Ok($c, $t) { if ($c) { "ok   $t" } else { "FAIL $t"; $script:fails++ } }
@@ -65,13 +65,28 @@ Ok ($pop.Left -eq 1580 -and $pop.Bottom -eq 1040) "a placement on a screen that 
 $Cfg = @{ panelWidth = 1874; panelHeight = 996; panelZoom = 1 }; $QS = @{ Place = 1; Dock = @(27, 40); DockB = 1036 }; $UI.Docked = $true; $UI.Zoom = 1.0; $UI.Sides = @{}; $UI.DockPos = New-Object System.Drawing.Point 27, 40
 $pop.Left = 27; $pop.Top = 40; $pop.Width = 1874; $pop.Height = 996
 function Fit-WebPop { $h = [Math]::Min([int]([int]$Cfg.panelHeight * $UI.Zoom), [int](1040 * 0.95)); $bot = [int]$QS.DockB; $pop.Height = $h; $pop.Top = [Math]::Max(0, $bot - $h) }
-$worst = ''; foreach ($d in 1, 1, 1, 1, 1, 1) { Set-WebZoom $d; if ($pop.Left -lt 0 -or $pop.Right -gt 1920 -or $pop.Top -lt 0 -or $pop.Bottom -gt 1040) { $worst = Now9 } }
-Ok (-not $worst -and $UI.Zoom -eq 1.3 -and $pop.Width -eq 1920 -and $pop.Height -gt 900) "zooming in on a near full-screen panel keeps it inside the screen ($(Now9))$worst"
+# Ctrl+wheel changes the text, not the frame: same pixels before and after, sizes re-expressed for the new zoom (also the placements not in use)
+$Cfg.places = @([ordered]@{ x = 27; b = 1036; w = 1874; h = 996 }, [ordered]@{ x = 900; b = 1000; w = 600; h = 500 }); $pop.Left = 27; $pop.Width = 1874; $pop.Height = 988; $pop.Top = 48
+$w0 = $pop.Width; $h0 = $pop.Height; $worst = ''; foreach ($d in 1, 1, 1, 1, 1, 1) { Set-WebZoom $d; if ($pop.Width -ne $w0 -or [Math]::Abs($pop.Height - $h0) -gt 3 -or $pop.Left -lt 0 -or $pop.Right -gt 1920) { $worst = " at $($UI.Zoom): $(Now9)" } }
+Ok (-not $worst -and $UI.Zoom -eq 1.3 -and [int]$Cfg.panelWidth -eq [int][Math]::Round(1874 / 1.3)) "zooming in keeps the frame as it is, to the pixel in width ($(Now9), stored width $($Cfg.panelWidth))$worst"
+Ok ([Math]::Abs((Get-Places)[1].w * 1.3 - 600) -le 2 -and [Math]::Abs((Get-Places)[1].h * 1.3 - 500) -le 2 -and (Get-Places)[0].w -eq [int]$Cfg.panelWidth) "the other placement keeps its pixels too: 600 x 500 is now stored as $((Get-Places)[1].w) x $((Get-Places)[1].h) at 130 %"
 foreach ($d in -1, -1, -1, -1, -1, -1) { Set-WebZoom $d }
-Ok ($pop.Width -eq 1874 -and $pop.Left -ge 0 -and $pop.Right -le 1920 -and [int]$Cfg.panelWidth -eq 1874 -and [int]$Cfg.panelHeight -eq 996) "zooming back out gives the same size, and the saved size never changed ($(Now9))"
+Ok ($pop.Width -eq $w0 -and [Math]::Abs($pop.Height - $h0) -le 3 -and [int]$Cfg.panelWidth -eq 1874 -and [Math]::Abs([int]$Cfg.panelHeight - 996) -le 2 -and [Math]::Abs((Get-Places)[1].w - 600) -le 2) "and back out: same frame, sizes back to what they were ($(Now9), $($Cfg.panelWidth) x $($Cfg.panelHeight), other $((Get-Places)[1].w) x $((Get-Places)[1].h))"
+$Cfg.panelWidth = $null; $Cfg.panelHeight = $null; $Cfg.places = @(); $UI.Docked = $false; $QS.Place = 0; $pop.Width = 340; $UI.Zoom = 1.0; Set-WebZoom 4
+Ok ($UI.Zoom -eq 1.2 -and $pop.Width -eq 340 -and -not $Cfg.panelWidth) "the small tray panel stays 340 wide at 120 % ($($pop.Width))"
+$UI.Zoom = 1.0; $Cfg.panelWidth = 1874; $Cfg.panelHeight = 996; $UI.Docked = $true; $QS.Place = -1
 $pop.Left = -1162; $pop.Top = 212; $pop.Width = 2203; Hold-PopOnScreen
 Ok ($pop.Left -eq 0 -and $pop.Width -eq 1920 -and $pop.Top -ge 0 -and $pop.Bottom -le 1040) "a panel found outside the screen is brought back when shown ($(Now9))"
 Ok (((Get-Content -Raw $path) -match "'placedel' \{") -and ((Get-Content -Raw $path) -match "'hotkey' \{")) 'menu actions are wired'
+$Cfg.panelWidth = $null; $Cfg.panelHeight = $null; $UI.Docked = $false; $QS.Place = 0
+# Ctrl+Alt+D: the tray panel, and a second press goes back to the window you came from
+function Show-PanelKb { }; $Cfg.places = @([ordered]@{ x = 27; b = 1036; w = 900; h = 700 }, [ordered]@{ x = 500; b = 900; w = 600; h = 500 }); $UI.Zoom = 1.0; $UI.Shown = $true; $UI.PlaceBack = $null
+Set-Place 2 $false; Invoke-HotKey 3; $a9 = Get-PlaceIx; $w9 = $pop.Width; Invoke-HotKey 3
+Ok ($a9 -eq 0 -and $w9 -eq 340 -and (Get-PlaceIx) -eq 2 -and $pop.Width -eq 600 -and $UI.Docked) "the tray-panel shortcut: from placement 2 to the small panel, and again: back to placement 2 ($a9 / $w9, then $(Now9))"
+$UI.PlaceBack = $null; Set-Place 0 $false; Invoke-HotKey 3; Ok ((Get-PlaceIx) -eq 1) "pressed on the small panel with nothing to go back to: your first placement ($(Get-PlaceIx))"
+$UI.Shown = $false; Set-Place 0 $false; $UI.Shown = $false; Invoke-HotKey 3; Ok ((Get-PlaceIx) -eq 0) 'pressed while the panel is hidden: it shows the small panel'
+$UI.Shown = $true
+foreach ($d in 1..30) { Set-WebZoom 1 }; $zmax9 = $UI.Zoom; foreach ($d in 1..40) { Set-WebZoom -1 }; Ok ($zmax9 -eq 2.0 -and $UI.Zoom -eq 0.5) "zoom goes from 50 % to 200 % ($($UI.Zoom) - $zmax9)"; $UI.Zoom = 1.0
 # the window's close button: hidden, next open = the small panel next to the tray, the spot it leaves is kept
 function Hide-Pop($why, $force) { $script:hid9 = "$why/$force"; $UI.Shown = $false }
 $Cfg.places = @([ordered]@{ x = 0; b = 1006; w = 1874; h = 996 }); $Cfg.panelWidth = 570; $Cfg.panelHeight = 663; $UI.Docked = $true; $UI.Shown = $true; $QS.Place = -1

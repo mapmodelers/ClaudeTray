@@ -327,6 +327,9 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   0.6 s or more (parts under 1.8 s join a neighbour, 8 at most) and all parts go through one run (`-f` / `-of` pairs).
   Graphics card: an optional second program in `whisper\cuda` (`$DictSpec.GpuUrl`), used by `Start-DictRun` when
   `Test-DictGpu`; a failed run sets `$UI.DictGpuBad` and the same sound is run again on the processor.
+- Zoom and sizes (0.3.31): `panelWidth` / `panelHeight` / `places[].w,h` are zoom-free (x zoom = pixels).
+  `Set-WebZoom` re-expresses all of them for the new zoom so the frame never moves; the default width is `px 340`
+  at any zoom.
 - Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
   working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
   `$pop.Width` from `Get-PanelW` directly.
