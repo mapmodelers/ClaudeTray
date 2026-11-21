@@ -44,8 +44,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   ok(!!mx, 'the page script is found in ClaudeTray.ps1');
   if (mx) {
     const row = t => ({ offsetParent: {}, innerText: t }), rows = [row('/\nAjouter des fichiers'), row('/​\nUtilisation\n,\nAfficher l’utilisation du forfait'), row('/📄\npc-runner'), row('/⌘ deep-research\nResearch a topic'), row('/clear\nClear the conversation'), row('morning')];
-    const read = JSON.parse(new Function('document', 'return ' + mx[1].replace(/""/g, '"'))({ querySelectorAll: () => rows })).items;
+    const read = JSON.parse(new Function('document', 'return ' + mx[1].replace(/""/g, '"').replace(/`\$/g, '$'))({ querySelectorAll: () => rows })).items;
     ok(JSON.stringify(read.map(o => o.n)) === '["Ajouter des fichiers","Utilisation","pc-runner","/deep-research","/clear","morning"]', 'names are read without the "/" marker line or its icon (' + JSON.stringify(read.map(o => o.n)) + ')');
+    ok(JSON.stringify(read.map(o => o.s)) === '[false,false,true,true,true,true]', 'what you can type (a lowercase name) is marked apart from menu actions with a label (' + JSON.stringify(read.map(o => o.s)) + ')');
     ok(read[1].d === 'Afficher l’utilisation du forfait' && read[2].d === '' && read[3].d === 'Research a topic', 'descriptions come without the lone comma (' + JSON.stringify(read.map(o => o.d)) + ')');
   }
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 3)));

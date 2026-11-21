@@ -330,6 +330,11 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
 - Zoom and sizes (0.3.31): `panelWidth` / `panelHeight` / `places[].w,h` are zoom-free (x zoom = pixels).
   `Set-WebZoom` re-expresses all of them for the new zoom so the frame never moves; the default width is `px 340`
   at any zoom.
+- Send and drafts (0.3.32): the pre-check's `not-empty` no longer stops a send. The page's unsent draft is read,
+  the box cleared, the message typed and sent, then the draft typed back (`$keepDraft`, in the `send` branch of the
+  web engine); `enter-lost` = the message never left the box. Skills button: `data-a="skills"` shows the skills
+  active in that conversation only (`skillsOf`: user messages starting with `/name`, plus `/tray`; remembered per
+  chat in `localStorage`), never the account's list, and changes nothing on claude.ai.
 - Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
   working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
   `$pop.Width` from `Get-PanelW` directly.

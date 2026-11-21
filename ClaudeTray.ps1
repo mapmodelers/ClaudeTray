@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.31'
+$Version = '0.3.32'
 try { [AppDomain]::MonitoringIsEnabled = $true } catch { }     # memory diagnostics: lets the heartbeat say how much was allocated and how much a full collection leaves
 # First / last / skip N of a pipeline WITHOUT Select-Object. In Windows PowerShell 5.1, Select-Object writes 'Selected.System.Management.Automation.PSCustomObject'
 # into the type names of every PSCustomObject that passes through it, each time, on the object itself. A long-lived object (a chat message kept between
@@ -2219,6 +2219,13 @@ $webScript = {
                                 } while ($pre -in 'wrong-page', 'no-composer' -and ((Get-Date) - $tw).TotalSeconds -lt 15)
                                 if ($pre -eq 'ok') { [void](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (e) e.focus(); })()" }) }
                             }
+                            # The box on claude.ai already holds a text that is not the one the tray just typed: a draft claude.ai kept for this chat (it survives reloads).
+                            # It used to block every message from the tray for that chat. Now it is set aside, the message goes, and the draft is put back as it was.
+                            $keepDraft = $null
+                            if ($pre -eq 'not-empty') {
+                                $kd = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (!e) return 'CT_NOT_CLEARED'; const ps = Array.from(e.children).filter(x => x.tagName === 'P'); const t = ps.length ? ps.map(p => (p.innerText || '').replace(/\u200b/g, '').replace(/\n+`$/, '')).join('\n') : (e.innerText || '').replace(/\u200b/g, ''); e.focus(); document.execCommand('selectAll'); document.execCommand('delete'); return (e.innerText || '').replace(/\u200b/g, '').trim().length ? 'CT_NOT_CLEARED' : t; })()"; returnByValue = $true }).result.result.value
+                                if ($kd -ne 'CT_NOT_CLEARED') { $keepDraft = $kd; $pre = 'ok'; WL ("{0}: the message box held an unsent draft ({1} characters): set aside for this message" -f $id, $kd.Length) }
+                            }
                             if ($pre -ne 'ok') { $res = $pre }
                             else {
                                 if (@($cmd.Files).Count) {           # attachments: the page's own file input (same as picking files), then wait for the upload
@@ -2240,6 +2247,13 @@ $webScript = {
                                 [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyDown'; key = 'Enter'; code = 'Enter'; windowsVirtualKeyCode = 13; nativeVirtualKeyCode = 13; text = "`r" })
                                 [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyUp'; key = 'Enter'; code = 'Enter'; windowsVirtualKeyCode = 13; nativeVirtualKeyCode = 13 })
                                 $res = 'sent'
+                                if ($null -ne $keepDraft) {           # the draft goes back once the message has left the box, 3 s at most. If it never left, the message is taken out again and reported as not sent
+                                    $lenJs = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); return e ? (e.innerText || '').replace(/\u200b/g, '').trim().length : -1; })()"
+                                    $tk = Get-Date; $left = 1
+                                    do { Start-Sleep -Milliseconds 150; try { $left = [int](Cdp $ws 'Runtime.evaluate' @{ expression = $lenJs; returnByValue = $true }).result.result.value } catch { $left = 1 } } while ($left -ne 0 -and ((Get-Date) - $tk).TotalSeconds -lt 3)
+                                    if ($left -ne 0) { $res = 'enter-lost'; try { [void](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (e) { e.focus(); document.execCommand('selectAll'); document.execCommand('delete'); } })()" }) } catch { } }
+                                    try { [void](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (e) e.focus(); })()" }); if ($keepDraft.Trim()) { [void](Cdp $ws 'Input.insertText' @{ text = $keepDraft }) }; WL ("{0}: the draft is back in the message box ({1} characters){2}" -f $id, $keepDraft.Length, $(if ($res -eq 'enter-lost') { ' - the message itself did not leave the box' } else { '' })) } catch { WL "$($id): the draft could not be put back: $($_.Exception.Message)" }
+                                }
                             }
                         } elseif ($cmd.Kind -eq 'more') {
                             $cm = $Web.Chats[$id]; $pg = 1 + $(if ($cm) { [int]$cm.MorePg } else { 0 }); if ($cm) { $cm.MorePg = $pg }
@@ -2277,7 +2291,7 @@ $webScript = {
                             if ($pre2 -ne 'ok') { $res = "slash:{`"err`":`"$pre2`"}" }
                             else {
                                 [void](Cdp $ws 'Input.insertText' @{ text = '/' }); Start-Sleep -Milliseconds 800
-                                $lst = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const vis = x => x.offsetParent !== null; const it = Array.from(document.querySelectorAll('[role=""option""], [role=""menuitem""], [cmdk-item]')).filter(vis).slice(0, 120); return JSON.stringify({ items: it.map(x => { const ls = (x.innerText || '').split('\n').map(s => s.replace(/[\u200b-\u200f\u2060\ufeff\ue000-\uf8ff]/g, '').trim()).filter(s => s.replace(/[,;:|\u00b7\u2013\u2014-]/g, '').trim()); if (ls.length > 1 && ls[0].charAt(0) === '/' && !/[A-Za-z0-9]/.test(ls[0])) ls.shift(); if (ls.length) ls[0] = ls[0].replace(/^\/[^A-Za-z0-9]+/, '/'); return { n: (ls[0] || '').slice(0, 60), d: ls.slice(1).join(' ').slice(0, 140) }; }).filter(o => o.n) }); })()"; returnByValue = $true }).result.result.value
+                                $lst = [string](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const vis = x => x.offsetParent !== null; const it = Array.from(document.querySelectorAll('[role=""option""], [role=""menuitem""], [cmdk-item]')).filter(vis).slice(0, 120); return JSON.stringify({ items: it.map(x => { const ls = (x.innerText || '').split('\n').map(s => s.replace(/[\u200b-\u200f\u2060\ufeff\ue000-\uf8ff]/g, '').trim()).filter(s => s.replace(/[,;:|\u00b7\u2013\u2014-]/g, '').trim()); if (ls.length > 1 && ls[0].charAt(0) === '/' && !/[A-Za-z0-9]/.test(ls[0])) ls.shift(); if (ls.length) ls[0] = ls[0].replace(/^\/[^A-Za-z0-9]+/, '/'); return { n: (ls[0] || '').slice(0, 60), d: ls.slice(1).join(' ').slice(0, 140), s: /^\/?[a-z0-9][a-z0-9:_.-]*`$/.test(ls[0] || '') }; }).filter(o => o.n) }); })()"; returnByValue = $true }).result.result.value
                                 [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyDown'; key = 'Escape'; code = 'Escape'; windowsVirtualKeyCode = 27; nativeVirtualKeyCode = 27 }); [void](Cdp $ws 'Input.dispatchKeyEvent' @{ type = 'keyUp'; key = 'Escape'; code = 'Escape'; windowsVirtualKeyCode = 27; nativeVirtualKeyCode = 27 })
                                 [void](Cdp $ws 'Runtime.evaluate' @{ expression = "(() => { const e = document.querySelector('div.ProseMirror[contenteditable=""true""]'); if (e && (e.innerText || '').trim() === '/') { e.focus(); document.execCommand('selectAll'); document.execCommand('delete'); } })()" })
                                 $res = 'slash:' + $lst
@@ -4197,7 +4211,7 @@ function Poll-NewChat {                               # results of catalog / new
     }
     if ($UI.SlashKey -and $Web.Results[$UI.SlashKey]) {          # the page's / commands and skills, for the panel's slash list
         $sr = [string]$Web.Results[$UI.SlashKey].Res; $Web.Results.Remove($UI.SlashKey); $UI.SlashKey = $null
-        try { $sj = $sr.Substring(6) | ConvertFrom-Json; $its = @($sj.items | Where-Object { $_.n } | ForEach-Object { $nm = ([string]$_.n).Trim(); if (-not $nm.StartsWith('/')) { $nm = '/' + ($nm -replace '\s+', '-').ToLower() }; [ordered]@{ n = $nm; d = [string]$_.d } }); $UI.Slash = @{ At = (Get-Date); Items = $its; Err = [string]$sj.err }; Log ("slash: {0} command(s){1}: {2}" -f $its.Count, $(if ($sj.err) { ' - ' + $sj.err } else { '' }), ((@($its | ForEach-Object { [string]$_.n }) | Limit-First 8) -join ' ')) } catch { $UI.Slash = @{ At = (Get-Date); Items = @(); Err = 'unreadable' } }
+        try { $sj = $sr.Substring(6) | ConvertFrom-Json; $its = @($sj.items | Where-Object { $_.n } | ForEach-Object { $nm = ([string]$_.n).Trim(); if (-not $nm.StartsWith('/')) { $nm = '/' + ($nm -replace '\s+', '-').ToLower() }; [ordered]@{ n = $nm; d = [string]$_.d; s = [bool]$_.s } }); $UI.Slash = @{ At = (Get-Date); Items = $its; Err = [string]$sj.err }; Log ("slash: {0} command(s){1}: {2}" -f $its.Count, $(if ($sj.err) { ' - ' + $sj.err } else { '' }), ((@($its | ForEach-Object { [string]$_.n }) | Limit-First 8) -join ' ')) } catch { $UI.Slash = @{ At = (Get-Date); Items = @(); Err = 'unreadable' } }
         Push-WebState
     }
     foreach ($pk0 in @($UI.CatProj.Keys)) {                   # a project opened in the Browse section: its conversations
@@ -4998,7 +5012,7 @@ $questTimer.add_Tick({
             $age = ((Get-Date) - $ws0.At).TotalSeconds
             if ($wres -and $wres.Res -ne 'sent') {
                 $UI.WebSends.Remove($sk); $Web.Results.Remove($sk); $UI.Drafts[[string]$ws0.Q.id] = $ws0.Text; $UI.Sending.Remove([string]$ws0.Q.id); $changed = $true
-                $why = switch ($wres.Res) { 'not-empty' { "the chat's message box already has text you typed there" } 'no-composer' { 'the chat page is not ready (signed in?)' } 'wrong-page' { "the chat's page moved - reload it" } default { $wres.Res } }
+                $why = switch ($wres.Res) { 'not-empty' { "the chat's message box already has text you typed there" } 'enter-lost' { 'the chat did not take the message' } 'no-composer' { 'the chat page is not ready (signed in?)' } 'wrong-page' { "the chat's page moved - reload it" } default { $wres.Res } }
                 Log ("send[{0}] browser: NOT sent - {1}; text back in the box" -f $ws0.Q.id, $why) 'WARN'
                 try { $tray.ShowBalloonTip(5000, 'Not sent', "Not sent: $why. Your text is back in the box.", [System.Windows.Forms.ToolTipIcon]::Warning) } catch { }
             } elseif ($wres -and $wcc -and ($wcc.Users -gt $ws0.Users -or $wcc.Working -or ($ws0.Key0 -and (([string]$wcc.LastUser -replace '\s+', ' ').Trim()).StartsWith($ws0.Key0)))) {     # count, working, or your text as the last message (the count moves when claude.ai unloads old messages)

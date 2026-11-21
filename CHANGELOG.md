@@ -2,6 +2,17 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.32
+
+- Fixed: a chat whose message box on claude.ai already held an unsent draft refused every message from the tray
+  ("text back in the box"), and the draft comes back after each reload, so that chat stayed blocked. The tray now
+  sets the draft aside, sends your message, and puts the draft back as it was.
+- Reply boxes: the paperclip is now at the far left, before the microphone. In its old place, a Skills button that
+  shows the skills active in that conversation: the ones a message of yours started with (`/name`), and `/tray`
+  when it is on. It lights up with their number; its menu names them, and a click on one starts your next message
+  with it again. It is a view of the chat only: claude.ai has no per-chat skill switch, and the tray changes nothing
+  on your account.
+
 ## 0.3.31
 
 - `Ctrl`+wheel changes the size of the text, not the size of the panel: the frame stays where it is and as big as it

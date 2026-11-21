@@ -87,7 +87,7 @@ textarea{width:100%;display:block;resize:none;border:0;outline:0;background:tran
 textarea::placeholder{color:var(--mu)}
 .comp{padding:2px 4px 4px}
 .cbox{display:flex;align-items:flex-end;gap:2px;background:var(--field);border:1px solid var(--ln);border-radius:9px;padding:2px 2px 2px 7px}
-.cbox textarea{flex:1;max-height:100px;padding:1px 0}body:not(.dicton) .micb{display:none!important}.micb{flex:none;opacity:.6}.micb:hover{opacity:1}.micb.rec{opacity:1;color:#e5484d;animation:micp 1s ease-in-out infinite}.micb.run{opacity:1;color:var(--acc);animation:micp .5s ease-in-out infinite}.micb.rec,.micb.run{display:inline-flex!important}@keyframes micp{50%{opacity:.35}}.cbox .micb{margin:0 1px 0 -4px}.mfld .micb{margin:0 1px 0 -3px}     /* the microphone: first thing in the box, far left */
+.cbox textarea{flex:1;max-height:100px;padding:1px 0}body:not(.dicton) .micb{display:none!important}.micb{flex:none;opacity:.6}.micb:hover{opacity:1}.micb.rec{opacity:1;color:#e5484d;animation:micp 1s ease-in-out infinite}.micb.run{opacity:1;color:var(--acc);animation:micp .5s ease-in-out infinite}.micb.rec,.micb.run{display:inline-flex!important}@keyframes micp{50%{opacity:.35}}[data-a=skills]{position:relative;opacity:.45}[data-a=skills][data-n]{opacity:1;color:var(--acc)}[data-a=skills][data-n]::after{content:attr(data-n);position:absolute;right:-1px;top:-3px;font-size:7.5px;line-height:1;color:var(--tx)}.lb{flex:none;opacity:.6}.lb:hover{opacity:1}.cbox .lb{margin:0 0 0 -4px}.mfld .lb{margin:0 0 0 -3px}.cbox .micb,.mfld .micb{margin:0 1px 0 0}     /* the microphone: first thing in the box, far left */
 .send{color:var(--acc)}.stop{color:var(--acc);display:none}
 .atts{display:flex;flex-wrap:wrap;gap:3px;margin:0 0 2px}.atts:empty{display:none}
 .att{display:inline-flex;align-items:center;gap:2px;max-width:100%;background:var(--card);border-radius:5px;padding:0 1px 0 3px;font-size:9.5px;color:var(--mu);height:16px}
@@ -127,7 +127,7 @@ body.compact .card:not(.open) .head{display:none}body.compact .card:not(.open) .
 body.compact .card:not(.open) .mdot{display:inline-flex;align-items:center;justify-content:center;width:14px;height:18px;flex:none;cursor:pointer;border-radius:4px}body.compact .card:not(.open) .mdot:hover{background:var(--ln)}body.compact .card:not(.open) .mdot .dot{margin:0}
 body.compact .card:not(.open) .mt{display:flex;align-items:center;gap:0;flex:none}body.compact .card:not(.open) .mt .ib{opacity:.7}.mtl{display:none}
 body.compact .card:not(.open) .mini:hover .mfld:not(:focus-within) .mi:placeholder-shown~.mtl{display:flex;align-items:center;position:absolute;right:2px;top:0;height:17px;z-index:1;border-radius:5px;background:var(--field);box-shadow:-8px 0 6px var(--field)}body.compact .card:not(.open) .mini:hover .mfld.wk:not(:focus-within) .mi:placeholder-shown~.mtl{right:19px}body.compact .card:not(.open) .mt .age{margin-left:3px;min-width:18px;text-align:right}
-body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=attach],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=mic],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=msend]{display:none}
+body.compact .card:not(.open) .mfld:not(:focus-within) .trc,body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=attach],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=mic],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=skills],body.compact .card:not(.open) .mfld:not(:focus-within) [data-a=msend]{display:none}
 .mph{display:none}body.compact .card:not(.open) .mph{display:block;position:absolute;left:6px;right:4px;top:0;line-height:17px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;color:var(--mu)}.mph b{font-weight:400;color:color-mix(in srgb,var(--tx) 66%,var(--mu))}.mph.un b{color:color-mix(in srgb,var(--tx) 84%,var(--mu))}.mph i{font-style:normal;opacity:.85}body.compact .card:not(.open) .mfld.wk .mph{right:20px}body.compact .card:not(.open) .mi:focus+.mph,body.compact .card:not(.open) .mi:not(:placeholder-shown)+.mph{display:none}body.compact .mi{font-size:11px}
 .mi:focus::placeholder{color:transparent!important}.mi:not(:focus):not(:placeholder-shown){font-style:italic}.mini .mi{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:10.5px;height:17px;padding:0}
 .mini .mi::placeholder{color:var(--mu)}.mini .ib{width:15px;height:15px}.mini .send{color:var(--acc)}
@@ -269,6 +269,7 @@ const I = {
   v1:'<svg viewBox="0 0 24 24"><path d="M5 9h14M5 15h9"/></svg>',
   v2:'<svg viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h14M5 20h8"/></svg>',
   plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  skill:'<svg viewBox="0 0 24 24"><path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z"/></svg>',
   mic:'<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   clip:'<svg viewBox="0 0 24 24"><path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/></svg>',
   dl:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
@@ -558,7 +559,7 @@ function render(){
   if (!S.shown) dirtyView = true; else dirtyView = false;
   { const hd = $('#hid'); if (hd) hd.remove(); }     // the "N hidden" line is gone: Browse brings hidden chats back
   renderRecent(L);
-  tabsDraw(); kMark(); dictMark(); fitConv(); sizeReport();
+  tabsDraw(); kMark(); dictMark(); skillMark(); fitConv(); sizeReport();
 }
 function recentRows(){                               // claude.ai chats active in the last 24 h that are not in the tray (newest first, at most 10)
   if (!LAY || !LAY.recent) return [];
@@ -602,9 +603,9 @@ function newChat(){
 }
 function makeCard(id){
   const el = document.createElement('div'); el.className = 'card'; el.dataset.id = id;
-  el.innerHTML = '<div class="head" title="Click to expand / collapse"></div><div class="body"><div class="sit"></div><div class="conv"><div class="msgs"></div><div class="actw"></div><div class="askw"></div></div><button class="jump" data-a="jump" title="Jump to the latest"></button><div class="comp"><div class="atts"></div><div class="cbox"><button class="ib micb" data-a="mic" title="Dictate: click, speak, click again - it is written down on this PC (Esc cancels)">' + I.mic + '</button><textarea rows="1" placeholder="Reply to Claude…"></textarea><input type="file" multiple hidden><button class="ib send" data-a="send" title="Send (Enter) - Shift+Enter: new line">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button>' +
-    '<button class="ib mchip" data-a="model" title="Model and effort" style="display:none"></button><button class="ib" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button><button class="trc" data-a="trc"></button><button class="pill" data-a="auto" title="Ask Claude to do these steps itself">auto</button></div></div></div>' +
-    '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation (right-click: open it next to the others)"></span><div class="mfld"><button class="ib micb" data-a="mic" title="Dictate: click, speak, click again - it is written down on this PC (Esc cancels)">' + I.mic + '</button><input class="mi" spellcheck="false"><span class="mph"></span><span class="mtl"></span><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><span class="mfiles"></span><button class="ib" data-a="attach" title="Attach files (or paste / drop)">' + I.clip + '</button><button class="trc" data-a="trc"></button></div><span class="mt"></span></div>';
+  el.innerHTML = '<div class="head" title="Click to expand / collapse"></div><div class="body"><div class="sit"></div><div class="conv"><div class="msgs"></div><div class="actw"></div><div class="askw"></div></div><button class="jump" data-a="jump" title="Jump to the latest"></button><div class="comp"><div class="atts"></div><div class="cbox"><button class="ib lb" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button><button class="ib micb" data-a="mic" title="Dictate: click, speak, click again - it is written down on this PC (Esc cancels)">' + I.mic + '</button><textarea rows="1" placeholder="Reply to Claude…"></textarea><input type="file" multiple hidden><button class="ib send" data-a="send" title="Send (Enter) - Shift+Enter: new line">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button>' +
+    '<button class="ib mchip" data-a="model" title="Model and effort" style="display:none"></button><button class="ib" data-a="skills" title="Skills active in this chat">' + I.skill + '</button><button class="trc" data-a="trc"></button><button class="pill" data-a="auto" title="Ask Claude to do these steps itself">auto</button></div></div></div>' +
+    '<div class="mini"><span class="mdot" data-a="toggle" draggable="true" title="Open the conversation (right-click: open it next to the others)"></span><div class="mfld"><button class="ib lb" data-a="attach" title="Attach files (or paste / drop them here)">' + I.clip + '</button><button class="ib micb" data-a="mic" title="Dictate: click, speak, click again - it is written down on this PC (Esc cancels)">' + I.mic + '</button><input class="mi" spellcheck="false"><span class="mph"></span><span class="mtl"></span><button class="ib send" data-a="msend" title="Send (Enter)">' + I.send + '</button><button class="ib stop" data-a="stop" title="Stop Claude">' + I.stop + '</button><span class="mfiles"></span><button class="ib" data-a="skills" title="Skills active in this chat">' + I.skill + '</button><button class="trc" data-a="trc"></button></div><span class="mt"></span></div>';
   el.querySelector('.head').draggable = true;
   el.insertAdjacentHTML('beforeend', '<div class="cvz" title="Drag: more room for one conversation or the other - double-click: share evenly"></div>');     // splitter under this card, shown when another open conversation follows
   const cd = { id: id, el: el, head: el.querySelector('.head'), conv: el.querySelector('.conv'), msgs: el.querySelector('.msgs'), actw: el.querySelector('.actw'), ta: el.querySelector('textarea'), send: el.querySelector('.send'), stop: el.querySelector('.stop'), auto: el.querySelector('.pill'), headH: '', actH: '', items: [], stick: true, full: new Set(), edit: new Set(), obs: {}, files: [], mi: el.querySelector('.mi'), mdot: el.querySelector('.mdot'), mph: el.querySelector('.mph'), mphH: '', mfld: el.querySelector('.mfld'), mt: el.querySelector('.mt'), mtl: el.querySelector('.mtl'), mtlH: '', mdH: '', mtH: '', mfiles: el.querySelector('.mfiles'), mstop: el.querySelector('.mini .stop'), sit: el.querySelector('.sit'), sitH: '', jump: el.querySelector('.jump'), ask: el.querySelector('.askw'), askH: '', atts: el.querySelector('.atts'), fin: el.querySelector('input[type=file]') };
@@ -969,6 +970,23 @@ function setFocus(id){                                    // its icon, or Ctrl+c
   userAt = Date.now(); render(); sizeReport(true);
   const cd = focusId && cards.get(focusId); if (cd) setTimeout(() => { try { cd.ta.focus({ preventScroll: true }); } catch (e) { } }, 0);
 }
+// Skills button: the skills active in THIS conversation = the ones it was started or continued with (a message of yours beginning with /name, or /tray on).
+// claude.ai has no per-chat skill switch (skills are on or off for the whole account), so this shows what the chat uses; it changes nothing on the account.
+let skSeen = {}; try { skSeen = JSON.parse(localStorage.getItem('ctSkillsSeen') || '{}') || {}; } catch (e) { skSeen = {}; }
+const SKNOT = new Set(['clear', 'compact', 'help', 'model', 'cost', 'usage', 'config', 'login', 'logout', 'init', 'review', 'context', 'resume', 'voice', 'status', 'memory', 'agents', 'mcp', 'permissions', 'exit', 'quit']);     // commands of Claude Code itself, not skills
+function skillBox(cd){ return document.body.classList.contains('compact') && cd.mi && cd.mi.offsetParent ? cd.mi : cd.ta; }
+function skillsOf(c){                                     // remembered per chat, since only the latest messages are loaded
+  const had = skSeen[c.id] || [], set = new Set(had), low = t => String(t).toLowerCase();
+  for (const m of c.msgs || []) if (m.r === 'u') { const mm = /^\s*\/([a-z0-9][\w:.-]*)/i.exec(m.t || ''); if (mm && !SKNOT.has(low(mm[1]))) set.add('/' + low(mm[1])); }
+  if (c.skill) set.add(low(c.trayCmd || '/tray'));
+  const out = [...set]; if (out.length !== had.length) { skSeen[c.id] = out; try { localStorage.setItem('ctSkillsSeen', JSON.stringify(skSeen)); } catch (e) { } }
+  return out; }
+function skillMark(){ for (const [id, cd] of cards) { const c = chatOf(id); if (!c) continue; const sk = skillsOf(c), n = String(sk.length || ''), tt = sk.length ? 'Skills active in this chat: ' + sk.join(', ') : 'No skill active in this chat yet';
+    for (const b of cd.el.querySelectorAll('[data-a="skills"]')) { if ((b.dataset.n || '') !== n) { if (n) b.dataset.n = n; else delete b.dataset.n; } if ((b.dataset.tt != null ? b.dataset.tt : b.title) !== tt) setTitle(b, tt); } } }
+function skillMenu(id, b){ const c = chatOf(id), r = b.getBoundingClientRect(); if (!c) return; const sk = skillsOf(c);
+  popMenu(r.left, r.top, [{ t: sk.length ? 'Skills active in this chat' : 'No skill active in this chat yet', off: true }].concat(sk.map(n => ({ t: n.slice(1), f: () => skillPut(id, n) })), sk.length ? [{ t: 'Click one to start your next message with it again', off: true }] : [{ t: 'A skill becomes active when a message starts with /its-name', off: true }]), true); }
+function skillPut(id, name){ const cd = cards.get(id); if (!cd) return; const fld = skillBox(cd), v = fld.value.replace(/^\s+/, ''), lo = v.toLowerCase(), n = name.toLowerCase();     // again on the same one takes it out
+  fld.value = lo === n || lo.startsWith(n + ' ') ? v.slice(name.length).replace(/^\s+/, '') : name + ' ' + v; fld.focus(); try { const e = fld.value.length; fld.setSelectionRange(e, e); } catch (x) { } fld.dispatchEvent(new Event('input', { bubbles: true })); }
 function modelMenuShow(){ const mm = S && S.modelMenu; if (!mmAt || !mm || mm.k === mmAt.k || mm.id !== mmAt.id) return; const at = mmAt; mmAt = null;
   if (!document.querySelector('#pmenu[data-mm]')) return;     // the wait menu was closed (you clicked elsewhere): nothing pops up later
   const c = chatOf(mm.id) || {};
@@ -1184,6 +1202,7 @@ document.addEventListener('click', e => {
     case 'unhide': post({ type: 'unhide', id: b.dataset.id }); b.disabled = true; unstick(b); break;
     case 'reload': post({ type: 'reload', id: id }); b.disabled = true; unstick(b); break;
     case 'unattall': { const cd = cards.get(id); cd.files = []; drawAtts(cd); break; }
+    case 'skills': skillMenu(id, b); break;
     case 'mic': { const cdm = cards.get(id), inMini = !!b.closest('.mfld'), bx = cdm && (inMini ? cdm.mi : cdm.ta); if (bx) { bx.focus(); post({ type: 'mic', id: id, box: inMini ? 'mi' : 'ta' }); } break; }     // dictation: the tray records and writes it down on this PC, then sends the text back (dictEv)
     case 'attach': if (String(id).startsWith('local/')) post({ type: 'addfolder', id: id }); else cards.get(id).fin.click(); break;     // local chats: files or a folder, given to the session by path
     case 'unatt': { const cd = cards.get(id); cd.files.splice(+b.dataset.i, 1); drawAtts(cd); break; }

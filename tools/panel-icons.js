@@ -12,9 +12,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   await p.goto('file://' + path.join(root, 'ui', 'panel.html'));
   const theme = { bg: '#262624', card: '#30302e', tx: '#eeece2', mu: '#9a978d', ln: '#3b3a37', acc: '#d97757', act: '#6296d6', pur: '#7e6bc4', ok: '#6fa876', field: '#30302e', bub: '#1a1a18' };
   const mk = (id, title, o) => Object.assign({ id, title, st: 'done', working: false, bell: true, age: '5m', preview: 'a fairly long last line from Claude that fills the field', web: true, msgs: [{ r: 'u', t: 'hello' }, { r: 'a', t: 'answer' }], steps: [] }, o);
-  const chats = [mk('chat/a', 'Alpha'), mk('chat/b', 'Bravo', { bell: false, pin: true }), mk('chat/c', 'Charlie', { working: true })];
-  let dictSt = 'on';
-  const state = o => Object.assign({ type: 'state', theme, nc: false, docked: false, maxH: 420, expanded: [], big: [], err: '', usage: [], hiddenAll: true, sides: { roomL: true, roomR: true }, mainW: 380, shown: true, chats, settings: { version: 'test', dict: dictSt } }, o);
+  let chats = [mk('chat/a', 'Alpha'), mk('chat/b', 'Bravo', { bell: false, pin: true }), mk('chat/c', 'Charlie', { working: true })];
+  let dictSt = 'on', slashSt = null;
+  const state = o => Object.assign({ type: 'state', theme, nc: false, docked: false, maxH: 420, expanded: [], big: [], err: '', usage: [], hiddenAll: true, sides: { roomL: true, roomR: true }, mainW: 380, shown: true, chats, settings: { version: 'test', dict: dictSt }, slash: slashSt }, o);
   const push = async o => { await p.evaluate(s => window.__h({ data: s }), state(o)); await p.waitForTimeout(130); };
   await push(); await push();
   const row = id => p.evaluate(id => { const c = document.querySelector('.card[data-id="' + id + '"]'), vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
@@ -42,7 +42,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   // microphone: in the full reply box always, in the one-line box once the cursor is in it
   await p.click('.card[data-id="chat/a"] .mi'); await p.waitForTimeout(120);
   ok((await p.evaluate(() => { const m = document.querySelector('.card[data-id="chat/a"] .mfld [data-a=mic]'); return !!m && m.offsetParent !== null; })), 'one-line box with the cursor in it: the microphone is there');
-  ok((await p.evaluate(() => { const f = document.querySelector('.card[data-id="chat/a"] .mfld'), m = f.querySelector('[data-a=mic]').getBoundingClientRect(), i = f.querySelector('.mi').getBoundingClientRect(), r = f.getBoundingClientRect(); return m.left - r.left < 6 && m.right <= i.left + 1; })), 'it is the first thing in the box, at the far left, before the text');
+  ok((await p.evaluate(() => { const f = document.querySelector('.card[data-id="chat/a"] .mfld'), m = f.querySelector('[data-a=mic]').getBoundingClientRect(), i = f.querySelector('.mi').getBoundingClientRect(), r = f.getBoundingClientRect(); const c = f.querySelector('[data-a=attach]').getBoundingClientRect(); return c.left - r.left < 6 && c.right <= m.left + 1 && m.right <= i.left + 1; })), 'at the far left of the box: the paperclip, then the microphone, then the text');
   { const n2 = await p.evaluate(() => window.__posts.length); await p.click('.card[data-id="chat/a"] .mfld [data-a=mic]'); await p.waitForTimeout(100);
     const r = await p.evaluate(n => ({ mic: window.__posts.slice(n).filter(m => m.type === 'mic' && m.id === 'chat/a' && m.box === 'mi').length, foc: document.activeElement.className.split(' ')[0] }), n2);
     ok(r.mic === 1 && r.foc === 'mi', 'a click on it asks the tray to listen for this box and leaves the cursor in the box (' + JSON.stringify(r) + ')'); }
@@ -63,7 +63,22 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   { const n3 = await p.evaluate(() => window.__posts.length); await p.click('.card[data-id="chat/a"] .cbox [data-a=mic]'); await p.waitForTimeout(100);
     const r = await p.evaluate(n => ({ mic: window.__posts.slice(n).filter(m => m.type === 'mic' && m.box === 'ta').length, foc: document.activeElement.tagName }), n3);
     ok(r.mic === 1 && r.foc === 'TEXTAREA', 'open chat: the microphone in the reply box does the same, cursor in the reply box (' + JSON.stringify(r) + ')'); }
-  ok((await p.evaluate(() => { const f = document.querySelector('.card[data-id="chat/a"] .cbox'), m = f.querySelector('[data-a=mic]').getBoundingClientRect(), i = f.querySelector('textarea').getBoundingClientRect(), r = f.getBoundingClientRect(); return m.left - r.left < 7 && m.right <= i.left + 1; })), 'open chat: the microphone is at the far left of the reply box');
+  ok((await p.evaluate(() => { const f = document.querySelector('.card[data-id="chat/a"] .cbox'), m = f.querySelector('[data-a=mic]').getBoundingClientRect(), i = f.querySelector('textarea').getBoundingClientRect(), r = f.getBoundingClientRect(); const c = f.querySelector('[data-a=attach]').getBoundingClientRect(), k = f.querySelector('[data-a=skills]').getBoundingClientRect(); return c.left - r.left < 7 && c.right <= m.left + 1 && m.right <= i.left + 1 && k.left >= i.right - 1; })), 'open chat: paperclip, microphone, then the text; the Skills button is on the right side');
+  // Skills button: only the skills active in THIS conversation (a message of yours starting with /name, or /tray on) - no list of everything available
+  { const sk = id => p.evaluate(id => { const b = document.querySelector('.card[data-id="' + id + '"] .cbox [data-a=skills]'); return { n: b.dataset.n || '', tt: b.dataset.tt != null ? b.dataset.tt : b.title }; }, id);
+    const menu = () => p.evaluate(() => [...document.querySelectorAll('#pmenu *')].filter(e => e.children.length === 0).map(e => e.textContent.trim()).filter(Boolean));
+    let k = await sk('chat/a'); ok(k.n === '' && /No skill active/.test(k.tt), 'a chat that used no skill: the button is faint and says so (' + JSON.stringify(k) + ')');
+    const n5 = await p.evaluate(() => window.__posts.length); await p.click('.card[data-id="chat/a"] .cbox [data-a=skills]'); await p.waitForTimeout(150);
+    ok((await menu())[0] === 'No skill active in this chat yet' && (await p.evaluate(n => window.__posts.slice(n).filter(m => m.type === 'slash').length, n5)) === 0, 'its menu says none, and nothing is read from claude.ai for it (' + JSON.stringify(await menu()) + ')'); await p.keyboard.press('Escape');
+    chats[0] = mk('chat/a', 'Alpha', { skill: true, trayCmd: '/tray', msgs: [{ r: 'u', t: '/pc-runner build it' }, { r: 'a', t: 'done' }, { r: 'u', t: '/clear' }, { r: 'u', t: 'thanks' }] }); await push(); await push();
+    k = await sk('chat/a'); ok(k.n === '2' && k.tt === 'Skills active in this chat: /pc-runner, /tray', 'a chat started with /pc-runner and with /tray on: the button shows 2 and names them; /clear is a command, not a skill (' + JSON.stringify(k) + ')');
+    chats[0] = mk('chat/a', 'Alpha', { skill: true, trayCmd: '/tray', msgs: [{ r: 'u', t: 'later message' }, { r: 'a', t: 'ok' }] }); await push(); await push();
+    k = await sk('chat/a'); ok(k.n === '2', 'the older message is no longer loaded: the chat still shows its two skills (' + JSON.stringify(k) + ')');
+    await p.click('.card[data-id="chat/a"] .cbox [data-a=skills]'); await p.waitForTimeout(150); const ms = await menu();
+    ok(ms[0] === 'Skills active in this chat' && ms.includes('pc-runner') && ms.includes('tray') && ms.length === 4, 'its menu lists only those two (' + JSON.stringify(ms) + ')');
+    await p.evaluate(() => { const i = [...document.querySelectorAll('#pmenu *')].filter(e => e.children.length === 0 && e.textContent.trim() === 'pc-runner')[0]; i.click(); }); await p.waitForTimeout(150);
+    ok((await p.evaluate(() => document.querySelector('.card[data-id="chat/a"] textarea').value)) === '/pc-runner ', 'a click on one starts your next message with it');
+    await p.evaluate(() => { const t2 = document.querySelector('.card[data-id="chat/a"] textarea'); t2.value = ''; t2.dispatchEvent(new Event('input', { bubbles: true })); }); }
   if (process.argv[3]) await p.screenshot({ path: process.argv[3], clip: { x: 0, y: 0, width: 380, height: 200 } });
   await p.click('.card[data-id="chat/a"] .head'); await p.waitForTimeout(250); await p.evaluate(() => document.activeElement.blur());
   dictSt = 'off'; await push(); await p.click('.card[data-id="chat/b"] .mi'); await p.waitForTimeout(120);
