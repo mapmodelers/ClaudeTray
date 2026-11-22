@@ -2,6 +2,19 @@
 
 Versions follow [semver](https://semver.org): 0.x = preview, things still move. 1.0.0 = stable.
 
+## 0.3.33
+
+- Window or tray panel. A panel pinned somewhere is now a normal program window: it has a taskbar button, shows in
+  `Alt+Tab`, other windows can cover it, and minimize sends it to the taskbar. Not pinned, it is the tray panel as
+  before (no taskbar button, above everything, leaves when you go elsewhere).
+- The middle window button makes it a full-screen window (the whole working area); click it again and it is the small
+  tray panel next to the tray. Dropping the panel against the top edge of the screen does the same as the button, and
+  dragging the full-screen window away from the top gives back the smaller window it was.
+- A click on its taskbar button, or on the tray icon, brings the window to the front or back from the taskbar; when it
+  was already the window in front, the click minimizes it. Close (also `Alt+F4`) still sends it back to the tray.
+- A window keeps the height you give it up to the whole screen (it used to be cut at 95 %).
+- Settings > "Window stays above the others" for a window that should stay on top like before.
+
 ## 0.3.32
 
 - Fixed: a chat whose message box on claude.ai already held an unsent draft refused every message from the tray

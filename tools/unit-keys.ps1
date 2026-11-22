@@ -2,7 +2,7 @@
 #   pwsh -NoProfile -File tools/unit-keys.ps1
 $path = Join-Path (Split-Path -Parent $PSScriptRoot) 'ClaudeTray.ps1'
 $tk = $null; $er = $null; $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tk, [ref]$er)
-$want = 'Invoke-HotKey', 'Close-Panel', 'Get-PopW', 'Hold-PopOnScreen', 'Set-WebZoom', 'ConvertTo-HotKey', 'Get-Places', 'Get-PlaceIx', 'Get-PlaceLabels', 'Save-PlaceNow', 'New-Place', 'Set-Place', 'Step-Place', 'Set-DockHere', 'Set-DockMemo'
+$want = 'Test-WinMax', 'Set-WinMax', 'Test-DropTop', 'Set-WinBack', 'End-PopMove', 'Invoke-HotKey', 'Close-Panel', 'Get-PopW', 'Hold-PopOnScreen', 'Set-WebZoom', 'ConvertTo-HotKey', 'Get-Places', 'Get-PlaceIx', 'Get-PlaceLabels', 'Save-PlaceNow', 'New-Place', 'Set-Place', 'Step-Place', 'Set-DockHere', 'Set-DockMemo'
 foreach ($f in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $want -contains $n.Name }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
 $lim = [regex]::Match([IO.File]::ReadAllText($path), "(?s)\`$LimitSrc = @'\r?\n(.*?)\r?\n'@"); . ([scriptblock]::Create($lim.Groups[1].Value))
 $fails = 0; function Ok($c, $t) { if ($c) { "ok   $t" } else { "FAIL $t"; $script:fails++ } }
@@ -19,7 +19,7 @@ function Save-CfgKey([string]$name, $value) { $o = [ordered]@{}; foreach ($kk in
 $UI = @{ Docked = $false; Zoom = 1.0; WebReady = $true }; $QS = @{ Place = $null; Dock = $null; DockB = $null }
 $pop = [pscustomobject]@{ Left = 1500; Top = 600; Width = 340; Height = 400 }; $pop | Add-Member ScriptProperty Bottom { $this.Top + $this.Height }; $pop | Add-Member ScriptProperty Location { New-Object System.Drawing.Point $this.Left, $this.Top }
 function px($v) { [int]$v }; function Get-PanelW { if ($Cfg.panelWidth) { [int]$Cfg.panelWidth } else { 340 } }
-$pop | Add-Member ScriptProperty Right { $this.Left + $this.Width }; $pop | Add-Member NoteProperty Visible $true; $pop | Add-Member ScriptMethod SetBounds { param($x, $y, $w, $h) $this.Left = $x; $this.Top = $y; $this.Width = $w; $this.Height = $h }
+$pop | Add-Member ScriptProperty Right { $this.Left + $this.Width }; $pop | Add-Member NoteProperty Visible $true; $pop | Add-Member NoteProperty WindowState 'Normal'; $pop | Add-Member ScriptMethod SetBounds { param($x, $y, $w, $h) $this.Left = $x; $this.Top = $y; $this.Width = $w; $this.Height = $h }
 function Place-SideWins { }
 function Get-WorkArea([int]$sx, [int]$sy) { [pscustomobject]@{ Left = 0; Top = 0; Right = 1920; Bottom = 1040; Width = 1920; Height = 1040 } }
 function Get-TrayPoint { New-Object System.Drawing.Point 1750, 1060 }
@@ -86,6 +86,44 @@ Ok ($a9 -eq 0 -and $w9 -eq 340 -and (Get-PlaceIx) -eq 2 -and $pop.Width -eq 600 
 $UI.PlaceBack = $null; Set-Place 0 $false; Invoke-HotKey 3; Ok ((Get-PlaceIx) -eq 1) "pressed on the small panel with nothing to go back to: your first placement ($(Get-PlaceIx))"
 $UI.Shown = $false; Set-Place 0 $false; $UI.Shown = $false; Invoke-HotKey 3; Ok ((Get-PlaceIx) -eq 0) 'pressed while the panel is hidden: it shows the small panel'
 $UI.Shown = $true
+# the middle window button: tray panel -> full-screen window -> tray panel; the full-screen window is not one of the three spots
+$Cfg.places = @([ordered]@{ x = 27; b = 1036; w = 900; h = 700 }, [ordered]@{ x = 500; b = 900; w = 600; h = 500 }); $UI.Zoom = 1.0; $UI.Shown = $true; $UI.PlaceBack = $null; Set-Place 0 $false
+Ok (-not (Test-WinMax)) 'the tray panel is not a full-screen window'
+Set-WinMax (-not (Test-WinMax))
+Ok ($UI.Docked -and $pop.Left -eq 0 -and $pop.Top -eq 0 -and $pop.Width -eq 1920 -and $pop.Height -eq 1040 -and (Test-WinMax) -and $QS.Place -eq -1 -and [int]$Cfg.panelWidth -eq 1920 -and [int]$Cfg.panelHeight -eq 1040) "middle button on the tray panel: a pinned window that fills the working area ($(Now9))"
+Set-WinMax (-not (Test-WinMax))
+Ok (-not $UI.Docked -and $pop.Width -eq 340 -and (Get-PlaceIx) -eq 0 -and (Get-Places).Count -eq 2 -and -not $Cfg.panelWidth) "middle button again: back to the small tray panel, and no placement was added ($(Now9), $((Get-Places).Count) placements)"
+Set-Place 2 $false; Set-WinMax $true; $p2 = (Get-Places)[1]; Ok ((Test-WinMax) -and $p2.w -eq 600 -and $p2.h -eq 500 -and (Get-Places).Count -eq 2) "from a smaller window: full screen, and that window's own size is untouched ($($p2.w) x $($p2.h))"
+Step-Place; Ok ((Get-Places).Count -eq 2 -and (Get-PlaceIx) -eq 0) "the next-placement shortcut from the full-screen window: on to the tray panel, the full screen is not saved as a spot ($((Get-Places).Count))"
+Set-WinMax $true; Invoke-HotKey 3; $w1 = $pop.Width; Invoke-HotKey 3; Ok ($w1 -eq 340 -and (Test-WinMax)) "Ctrl+Alt+D from the full-screen window: tray panel, and again: full-screen window ($w1, then $(Now9))"
+$pop.Left = 300; $pop.Top = 100; $pop.Width = 800; $pop.Height = 600; Ok (-not (Test-WinMax)) 'a smaller pinned window is not the full-screen one'
+Set-Place 0 $false; $UI.PlaceBack = $null
+# the full-screen window stays full screen once the page reports its height (the real Fit-WebPop cut it to 95 % of the screen, first 0.3.33 try)
+$fitStub9 = ${function:Fit-WebPop}; . ([scriptblock]::Create(@($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Fit-WebPop' }, $true))[0].Extent.Text))
+$UI.WebH = 500.0; $UI.Strip = $false; $UI.FoldAll = $false; $UI.WebOpen = @()
+$badz9 = ''; foreach ($z9 in 1.0, 1.1, 1.3, 1.5, 1.7, 2.0, 0.5) { Set-Place 0 $false; $UI.Zoom = $z9; Set-WinMax $true; Fit-WebPop; if (-not ($pop.Left -eq 0 -and $pop.Top -eq 0 -and $pop.Width -eq 1920 -and $pop.Height -eq 1040 -and (Test-WinMax))) { $badz9 += " zoom ${z9}: $(Now9)" } }
+Ok (-not $badz9) "full-screen window, then the page's height arrives: still the whole working area, at every zoom$badz9"
+$pop.Width = 1918; $pop.Height = 1000; $pop.Top = 40; Fit-WebPop; Ok ($pop.Width -eq 1920 -and $pop.Height -eq 1040 -and $pop.Top -eq 0) "started again as a full-screen window a few pixels short: set to the exact working area ($(Now9))"
+$UI.Zoom = 1.0; Set-Place 0 $false
+$Cfg.panelWidth = 800; $Cfg.panelHeight = 1000; $UI.Docked = $true; $QS.Place = -1; $pop.Left = 300; $pop.Width = 800; $pop.Height = 900; $pop.Top = 100; $QS.DockB = 1040; Fit-WebPop
+Ok ($pop.Height -eq 1000 -and $pop.Bottom -eq 1040 -and $pop.Left -eq 300 -and $pop.Width -eq 800) "a window keeps the height you gave it up to the whole screen (no more 95 % cut), and its place ($(Now9))"
+$Cfg.panelHeight = 1040; Fit-WebPop; Ok ($pop.Height -eq 1040 -and $pop.Top -eq 0 -and $pop.Width -eq 800 -and -not (Test-WinMax)) "a narrow window as tall as the screen is not taken for the full-screen one ($(Now9))"
+$Cfg.panelHeight = 600; Fit-WebPop; Ok ($pop.Height -eq 600 -and $pop.Bottom -eq 1040) "a smaller window keeps its own height ($(Now9))"
+${function:Fit-WebPop} = $fitStub9
+# let go against the top edge = full-screen window; a full-screen window dragged away = the window it was before
+$pop.Top = -13; Ok ((Test-DropTop 900 9) -and (Test-DropTop 900 30)) 'dropped at the top: the cursor near the edge, or the window pushed past it'
+$pop.Top = 63; Ok (-not (Test-DropTop 900 80)) 'dropped lower: not a full-screen request'
+$Cfg.places = @([ordered]@{ x = 27; b = 1036; w = 900; h = 700 }, [ordered]@{ x = 500; b = 900; w = 600; h = 500 }); Set-Place 2 $false; $fx9 = $pop.Left; $fy9 = $pop.Top
+$pop.Left = 480; $pop.Top = -10; End-PopMove $false $fx9 $fy9 800 4; $p2 = (Get-Places)[1]
+Ok ((Test-WinMax) -and $p2.x -eq 500 -and $p2.b -eq 900 -and $p2.w -eq 600 -and $p2.h -eq 500 -and (Get-Places).Count -eq 2 -and $UI.PreMax.W -eq 600 -and $UI.PreMax.H -eq 500) "a saved spot dragged to the top edge: full-screen window, the spot itself unchanged ($(Now9); spot $($p2.x),$($p2.b) $($p2.w)x$($p2.h))"
+$pop.Left = -1; $pop.Top = 63; End-PopMove $true 0 0 1000 80
+Ok (-not (Test-WinMax) -and $UI.Docked -and $pop.Width -eq 600 -and $pop.Height -eq 500 -and $pop.Left -eq 700 -and $pop.Top -eq 63 -and [int]$Cfg.panelWidth -eq 600 -and [int]$Cfg.panelHeight -eq 500 -and (Get-Places).Count -eq 2) "the full-screen window dragged away: the window size it had before, under the cursor ($(Now9))"
+Set-Place 0 $false; Set-WinMax $true; $pop.Left = 5; $pop.Top = 200; End-PopMove $true 0 0 100 220
+Ok (-not (Test-WinMax) -and $pop.Width -eq 1152 -and $pop.Height -eq 728 -and $pop.Left -eq 0 -and $pop.Top -eq 200) "full screen straight from the tray panel, dragged away: about two thirds of the screen, kept on screen ($(Now9))"
+Set-WinMax $true; $pop.Top = -8; End-PopMove $true 0 0 600 3; Ok (Test-WinMax) 'a full-screen window dragged and dropped back at the top: full screen again'
+$pop.Left = 400; $pop.Top = 300; End-PopMove $true 0 0 900 320; Ok ($pop.Width -eq 1152 -and $pop.Height -eq 728) "...and it still remembers the smaller size it had ($(Now9))"
+Set-Place 0 $false; $pop.Left = 900; $pop.Top = 300; End-PopMove $false 1580 632 1000 320; Ok ($UI.Docked -and (Get-PlaceIx) -ge 1 -and $pop.Width -eq 340) "an ordinary drag of the tray panel: pinned where you drop it, as before ($(Now9))"
+$Cfg.places = @([ordered]@{ x = 27; b = 1036; w = 900; h = 700 }, [ordered]@{ x = 500; b = 900; w = 600; h = 500 }); Set-Place 0 $false; $UI.PlaceBack = $null; $UI.PreMax = $null
 foreach ($d in 1..30) { Set-WebZoom 1 }; $zmax9 = $UI.Zoom; foreach ($d in 1..40) { Set-WebZoom -1 }; Ok ($zmax9 -eq 2.0 -and $UI.Zoom -eq 0.5) "zoom goes from 50 % to 200 % ($($UI.Zoom) - $zmax9)"; $UI.Zoom = 1.0
 # the window's close button: hidden, next open = the small panel next to the tray, the spot it leaves is kept
 function Hide-Pop($why, $force) { $script:hid9 = "$why/$force"; $UI.Shown = $false }
@@ -107,6 +145,8 @@ Ok ((Get-Content -Raw $path) -match "GpuSha256 = '[0-9A-F]{64}'" -and (Get-Conte
 # cutting a recording at its pauses (the real C# from the tray, on made-up sound: tone = speech, near-silence = pause)
 $au9 = [regex]::Match((Get-Content -Raw $path), "(?s)\`$DictAudioSrc = @'\r?\n(.*?)\r?\n'@").Groups[1].Value
 Add-Type -TypeDefinition ($au9 -replace 'namespace ClaudeTray', 'namespace A9')
+$raw9 = Get-Content -Raw $path
+Ok ($raw9 -match "'min' \{ if \(\`$UI\.Win\) \{ \`$pop\.WindowState = 'Minimized'" -and $raw9 -match "'frame' \{ Set-WinMax \(-not \(Test-WinMax\)\) \}" -and $raw9 -match 'function Sync-WinMode' -and $raw9 -match '0x00040000' -and $raw9 -notmatch 'FormWindowState' -and $raw9 -match 'GetWindowLong\(\$hPop, -16\)' -and $raw9 -match '0x00020000' -and $raw9 -match "add_FormClosing" -and $raw9 -match 'if \(\$UI\.Docked -and \(-not \$UI\.Win -or \$Cfg\.windowOnTop\)\) \{ Set-Activatable \$false \}') 'window mode is wired: minimize to the taskbar, the middle button, the taskbar style, and no Windows-only type in the logic'
 Ok ((Get-Content -Raw $path) -match "if \(-not \('ClaudeTray\.Audio' -as \[type\]\)\) \{ Add-Type -TypeDefinition \`$DictAudioSrc \}" -and $au9 -notmatch '\$"|\bout var\b|=>|\?\.') 'the cutting code is compiled at first use, apart from the tray''s own start, and uses no newer C# than Windows PowerShell has'
 function Wav9([string]$f, [object[]]$spec) { $ms = New-Object IO.MemoryStream; $w = New-Object IO.BinaryWriter $ms; $rnd = New-Object Random 7
     foreach ($sp in $spec) { $nn = [int]($sp[0] * 16000); for ($i = 0; $i -lt $nn; $i++) { $v = if ($sp[1]) { [int](9000 * [Math]::Sin($i * 0.05)) } else { $rnd.Next(-30, 30) }; $w.Write([int16]$v) } }

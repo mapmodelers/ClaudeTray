@@ -335,6 +335,17 @@ There's no Windows in a typical AI sandbox, and GDI+ won't render on Linux. Work
   web engine); `enter-lost` = the message never left the box. Skills button: `data-a="skills"` shows the skills
   active in that conversation only (`skillsOf`: user messages starting with `/name`, plus `/tray`; remembered per
   chat in `localStorage`), never the account's list, and changes nothing on claude.ai.
+- Window mode (0.3.33): `$UI.Win` follows `$UI.Docked` (`Sync-WinMode`, from `Show-Pop` and the 0.7 s timer): the
+  ex-style goes APPWINDOW / not NOACTIVATE (hide, change, show - never `ShowInTaskbar`, which recreates the handle
+  under WebView2) and the window is no longer topmost (`Set-PopZ`, config `windowOnTop`). Minimize = WinForms
+  `WindowState`; `Fit-WebPop` / `Hold-PopOnScreen` do nothing while minimized. Full screen = bounds equal to the
+  working area (`Test-WinMax`, no flag): `Set-WinMax`, never saved as a placement. `Fit-WebPop` keeps those exact bounds when the
+  saved height is the screen's (it once cut the window to 95 %). `Set-MinBox` adds WS_MINIMIZEBOX in window mode (a
+  borderless form has none, so the taskbar button would not minimize it); the `Deactivate` handler must not put
+  NOACTIVATE back on a normal window; `FormClosing` (Alt+F4, taskbar) is cancelled and runs `Close-Panel`. Both drag
+  paths end in `End-PopMove` (drop at the top = full screen, full screen dragged away = `Set-WinBack`). A minimized
+  form reports -32000,-32000: restore it before reading its place. Compare `"$($pop.WindowState)"`
+  as a string so the logic runs in the tests.
 - Panel on screen (0.3.27): every pixel width goes through `Get-PopW` (config width x zoom, capped to the screen's
   working area); `Hold-PopOnScreen` (end of `Show-Pop`, after a zoom) clamps size and position. Never set
   `$pop.Width` from `Get-PanelW` directly.

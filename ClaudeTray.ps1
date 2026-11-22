@@ -54,7 +54,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '0.3.32'
+$Version = '0.3.33'
 try { [AppDomain]::MonitoringIsEnabled = $true } catch { }     # memory diagnostics: lets the heartbeat say how much was allocated and how much a full collection leaves
 # First / last / skip N of a pipeline WITHOUT Select-Object. In Windows PowerShell 5.1, Select-Object writes 'Selected.System.Management.Automation.PSCustomObject'
 # into the type names of every PSCustomObject that passes through it, each time, on the object itself. A long-lived object (a chat message kept between
@@ -3179,7 +3179,8 @@ function Poll-Running {
 $pop = New-Object System.Windows.Forms.Form
 $pop.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
 $pop.ShowInTaskbar = $false
-$pop.MaximizeBox = $false; $pop.MinimizeBox = $false     # the top band is a native drag region: a double-click must not maximize the panel
+$pop.MaximizeBox = $false; $pop.MinimizeBox = $true      # the top band is a native drag region: a double-click must not maximize the panel. Minimize is for the window mode (taskbar button)
+$pop.Text = 'Tray for Claude'; try { $icoP = Join-Path $Root 'ui\app.ico'; if (Test-Path $icoP) { $pop.Icon = New-Object System.Drawing.Icon $icoP } } catch { }
 $pop.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
 $pop.BackColor = $T.Bg; $pop.ForeColor = $T.Tx; $pop.Font = $FUi
 $pop.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None     # sizes are already in px (DPI-scaled by px); font-autoscale would grow the form again
@@ -3307,6 +3308,64 @@ function Set-Activatable([bool]$on) {
     $ex = [ClaudeTray.Native]::GetWindowLong($hPop, -20)
     $ex = if ($on) { $ex -band (-bnot 0x08000000) } else { $ex -bor 0x08000000 }
     [void][ClaudeTray.Native]::SetWindowLong($hPop, -20, $ex)
+}
+# ---- window or tray panel (0.3.33) ------------------------------------------------------------------------------------------------
+# Pinned somewhere = a normal program window: a taskbar button, Alt+Tab, minimize to the taskbar, other windows can cover it.
+# Not pinned = the tray panel: no taskbar button, above everything, leaves when you go elsewhere. Sync-WinMode makes the window follow $UI.Docked.
+function Set-PopZ { try { [void][ClaudeTray.Native]::SetWindowPos($hPop, [IntPtr]$(if ($UI.Win -and -not $Cfg.windowOnTop) { -2 } else { -1 }), 0, 0, 0, 0, 0x0013) } catch { } }     # not above everything as a window (unless you ask for it in Settings); 0x13 = keep size, place and focus
+function Set-MinBox([bool]$on9) {                    # WS_MINIMIZEBOX: without it Windows does not minimize a borderless window when you click its taskbar button (WinForms leaves it out for FormBorderStyle None)
+    try { $st9 = [ClaudeTray.Native]::GetWindowLong($hPop, -16); $nst9 = if ($on9) { $st9 -bor 0x00020000 } else { $st9 -band (-bnot 0x00020000) }; if ($nst9 -ne $st9) { [void][ClaudeTray.Native]::SetWindowLong($hPop, -16, $nst9) } } catch { }
+}
+function Sync-WinMode {
+    $want9 = [bool]$UI.Docked; if ($want9 -eq [bool]$UI.Win) { return }
+    $UI.Win = $want9
+    try {
+        $vis9 = $pop.Visible -and "$($pop.WindowState)" -eq 'Normal'
+        if ($vis9) { [void][ClaudeTray.Native]::ShowWindow($hPop, 0) }                      # the taskbar only takes the change on a hide and show
+        $ex9 = [ClaudeTray.Native]::GetWindowLong($hPop, -20)
+        $ex9 = if ($want9) { ($ex9 -band (-bnot 0x08000080)) -bor 0x00040000 } else { ($ex9 -band (-bnot 0x00040000)) -bor 0x00000080 }     # window: activatable, in the taskbar / tray panel: tool window
+        [void][ClaudeTray.Native]::SetWindowLong($hPop, -20, $ex9); Set-MinBox $want9
+        if ($vis9) { [void][ClaudeTray.Native]::ShowWindow($hPop, $(if ($want9) { 5 } else { 8 })) }
+        Set-PopZ
+    } catch { Log "window mode: $($_.Exception.Message)" 'WARN' }
+    Log ("panel is now {0}" -f $(if ($want9) { 'a window (taskbar button)' } else { 'the tray panel' }))
+}
+function Test-WinMax {                               # the window fills its screen's working area (the full-screen window)
+    if (-not $UI.Docked) { return $false }
+    $w9 = Get-WorkArea ($pop.Left + [int]($pop.Width / 2)) ($pop.Top + [int]($pop.Height / 2))
+    return ([Math]::Abs($pop.Left - $w9.Left) -le 4 -and [Math]::Abs($pop.Top - $w9.Top) -le 4 -and [Math]::Abs($pop.Width - $w9.Width) -le 4 -and [Math]::Abs($pop.Height - $w9.Height) -le 4)
+}
+function Set-WinMax([bool]$on9, [int]$sx9 = -99999, [int]$sy9 = -99999) {     # the middle window button: a full-screen window, and from there back to the tray panel. sx, sy: a point of the screen to fill (a drop against its top edge); else the screen the panel is on
+    if (-not $on9) { Set-Place 0 $false; return }
+    if ("$($pop.WindowState)" -ne 'Normal') { $pop.WindowState = 'Normal' }
+    if ((Get-PlaceIx) -ge 1 -and $UI.Docked) { Save-PlaceNow }                              # the spot you leave keeps its own size
+    $w9 = if ($sx9 -ne -99999) { Get-WorkArea $sx9 $sy9 } elseif ($pop.Visible) { Get-WorkArea ($pop.Left + [int]($pop.Width / 2)) ($pop.Top + [int]($pop.Height / 2)) } else { $tp9 = Get-TrayPoint; Get-WorkArea $tp9.X $tp9.Y }     # the screen the panel is on (the tray's screen when it is hidden)
+    $fw9 = [int][Math]::Floor($w9.Width / ($k * $UI.Zoom)); $fh9 = [int][Math]::Floor($w9.Height / ($k * $UI.Zoom))
+    if (-not $UI.Docked) { $UI.PreMax = $null } elseif ([int]$Cfg.panelWidth -gt 0 -and ([int]$Cfg.panelWidth -lt $fw9 - 2 -or ([int]$Cfg.panelHeight -gt 0 -and [int]$Cfg.panelHeight -lt $fh9 - 2))) { $UI.PreMax = @{ W = [int]$Cfg.panelWidth; H = [int]$Cfg.panelHeight } }     # the window size to come back to when the full-screen window is dragged away
+    $UI.Docked = $true; $UI.RestoreDock = $false; $UI.ClickHid = $false; $QS.Place = -1
+    Save-CfgKey 'panelWidth' $fw9; Save-CfgKey 'panelHeight' $fh9
+    $pop.SetBounds($w9.Left, $w9.Top, $w9.Width, $w9.Height); Set-DockMemo; Save-State
+    Show-Pop 'window'; $UI.Pinned = $true; $pop.SetBounds($w9.Left, $w9.Top, $w9.Width, $w9.Height); Push-WebState $true
+    Log ("full-screen window: {0}x{1} at {2},{3}" -f $pop.Width, $pop.Height, $pop.Left, $pop.Top)
+}
+function Test-DropTop([int]$cx9, [int]$cy9) {        # let go against the top edge of the screen (or pushed past it): Windows' own way to ask for full screen
+    $w9 = Get-WorkArea $cx9 $cy9
+    return ($cy9 -le $w9.Top + (px 12) -or $pop.Top -le $w9.Top - (px 6))
+}
+function Set-WinBack([int]$cx9, [int]$cy9) {         # the full-screen window dragged away: a smaller window again (the size it had before; else about two thirds of the screen), under the cursor
+    $w9 = Get-WorkArea $cx9 $cy9; $zk9 = $k * $UI.Zoom
+    $pw9 = if ($UI.PreMax -and [int]$UI.PreMax.W -gt 0) { [int]$UI.PreMax.W } else { [int][Math]::Floor($w9.Width * 0.6 / $zk9) }
+    $ph9 = if ($UI.PreMax -and [int]$UI.PreMax.H -gt 0) { [int]$UI.PreMax.H } else { [int][Math]::Floor($w9.Height * 0.7 / $zk9) }
+    Save-CfgKey 'panelWidth' $pw9; Save-CfgKey 'panelHeight' $ph9; $UI.PreMax = $null
+    $nw9 = [Math]::Min((px ($pw9 * $UI.Zoom)), $w9.Width); $nh9 = [Math]::Min((px ($ph9 * $UI.Zoom)), $w9.Height)
+    $nx9 = [Math]::Max($w9.Left, [Math]::Min($cx9 - [int]($nw9 / 2), $w9.Right - $nw9)); $ny9 = [Math]::Max($w9.Top, [Math]::Min($pop.Top, $w9.Bottom - $nh9))
+    $pop.SetBounds($nx9, $ny9, $nw9, $nh9)
+    Log ("full-screen window dragged away: {0}x{1} at {2},{3}" -f $nw9, $nh9, $nx9, $ny9)
+}
+function End-PopMove([bool]$wasMax9, [int]$fx9, [int]$fy9, [int]$cx9, [int]$cy9) {     # the panel was dragged and let go (either way of dragging). fx, fy: where it was before; cx, cy: the cursor
+    if (Test-DropTop $cx9 $cy9) { if (-not $wasMax9 -and (Get-PlaceIx) -ge 1) { $pop.Left = $fx9; $pop.Top = $fy9 }; Set-WinMax $true $cx9 $cy9; return }     # (a saved spot keeps its own place: the drag to the top is not a move of that spot)
+    if ($wasMax9) { Set-WinBack $cx9 $cy9 }
+    Set-DockHere
 }
 function Set-DockMemo { $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); $QS.DockB = $pop.Bottom }   # remember the pinned spot (top-left for old state.json + its bottom edge = the anchor)
 function Pin-Pop { if (-not $UI.Pinned) { $UI.Pinned = $true; Set-Activatable $true; try { $pop.Activate() } catch { } } }
@@ -3871,6 +3930,7 @@ function Update-TrayIcon {
 
 function Show-Pop([string]$why = 'hover') {
     $UI.ShowWhy = $why
+    if ("$($pop.WindowState)" -ne 'Normal') { $pop.WindowState = 'Normal' }     # it was minimized to the taskbar (first: a minimized window reports a place far off the screen)
     if (-not $UI.Built -or (Get-ViewSig) -ne $UI.ViewSig) { Build-Rows } else { Update-Live; Log "show: reused prebuilt flyout" 'DEBUG' }
     $cur = [System.Windows.Forms.Cursor]::Position
     if ($why -eq 'shortcut' -or $why -eq 'place') { $cur = Get-TrayPoint }     # opened from the keyboard: the cursor is anywhere, the panel still belongs next to the tray icons
@@ -3900,15 +3960,17 @@ function Show-Pop([string]$why = 'hover') {
         $y = [Math]::Max($sb.Top + $gap, [Math]::Min($y, $sb.Bottom - $h - $gap))
         $pop.Location = New-Object System.Drawing.Point $x, $y
     }
+    Sync-WinMode; if ($UI.Win) { Set-Activatable ($why -ne 'restore pinned') }     # a window put back at start-up must not take the keyboard from what you are doing
     Hold-PopOnScreen
     if (-not $pop.Visible) { $pop.Opacity = 1.0; $pop.Show() }   # WinForms Show (creates the child controls); WS_EX_NOACTIVATE keeps focus where it is
-    [void][ClaudeTray.Native]::SetWindowPos($hPop, [IntPtr](-1), $pop.Left, $pop.Top, $pop.Width, $pop.Height, 0x0010 -bor 0x0040)
+    [void][ClaudeTray.Native]::SetWindowPos($hPop, [IntPtr]$(if ($UI.Win -and -not $Cfg.windowOnTop) { -2 } else { -1 }), $pop.Left, $pop.Top, $pop.Width, $pop.Height, 0x0010 -bor 0x0040)
+    if ($UI.Win) { Set-MinBox $true; Set-Activatable $true; if ($why -ne 'restore pinned') { try { [void][ClaudeTray.Native]::SetForegroundWindow($hPop); $pop.Activate() } catch { } } }     # a window you ask for comes to the front
     $UI.LeftAt = $null; $UI.FgSeen = $null; $UI.ShownAt = Get-Date; if (-not $UI.ShotAt) { $UI.ShotAt = (Get-Date).AddMilliseconds(500); $UI.ShotWhy = $why }
     $UI.Shown = $true
     Log ("show ({0}) {1}x{2} at {3},{4} cursor {5},{6}" -f $UI.ShowWhy, $pop.Width, $pop.Height, $pop.Left, $pop.Top, $cur.X, $cur.Y) 'DEBUG'
 }
 function Save-PopShot([string]$why) {          # logs\flyout-last.png: the panel exactly as on screen, for remote debugging (local only)
-    if (-not ($Cfg.screenshots -or $Cfg.debugLog) -or -not $pop.Visible) { return }
+    if (-not ($Cfg.screenshots -or $Cfg.debugLog) -or -not $pop.Visible -or "$($pop.WindowState)" -ne 'Normal') { return }
     try {
         $rc = $pop.Bounds; if ($UI.Sides) { foreach ($sd in @($UI.Sides.Values)) { if ($sd.Open) { $rc = [System.Drawing.Rectangle]::Union($rc, $sd.Form.Bounds) } } }    # panel + open reading windows
         $bmp = New-Object System.Drawing.Bitmap $rc.Width, $rc.Height
@@ -4375,7 +4437,7 @@ function Push-WebState([bool]$force = $false) {
                              err = $werr; usage = $us; catalog = $UI.Catalog; twins = $(if ($UI.Twin) { $UI.Twin } else { @{} }); desklocal = @(if (($QS.Layout -and $QS.Layout.browse) -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count) { try { Get-DesktopLocal } catch { } }); deskSeen = [bool](@($script:DeskLocalCache).Count -or @($QS.List | Where-Object { ([string]$_.id).StartsWith('local/') }).Count); deskOnly = @($QS.DeskOnly.Keys); seen = $(try { $sm = @{}; foreach ($sq in @($QS.List)) { $sl = Get-LastActivity $sq; $sr = $(if ($QS.Read[[string]$sq.id]) { $QS.Read[[string]$sq.id].At } else { $null }); $sv = $(if ($sr -is [datetime]) { $sr } elseif ($sq.LastSent -is [datetime]) { $sq.LastSent } else { $sq.Upd }); if ($sv) { $sm[[string]$sq.id] = ([datetime]$sv).ToUniversalTime().ToString('o') } }; $sm } catch { @{} }); newchat = $(if ($UI.NewChat) { [ordered]@{ st = $UI.NewChat.St; id = [string]$UI.NewChat.Id; msg = [string]$UI.NewChat.Msg; key = [string]$UI.NewChat.Key } } else { $null }); hiddenAll = (@($QS.List).Count -gt 0)     # seen = when you last saw each tracked chat (Browse dot)
                              hidden = @(foreach ($qh in @($QS.List | Where-Object { -not $_.Visible -and -not ([string]$_.id).StartsWith('local/') -or (-not $_.Visible -and $Caps.Local) } | Limit-First 30)) { [ordered]@{ id = [string]$qh.id; title = [string]$qh.title; age = (Format-Age $qh.Upd); at = ([datetime]$qh.Upd).ToUniversalTime().ToString('o') } })
                              pins = @($QS.Pins.Keys); webHint = (Get-WebHint); layout = $QS.Layout; sideOn = [bool]$Cfg.sideWindows; fixedH = [int]$Cfg.panelHeight
-                             modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ dict = $(if (-not (Test-DictOn)) { 'off' } elseif ((Get-DictState) -eq 'ready') { 'on' } elseif ($UI.DictDl) { 'dl' } else { 'none' }); dictMb = [int]$DictSpec.Mb; dictGpu = $(if (Test-DictOn) { Get-DictGpuState } else { 'na' }); dictGpuOn = [bool]($Cfg.dictationGpu -ne $false); dictGpuMb = [int]$DictSpec.GpuMb; hot = $UI.Hot; places = @(Get-PlaceLabels); place = (Get-PlaceIx); keepApp = [bool]$Cfg.keepClaudeApp; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
+                             modelMenu = $UI.ModelMenu; offline = (Test-Offline); update = @{ st = [string]$UI.Upd.St; cur = $Version; new = [string]$UI.Upd.New; how = [string]$UI.Upd.How; msg = [string]$UI.Upd.Msg }; caps = [ordered]@{ renameWeb = [bool]($webEnabled -and $UI.Org); renameLocal = $true; park = [bool]$Caps.Park; ghost = [bool]$Caps.Ghost }; settings = [ordered]@{ winTop = [bool]$Cfg.windowOnTop; dict = $(if (-not (Test-DictOn)) { 'off' } elseif ((Get-DictState) -eq 'ready') { 'on' } elseif ($UI.DictDl) { 'dl' } else { 'none' }); dictMb = [int]$DictSpec.Mb; dictGpu = $(if (Test-DictOn) { Get-DictGpuState } else { 'na' }); dictGpuOn = [bool]($Cfg.dictationGpu -ne $false); dictGpuMb = [int]$DictSpec.GpuMb; hot = $UI.Hot; places = @(Get-PlaceLabels); place = (Get-PlaceIx); keepApp = [bool]$Cfg.keepClaudeApp; park = [bool]$Cfg.parkDesktop; ghost = [bool]$Cfg.ghostDesktop; hideAfter = (Get-HideAfterMin); theme = $(if ($Cfg.theme) { [string]$Cfg.theme } else { 'auto' }); terse = [bool]$Cfg.terse; compact = [bool]$Cfg.compact; debug = [bool]$Cfg.debugLog; start = $(if (-not (Test-Path $LnkBoot)) { 'manual' } elseif ([string]$Cfg.startWith -eq 'claude') { 'claude' } else { 'windows' }); sized = [bool]($Cfg.panelWidth -or $Cfg.panelHeight); version = $Version; light = [bool]$UI.Light; signedIn = [bool]($webEnabled -and @($Web.Chats.Values | Where-Object { $_.Ok }).Count) }; slash = $(if ($UI.Slash) { [ordered]@{ items = @($UI.Slash.Items); err = [string]$UI.Slash.Err } } else { $null }); chats = @(foreach ($q in $vis) { Get-WebUiChat $q }) }
         $json = ConvertTo-Json -InputObject $state -Depth 8 -Compress
         for ($mi2 = 0; $mi2 -lt $UI.WebMsgIdx.Count; $mi2++) { $json = $json.Replace("`"__MSGS_$($mi2)__`"", $UI.WebMsgIdx[$mi2]) }
         if ($force -or $json -ne $UI.WebJson) {
@@ -4385,11 +4447,17 @@ function Push-WebState([bool]$force = $false) {
     } catch { Log ("webui push: {0} @ line {1}" -f $_.Exception.Message, $_.InvocationInfo.ScriptLineNumber) 'ERR' }
 }
 function Fit-WebPop {                                # page height (CSS px) -> panel height; bottom edge fixed (attached or pinned), only the top moves, never off-screen
-    if (-not $UI.WebH) { return }
-    $wa = [System.Windows.Forms.Screen]::FromControl($pop).WorkingArea
+    if (-not $UI.WebH -or "$($pop.WindowState)" -ne 'Normal') { return }
+    $wa = Get-WorkArea ($pop.Left + [int]($pop.Width / 2)) ($pop.Top + [int]($pop.Height / 2))
     if ($UI.Rsz -or $UI.Drag -or $UI.MoveFrom) { return }      # you're resizing or moving it (re-fitted on release)
-    $nh = if ([int]$Cfg.panelHeight -gt 0 -and -not $UI.Strip -and (@($UI.WebOpen).Count -or -not $UI.FoldAll)) {     # the height you set stays when you close a chat; only 'collapse all' shrinks the panel
-        [Math]::Min((px ([int]$Cfg.panelHeight * $UI.Zoom)), [int]($wa.Height * 0.95)) } else { [Math]::Min([Math]::Max((px $(if ($UI.Strip) { 18 } else { 60 })), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }     # status line (Ctrl+click on the grip): one row of marks
+    $hp9 = if ([int]$Cfg.panelHeight -gt 0) { px ([int]$Cfg.panelHeight * $UI.Zoom) } else { 0 }
+    $full9 = $UI.Docked -and -not $UI.Strip -and $hp9 -ge ($wa.Height - [int][Math]::Ceiling($k * $UI.Zoom) - 1)     # the height you gave is the whole screen (give or take what the zoom rounds away)
+    if ($full9 -and [Math]::Abs($pop.Left - $wa.Left) -le 4 -and [Math]::Abs($pop.Width - $wa.Width) -le 4) {     # the full-screen window: exactly its screen's working area, whatever the page holds (it was cut to 95 % of the screen a moment after the click, first 0.3.33 try)
+        if ($pop.Left -ne $wa.Left -or $pop.Top -ne $wa.Top -or $pop.Width -ne $wa.Width -or $pop.Height -ne $wa.Height) { if ($pop.Visible) { $pop.SetBounds($wa.Left, $wa.Top, $wa.Width, $wa.Height) } else { $pop.Left = $wa.Left; $pop.Top = $wa.Top; $pop.Width = $wa.Width; $pop.Height = $wa.Height } }
+        $UI.DockPos = $pop.Location; $QS.Dock = @($pop.Left, $pop.Top); $QS.DockB = $pop.Bottom; return
+    }
+    $nh = if ($hp9 -gt 0 -and -not $UI.Strip -and (@($UI.WebOpen).Count -or -not $UI.FoldAll)) {     # the height you set stays when you close a chat; only 'collapse all' shrinks the panel
+        if ($full9) { $wa.Height } else { [Math]::Min($hp9, $(if ($UI.Docked) { $wa.Height } else { [int]($wa.Height * 0.95) })) } } else { [Math]::Min([Math]::Max((px $(if ($UI.Strip) { 18 } else { 60 })), [int]([double]$UI.WebH * $k * $UI.Zoom) + 2), [int]($wa.Height * 0.7)) }     # status line (Ctrl+click on the grip): one row of marks
     if ($nh -eq $pop.Height -and $pop.Bottom -le $wa.Bottom -and $pop.Top -ge $wa.Top) { return }
     if ($UI.Docked -and $null -eq $QS.DockB) { $QS.DockB = $pop.Bottom }      # old state.json had no bottom
     $bot = if ($UI.Docked) { [int]$QS.DockB } else { $pop.Bottom }           # pinned: the remembered bottom, so a clamp below never drifts it
@@ -4501,6 +4569,7 @@ function Get-PopW {                                  # the panel's width in pixe
     return $w9
 }
 function Hold-PopOnScreen {                          # the panel never ends bigger than its screen's working area or partly outside it (Ctrl+wheel on a near full-screen panel pushed it out of reach, 0.3.26)
+    if ("$($pop.WindowState)" -ne 'Normal') { return }     # minimized to the taskbar: nothing to hold
     try {
         $waH = Get-WorkArea ($pop.Left + [int]($pop.Width / 2)) ($pop.Top + [int]($pop.Height / 2))
         $nw9 = [Math]::Min($pop.Width, $waH.Width); $nh9 = [Math]::Min($pop.Height, $waH.Height)
@@ -4603,18 +4672,18 @@ function Get-PlaceLabels { $lb9 = @(); foreach ($p9 in (Get-Places)) { $lb9 += (
 function Get-WorkArea([int]$sx, [int]$sy) { return [System.Windows.Forms.Screen]::FromPoint((New-Object System.Drawing.Point $sx, $sy)).WorkingArea }     # the usable area of the screen holding that point (the nearest screen when it is on none)
 function Save-PlaceNow {                             # write where the panel is, and its size, into the placement in use
     $ix9 = Get-PlaceIx
-    if ($ix9 -le 0 -or -not $UI.Docked) { return }     # the default spot has no size of its own: it is always compact
+    if ($ix9 -le 0 -or -not $UI.Docked -or "$($pop.WindowState)" -ne 'Normal') { return }     # the default spot has no size of its own: it is always compact
     $pl9 = Get-Places; $pl9[$ix9 - 1] = [ordered]@{ x = [int]$pop.Left; b = $(if ($null -ne $QS.DockB) { [int]$QS.DockB } else { [int]$pop.Bottom }); w = [int]$Cfg.panelWidth; h = [int]$Cfg.panelHeight }
     Save-CfgKey 'places' $pl9
 }
 function New-Place {                                 # a new placement = where the panel is now. Returns its number; 0 when the three are taken
-    $pl9 = Get-Places; if ($pl9.Count -ge 3) { return 0 }
+    $pl9 = Get-Places; if ($pl9.Count -ge 3 -or "$($pop.WindowState)" -ne 'Normal') { return 0 }     # (never from a window minimized to the taskbar: its place reads far off the screen)
     $pl9 += , ([ordered]@{ x = [int]$pop.Left; b = $(if ($UI.Docked -and $null -ne $QS.DockB) { [int]$QS.DockB } else { [int]$pop.Bottom }); w = [int]$Cfg.panelWidth; h = [int]$Cfg.panelHeight })
     Save-CfgKey 'places' $pl9; return $pl9.Count
 }
 function Set-Place([int]$ix, [bool]$keep = $true) {  # go to a placement (0 = default, next to the tray) and show the panel there
     $from = Get-PlaceIx
-    if ($keep) { if ($from -lt 0 -and $UI.Docked) { $kept = New-Place; if ($kept) { Log "placement: the spot the panel was in is kept as placement $kept" } } else { Save-PlaceNow } }
+    if ($keep) { if ($from -lt 0 -and $UI.Docked) { if (-not (Test-WinMax)) { $kept = New-Place; if ($kept) { Log "placement: the spot the panel was in is kept as placement $kept" } } } else { Save-PlaceNow } }     # (the full-screen window is not one of your three spots)
     if ($Cfg.place0) { Save-CfgKey 'place0' $null }     # from the first 0.3.27 try builds
     $pl9 = Get-Places; if ($ix -lt 0 -or $ix -gt $pl9.Count) { $ix = 0 }
     if ($ix -eq 0) {
@@ -4646,7 +4715,7 @@ function Step-Place {                                # the shortcut: default -> 
 }
 function Close-Panel {                               # the window's close button: it goes away, and the next open is the small panel next to the tray. The spot it leaves stays a placement
     $from9 = Get-PlaceIx
-    if (($from9 -lt 0 -and $UI.Docked) -or ($from9 -eq 0 -and ($Cfg.panelWidth -or $Cfg.panelHeight))) { $kept9 = New-Place; if ($kept9) { Log "placement: the spot the panel was in is kept as placement $kept9" } } else { Save-PlaceNow }
+    if (-not (Test-WinMax) -and (($from9 -lt 0 -and $UI.Docked) -or ($from9 -eq 0 -and ($Cfg.panelWidth -or $Cfg.panelHeight)))) { $kept9 = New-Place; if ($kept9) { Log "placement: the spot the panel was in is kept as placement $kept9" } } else { Save-PlaceNow }
     Hide-Pop 'close' $true
     $UI.Docked = $false; $UI.RestoreDock = $false; $UI.ClickHid = $false
     if ($Cfg.panelWidth) { Save-CfgKey 'panelWidth' $null }; if ($Cfg.panelHeight) { Save-CfgKey 'panelHeight' $null }
@@ -4654,13 +4723,15 @@ function Close-Panel {                               # the window's close button
 }
 function Invoke-HotKey([int]$hid) {
     Log "shortcut $hid" 'DEBUG'
+    if ($hid -in 2, 3 -and "$($pop.WindowState)" -ne 'Normal') { $pop.WindowState = 'Normal' }     # a window minimized to the taskbar comes back first, so the spot it leaves is read right
     switch ($hid) {
         1 { if ($UI.Shown) { Hide-Pop 'shortcut' $true; $UI.ClickHid = [bool]$UI.Docked } else { Show-PanelKb } }
         2 { Step-Place }
         3 { $c9 = Get-PlaceIx; $n9 = (Get-Places).Count     # the tray panel, and back: a second press returns to the window you came from
-            if ($c9 -eq 0 -and $UI.Shown) { $b9 = [int]$UI.PlaceBack; if ($b9 -lt 1 -or $b9 -gt $n9) { $b9 = [Math]::Min(1, $n9) }
+            if ($c9 -eq 0 -and $UI.Shown -and "$($UI.PlaceBack)" -eq 'max') { Set-WinMax $true }
+            elseif ($c9 -eq 0 -and $UI.Shown) { $b9 = [int]$UI.PlaceBack; if ($b9 -lt 1 -or $b9 -gt $n9) { $b9 = [Math]::Min(1, $n9) }
                 if ($b9 -ge 1) { Set-Place $b9 } else { Show-PanelKb; Send-PanelKey 'toast' 'No window spot yet: drag the panel where you want it' } }
-            else { $UI.PlaceBack = $(if ($c9 -ge 1) { $c9 } elseif ($c9 -lt 0 -and $UI.Docked -and $n9 -lt 3) { $n9 + 1 } else { [Math]::Min(1, $n9) }); Set-Place 0 } }     # (a spot that was not saved yet becomes the next placement when you leave it)
+            else { $UI.PlaceBack = $(if (Test-WinMax) { 'max' } elseif ($c9 -ge 1) { $c9 } elseif ($c9 -lt 0 -and $UI.Docked -and $n9 -lt 3) { $n9 + 1 } else { [Math]::Min(1, $n9) }); Set-Place 0 } }     # (a spot that was not saved yet becomes the next placement when you leave it)
         4 { if (-not $UI.Shown) { Show-PanelKb } else { Pin-Pop; try { [void]$UI.WebUi.Focus() } catch { } }; Send-PanelKey 'next' }
     }
 }
@@ -4681,12 +4752,12 @@ function On-WebMsg($m) {
             $UI.WebJson = ''; Push-WebState $true
             if ($UI.RestoreDock -and $UI.DockPos -and -not (@([System.Windows.Forms.Screen]::AllScreens | Where-Object { $_.WorkingArea.Contains($UI.DockPos) }).Count)) { $UI.RestoreDock = $false; Log 'pinned spot is off every screen now - not restoring' 'WARN' }
             if ($UI.RestoreDock -and $UI.DockPos) {          # it was pinned before the restart: put it back, without taking the focus
-                $UI.RestoreDock = $false; $UI.Docked = $true; Show-Pop 'restore pinned'; $UI.Pinned = $true; Set-Activatable $false; Save-State; Log ("panel restored pinned at {0},{1}" -f $UI.DockPos.X, $UI.DockPos.Y)
+                $UI.RestoreDock = $false; $UI.Docked = $true; Show-Pop 'restore pinned'; $UI.Pinned = $true; if (-not $UI.Win) { Set-Activatable $false }; Save-State; Log ("panel restored pinned at {0},{1}" -f $UI.DockPos.X, $UI.DockPos.Y)
             }
             foreach ($sx0 in 'L', 'R') { if (-not $UI.Sides[$sx0]) { New-SideWin $sx0 } }      # warm the reading columns: instant on first hover
         }
         'size' { $UI.WebH = [double]$m.h; $UI.Strip = [bool]$m.strip; Fit-WebPop; if ($UI.Shown) { $UI.ShotAt = (Get-Date).AddMilliseconds(700); $UI.ShotWhy = 'web-size' } }
-        'focus' { if ($UI.Docked -and -not $m.kb) { $UI.Pinned = $true; if ([ClaudeTray.Native]::GetForegroundWindow() -ne $hPop) { Set-Activatable $false } } elseif (-not $UI.Pinned -or ($m.kb -and [ClaudeTray.Native]::GetForegroundWindow() -ne $hPop)) { $UI.Pinned = $false; Pin-Pop; try { $UI.WebUi.Focus() } catch { } } }     # a pinned panel takes the focus only for typing / selecting: a click on the grip or a button leaves the app in front (and the taskbar hidden over a full-screen video)
+        'focus' { if ($UI.Win -and -not $Cfg.windowOnTop) { $UI.Pinned = $true } elseif ($UI.Docked -and -not $m.kb) { $UI.Pinned = $true; if ([ClaudeTray.Native]::GetForegroundWindow() -ne $hPop) { Set-Activatable $false } } elseif (-not $UI.Pinned -or ($m.kb -and [ClaudeTray.Native]::GetForegroundWindow() -ne $hPop)) { $UI.Pinned = $false; Pin-Pop; try { $UI.WebUi.Focus() } catch { } } }     # a pinned panel takes the focus only for typing / selecting: a click on the grip or a button leaves the app in front (and the taskbar hidden over a full-screen video)
         'menuact' {                                     # the panel's settings menu
             switch ([string]$m.k) {
                 'theme' { Save-CfgKey 'theme' ([string]$m.v); foreach ($o in $miTheme.DropDownItems) { $o.Checked = ($o.Tag -eq [string]$m.v) }; Apply-Theme }
@@ -4700,6 +4771,7 @@ function On-WebMsg($m) {
                 'size' { Save-CfgKey 'panelWidth' $null; Save-CfgKey 'panelHeight' $null; $pop.Width = (Get-PopW); Fit-WebPop; try { Save-PlaceNow } catch { } }
                 'place' { Set-Place ([int]$m.v) }
                 'placenew' { Save-PlaceNow; if (-not $UI.Docked) { $UI.Docked = $true; Pin-Pop; Set-DockMemo }; $pnew = New-Place; if ($pnew) { $QS.Place = $pnew; Save-State; Send-PanelKey 'toast' "Saved as placement $pnew" } else { Send-PanelKey 'toast' 'The three placements are taken' } }
+                'wintop' { Save-CfgKey 'windowOnTop' $(if ($Cfg.windowOnTop) { $null } else { $true }); Set-PopZ; if ($UI.Win) { Set-Activatable $true }; Push-WebState $true }     # Settings: the window stays above the others, or not (the tray panel always does)
                 'dict' {                                    # Settings > Dictation: the option itself. Turning it on is what downloads the program and the speech model (the entry says how much)
                     if (Test-DictOn) { if ($UI.Dict -and $UI.Dict.St -eq 'rec') { Stop-DictRec $true }; Save-CfgKey 'dictation' $false; Log 'dict: turned off'; Send-PanelDict 'msg' '' '' 'Dictation is off. Its files stay on this PC for next time.' }
                     else { Save-CfgKey 'dictation' $true
@@ -4729,12 +4801,12 @@ function On-WebMsg($m) {
             Log "menu: $($m.k) $($m.v)"
         }
         'rsz' { $UI.Rsz = @{ Edge = [string]$m.e; Start = [System.Windows.Forms.Cursor]::Position; B = $pop.Bounds }; $rszTimer.Start() }
-        'drag' { $UI.Drag = @{ Start = [System.Windows.Forms.Cursor]::Position; Origin = $pop.Location }; $UI.DragMoved = $false; $dragTimer.Start() }
+        'drag' { $UI.Drag = @{ Start = [System.Windows.Forms.Cursor]::Position; Origin = $pop.Location; Max = [bool](Test-WinMax) }; $UI.DragMoved = $false; $dragTimer.Start() }
         'esc' { if (-not $UI.Docked) { Hide-Pop 'esc' } }
         'mic' { Invoke-Mic $m }                         # the microphone in a reply box: dictation on this PC (see Invoke-Mic)
         'win' { switch ([string]$m.a) {                 # the window buttons (top right, when the panel is used as a window)
-                'min' { Hide-Pop 'minimize' $true; $UI.ClickHid = [bool]$UI.Docked }     # like a click on the tray icon: it comes back where it was
-                'frame' { Step-Place }
+                'min' { if ($UI.Win) { $pop.WindowState = 'Minimized'; Log 'window minimized to the taskbar' 'DEBUG' } else { Hide-Pop 'minimize' $true; $UI.ClickHid = [bool]$UI.Docked } }     # a window goes to its taskbar button; the tray panel hides like on a click on the tray icon
+                'frame' { Set-WinMax (-not (Test-WinMax)) }     # tray panel or a smaller window -> full-screen window; full-screen window -> tray panel
                 'close' { Close-Panel } } }
         'col' { if ($m.open) { Show-SideWin ([string]$m.x) $m } else { Hide-SideWin ([string]$m.x) } }
         'zoom' { Set-WebZoom ([int]$m.d) }
@@ -4841,21 +4913,22 @@ $rszTimer.add_Tick({
     } catch { $UI.Rsz = $null; $rszTimer.Stop() }
 })
 # a double-click on the drag band can maximize a borderless window (it did): always back to normal
-$pop.add_Resize({ try { if ($pop.WindowState -ne [System.Windows.Forms.FormWindowState]::Normal) { $pop.WindowState = [System.Windows.Forms.FormWindowState]::Normal; $pop.Width = (Get-PopW); Fit-WebPop; Log 'panel was maximized - restored' 'WARN' } } catch { } })
+$pop.add_Resize({ try { if ("$($pop.WindowState)" -eq 'Maximized' -or ("$($pop.WindowState)" -eq 'Minimized' -and -not $UI.Win)) { $pop.WindowState = 'Normal'; $pop.Width = (Get-PopW); Fit-WebPop; Log 'panel was maximized - restored' 'WARN' } } catch { } })
 $dragTimer = New-Object System.Windows.Forms.Timer; $dragTimer.Interval = 15
 $dragTimer.add_Tick({
     try {
         if (-not $UI.Drag) { $dragTimer.Stop(); return }
-        if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) { $UI.Drag = $null; $dragTimer.Stop(); if ($UI.DragMoved) { Set-DockHere }; Fit-WebPop; return }
+        if ([System.Windows.Forms.Control]::MouseButtons -ne [System.Windows.Forms.MouseButtons]::Left) { $dg9 = $UI.Drag; $UI.Drag = $null; $dragTimer.Stop(); if ($UI.DragMoved) { $cq = [System.Windows.Forms.Cursor]::Position; End-PopMove ([bool]$dg9.Max) $dg9.Origin.X $dg9.Origin.Y $cq.X $cq.Y }; Fit-WebPop; return }
         $cp = [System.Windows.Forms.Cursor]::Position
         if ($UI.DragMoved -or (Dist $cp $UI.Drag.Start) -gt 3) { $UI.DragMoved = $true; $pop.Location = New-Object System.Drawing.Point ($UI.Drag.Origin.X + $cp.X - $UI.Drag.Start.X), ($UI.Drag.Origin.Y + $cp.Y - $UI.Drag.Start.Y) }
     } catch { $UI.Drag = $null; $dragTimer.Stop() }
 })
 # native drag (CSS app-region): Windows runs the move loop -> ResizeBegin/ResizeEnd
-$pop.add_ResizeBegin({ $UI.MoveFrom = $pop.Location })
-$pop.add_Deactivate({ try { if ($UI.Docked) { Set-Activatable $false } } catch { } })     # pinned panel: once you're done typing in it, clicks on it no longer take the focus (the app in front stays in front, a hidden taskbar stays hidden)
+$pop.add_ResizeBegin({ $UI.MoveMax = [bool](Test-WinMax); $UI.MoveFrom = $pop.Location })
+$pop.add_Deactivate({ try { if ($UI.Docked -and (-not $UI.Win -or $Cfg.windowOnTop)) { Set-Activatable $false } } catch { } })     # a window kept above the others: once you're done typing in it, clicks on it no longer take the focus (the app in front stays in front). A normal window stays one: a click brings it to the front, its taskbar button minimizes it
+$pop.add_FormClosing({ param($sender, $e) try { if ("$($e.CloseReason)" -eq 'UserClosing') { $e.Cancel = $true; Log 'close asked by Windows (Alt+F4 or the taskbar): back to the tray' 'DEBUG'; if ("$($pop.WindowState)" -ne 'Normal') { $pop.WindowState = 'Normal' }; Close-Panel } } catch { } })     # never really closed: the tray lives in this window
 $pop.add_LocationChanged({ if ($UI.Sides.Count) { Place-SideWins } }); $pop.add_SizeChanged({ if ($UI.Sides.Count) { Place-SideWins } })
-$pop.add_ResizeEnd({ $mf = $UI.MoveFrom; $UI.MoveFrom = $null; if ($mf -and $pop.Location -ne $mf) { Set-DockHere }; Fit-WebPop })
+$pop.add_ResizeEnd({ $mf = $UI.MoveFrom; $UI.MoveFrom = $null; if ($mf -and $pop.Location -ne $mf) { $cq = [System.Windows.Forms.Cursor]::Position; End-PopMove ([bool]$UI.MoveMax) $mf.X $mf.Y $cq.X $cq.Y }; Fit-WebPop })     # dropped against the top edge of the screen: full-screen window, like any window; a full-screen window dragged away: a smaller window again
 
 # context menu
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
@@ -4910,6 +4983,10 @@ $tray.add_MouseClick({
     try {
         if ($e.Button -ne [System.Windows.Forms.MouseButtons]::Left) { return }
         # one click = show / hide (pinned or not). A panel the hover just opened stays open (it counts as hidden before).
+        if ($UI.Win -and $UI.Shown) {                  # a window: like its taskbar button - back from minimized or to the front, and to the taskbar when it was the window in front
+            if ("$($pop.WindowState)" -eq 'Minimized' -or -not $UI.WinFgAt -or ((Get-Date) - $UI.WinFgAt).TotalSeconds -gt 1.6) { Show-Pop 'click' } else { $pop.WindowState = 'Minimized' }
+            $UI.ClickWas = 'open'; return
+        }
         $UI.ClickWas = if ($UI.Shown -and ($UI.Pinned -or $UI.Docked)) { 'open' } else { 'closed' }
         if ($UI.ClickWas -eq 'open') { Hide-Pop 'icon click' $true; $UI.ClickHid = [bool]$UI.Docked; return }     # a pinned panel hidden by a click stays hidden until the next click (no hover re-show)
         $UI.ClickHid = $false; $UI.Pending = $false
@@ -4985,6 +5062,7 @@ $questTimer.add_Tick({
     try {
         Poll-WebWait
         try { if ($UI.DictDl -or $UI.Dict) { Poll-Dict } } catch { Log "dict poll: $($_.Exception.Message)" 'WARN' }
+        try { if ($UI.Shown -or $UI.Win) { Sync-WinMode }; if ($UI.Win -and [ClaudeTray.Native]::GetForegroundWindow() -eq $hPop) { $UI.WinFgAt = Get-Date } } catch { }     # the window follows pinned / not pinned; when it was last the window in front (for the tray icon click)
         $UI.CoolN = [int]$UI.CoolN + 1; $UI.MemN = [int]$UI.MemN + 1; if ($UI.MemN % 40 -eq 0) { Test-MemoryGuard }     # every ~30 s (its own counter: CoolN goes back to 0 at 14)
         if ($script:Park -or ($Cfg.parkDesktop -and $Caps.Park)) { Update-DesktopPark }     # off unless the capability is on
         if ($script:Ghost -and ((Get-Date) - $script:Ghost.At).TotalSeconds -gt 20) { Log 'ghost: safety net - Claude Desktop made visible again' 'WARN'; Set-DesktopGhost $script:Ghost.H $false }
